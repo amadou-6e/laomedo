@@ -57,6 +57,28 @@ transport interruptions leave mediation unconfirmed and stop further commands;
 the service never resends an operation. This transport policy does not establish
 end-to-end native GitHub mediation readiness.
 
+## Native assistant commands
+
+`ClaudeCommands` in `commands.py` owns the observed catalog projection, exact
+handler/image revision and no-argument `/compact`, `/usage`, `/context` and `/mcp`
+policies. Read-only control views require actual native advertisement; terminal
+commands omitted by the adapter remain unavailable. `admit()` refuses
+unobserved commands, changed catalogs and contexts with pinned skills/custom
+commands. `result()` requires root-session native compaction completion and a
+terminal ACP response. `ClaudeCommandResult` in `models.py` retains that native
+identity separately from model turns; it never supplies an invented answer or
+usage. `ClaudeAgent` publishes the catalog through the existing run Status and
+routes approved commands through its existing resume, cleanup and snapshot path.
+`control_result()` requires root-session `local_command_output` identity and a
+terminal ACP response, rejects native failures and reported model output, and
+returns `ClaudeControlResult` with the actual ACP view text. It does not infer
+success from prose, produce usage or label a control view as compaction. Live
+provider acceptance is required separately from unit receipt-validation tests.
+
 ## Saved account connections
 
 `connection.py` is the provider boundary. ClaudeConnection owns official-client begin/details/submit/cancel, native identity verification, exact labelled profile custody, orphan reconciliation and cleanup. ClaudeNativeProfile, ClaudeAccountIdentity and ClaudeLoginAttempt belong to models.py; its native cleanup budget belongs to settings.py. The shared Agent connection service owns admission/index fencing; host storage and profile authorization remain separate.
+
+ClaudeCommands.builtin_skills reads the root native SDK init skills list in isolated built-in-only sessions. Discovery retains this session binding and includes the observed skill set in the catalog revision; absent evidence never creates a skill.
+
+The pinned adapter forwards SDK builtin markers. ClaudeCommands.skill_reason intersects those markers with the root init skill list and the capability table; expansion_receipt requires the native canonical slash-expansion marker. Admitted skill turns use ordinary native model completion, activity and usage, never local-control or compaction receipts. Personal skill/plugin sync is disabled in the invocation settings.

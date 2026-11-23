@@ -79,10 +79,19 @@ def main():
         image_id=args.image_id,
         artifact_sources=dict(item.split("=", 1) for item in args.artifact_source),
     )
-    if args.preflight:
-        print(json.dumps(runner.preflight(), indent=2))
-        return
-    RunnerServer(runner, port=args.port).serve_forever()
+    server = None
+    try:
+        if args.preflight:
+            print(json.dumps(runner.preflight(), indent=2))
+            return
+        server = RunnerServer(runner, port=args.port)
+        server.serve_forever()
+    finally:
+        try:
+            runner.close()
+        finally:
+            if server is not None:
+                server.server_close()
 
 
 if __name__ == "__main__":

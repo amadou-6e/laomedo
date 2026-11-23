@@ -14,8 +14,10 @@ from laomedo.integrations.langflow.assistant.models import (
     AssistantMessage,
     AssistantDraftReceipt,
     AssistantSession,
+    AssistantSessionAlias,
     AssistantGraphAction,
     AssistantGraphPermission,
+    AssistantNativeAction,
 )
 
 
@@ -39,13 +41,39 @@ class AssistantStore:
 
     def _upgrade_message_selection(self, connection):
         """Add nullable turn selections without rewriting existing operational history."""
+        if inspect(connection).has_table("laomedo_assistant_conversation"):
+            columns = {
+                column["name"]
+                for column in inspect(connection).get_columns(
+                    "laomedo_assistant_conversation"
+                )
+            }
+            for name in ("connection_id", "connection_generation"):
+                if name not in columns:
+                    kind = AssistantConversation.__table__.c[name].type.compile(
+                        dialect=connection.dialect
+                    )
+                    connection.execute(
+                        text(
+                            f'ALTER TABLE laomedo_assistant_conversation ADD COLUMN "{name}" {kind}'
+                        )
+                    )
         if not inspect(connection).has_table("laomedo_assistant_message"):
             return
         columns = {
             column["name"]
             for column in inspect(connection).get_columns("laomedo_assistant_message")
         }
-        for name in ("model", "effort"):
+        if "native_action_id" not in columns:
+            kind = AssistantMessage.__table__.c.native_action_id.type.compile(
+                dialect=connection.dialect
+            )
+            connection.execute(
+                text(
+                    f'ALTER TABLE laomedo_assistant_message ADD COLUMN "native_action_id" {kind}'
+                )
+            )
+        for name in ("model", "effort", "initial_native_command"):
             if name not in columns:
                 connection.execute(
                     text(
@@ -67,8 +95,10 @@ class AssistantStore:
                 AssistantMessage,
                 AssistantDraftReceipt,
                 AssistantSession,
+                AssistantSessionAlias,
                 AssistantGraphAction,
                 AssistantGraphPermission,
+                AssistantNativeAction,
             )
         ]
 
@@ -105,23 +135,59 @@ class AssistantStore:
             raise AssistantError("assistant_conversation_not_found", 404)
         return value
 
-    async def admit_session(self, key, owner, expires_at):
-        """Retain a validated session; a revoked bearer cannot resurrect itself."""
+    async def _session_key(self, session, fingerprint, renewal_key=None):
+        """Resolve immutable renewal bindings; conflicting roots always refuse."""
+        alias = await session.get(AssistantSessionAlias, fingerprint)
+        key = alias.canonical_key if alias else fingerprint
+        if renewal_key is not None:
+            renewed = await session.get(AssistantSessionAlias, renewal_key)
+            candidate = renewed.canonical_key if renewed else renewal_key
+            if alias is not None and key != candidate:
+                raise AssistantError("assistant_session_locked", 403)
+            key = candidate
+        return key
+
+    async def canonical_session_key(self, fingerprint, *, renewal_key=None):
+        """Read the persisted browser identity before fencing active work."""
+        async with self.sessions() as session:
+            return await self._session_key(session, fingerprint, renewal_key)
+
+    async def admit_session(self, fingerprint, owner, expires_at, *, renewal_key=None):
+        """Admit a signed token; only host-verified renewal binds it to another root.
+
+        Persist the binding with the authority row so logout cannot be bypassed
+        by losing the provider's in-memory renewal map during a restart.
+        """
         async with self.transaction() as session:
+            if expires_at <= time.time():
+                raise AssistantError("assistant_session_locked", 403)
+            key = await self._session_key(session, fingerprint, renewal_key)
+            direct = await session.get(AssistantSession, fingerprint)
+            if direct is not None and (direct.revoked or direct.owner_id != owner):
+                raise AssistantError("assistant_session_locked", 403)
             row = await session.get(AssistantSession, key)
             if row is not None:
                 if (
                     row.revoked
                     or row.owner_id != owner
-                    or row.expires_at <= time.time()
+                    or (row.expires_at <= time.time() and key == fingerprint)
                 ):
                     raise AssistantError("assistant_session_locked", 403)
-                return
-            if expires_at <= time.time():
-                raise AssistantError("assistant_session_locked", 403)
-            session.add(
-                AssistantSession(key=key, owner_id=owner, expires_at=expires_at)
-            )
+                if key != fingerprint:
+                    row.expires_at = max(row.expires_at, expires_at)
+                    session.add(row)
+            else:
+                session.add(
+                    AssistantSession(key=key, owner_id=owner, expires_at=expires_at)
+                )
+            if (
+                key != fingerprint
+                and await session.get(AssistantSessionAlias, fingerprint) is None
+            ):
+                session.add(
+                    AssistantSessionAlias(fingerprint=fingerprint, canonical_key=key)
+                )
+            return key
 
     async def authorize(self, session, owner, key):
         """Lock the revocation fence in the same transaction as a save/reservation."""
@@ -140,13 +206,23 @@ class AssistantStore:
         ):
             raise AssistantError("assistant_session_locked", 403)
 
-    async def revoke(self, key):
-        """Persist lock/sign-out under the same writer discipline as draft saves."""
+    async def revoke(self, fingerprint, *, renewal_key=None):
+        """Fence even an unseen renewed token durably before sign-out completes."""
         async with self.transaction() as session:
-            row = await session.get(AssistantSession, key)
-            if row:
-                row.revoked = True
-                session.add(row)
+            key = await self._session_key(session, fingerprint, renewal_key)
+            for identifier in {key, fingerprint}:
+                row = await session.get(AssistantSession, identifier)
+                if row:
+                    row.revoked = True
+                    session.add(row)
+            if (
+                key != fingerprint
+                and await session.get(AssistantSessionAlias, fingerprint) is None
+            ):
+                session.add(
+                    AssistantSessionAlias(fingerprint=fingerprint, canonical_key=key)
+                )
+            return key
 
     async def create(self, owner, request, *, session_key):
         """Persist model selection and optional owner-visible predecessor without inference."""
@@ -192,6 +268,7 @@ class AssistantStore:
             if conversation.active_message_id is not None or executing is not None:
                 raise AssistantError("assistant_conversation_active")
             for model in (
+                AssistantNativeAction,
                 AssistantGraphPermission,
                 AssistantGraphAction,
                 AssistantDraftReceipt,
@@ -294,7 +371,10 @@ class AssistantStore:
             ).first()
             if row is None:
                 return None
-            if row.digest != request.digest():
+            if (
+                row.digest != request.digest()
+                or row.initial_native_command != request.initial_native_command
+            ):
                 raise AssistantError("assistant_message_conflict")
             return row.model_dump(mode="json", exclude={"digest", "activity_snapshot"})
 
@@ -306,43 +386,70 @@ class AssistantStore:
             conversation = await self.conversation(
                 session, owner, identifier, lock=True
             )
-            prior = (
-                await session.exec(
-                    select(AssistantMessage).where(
-                        AssistantMessage.conversation_id == identifier,
-                        AssistantMessage.client_message_id == request.client_message_id,
-                    )
+            return await self.reserve_message(session, conversation, request)
+
+    async def reserve_message(
+        self, session, conversation, request, *, native_action_id=None
+    ):
+        """Reserve under the caller's existing transaction and conversation row lock.
+
+        Both ordinary Send and native approval use this body, so the pending
+        action claim and its command message can commit atomically.
+        """
+        owner, identifier, digest = (
+            conversation.owner_id,
+            conversation.id,
+            request.digest(),
+        )
+        prior = (
+            await session.exec(
+                select(AssistantMessage).where(
+                    AssistantMessage.conversation_id == identifier,
+                    AssistantMessage.client_message_id == request.client_message_id,
                 )
-            ).first()
-            if prior:
-                if prior.digest != digest:
-                    raise AssistantError("assistant_message_conflict")
-                return prior.model_dump(mode="json", exclude={"digest"}), False
-            if conversation.active_message_id is not None:
-                raise AssistantError("assistant_turn_active")
-            if conversation.state == "attention":
-                raise AssistantError(
-                    conversation.error_code or "assistant_continuation_unavailable"
-                )
-            message = AssistantMessage(
-                conversation_id=identifier,
-                client_message_id=request.client_message_id,
-                digest=digest,
-                text=request.text,
-                model=request.model or conversation.model,
-                effort=request.effort or conversation.effort,
             )
-            conversation.model = message.model
-            conversation.effort = message.effort
-            conversation.active_message_id = message.id
-            conversation.state = "starting"
-            if conversation.title == "New conversation":
-                conversation.title = request.text[:80]
-            conversation.updated_at = time.time()
-            session.add(message)
-            session.add(conversation)
-            await session.flush()
-            return message.model_dump(mode="json", exclude={"digest"}), True
+        ).first()
+        if prior:
+            if (
+                prior.digest != digest
+                or prior.native_action_id != native_action_id
+                or prior.initial_native_command != request.initial_native_command
+            ):
+                raise AssistantError("assistant_message_conflict")
+            return prior.model_dump(mode="json", exclude={"digest"}), False
+        if conversation.active_message_id is not None:
+            raise AssistantError("assistant_turn_active")
+        if request.initial_native_command is not None and (
+            conversation.provider != "codex"
+            or conversation.run_id is not None
+            or native_action_id is not None
+        ):
+            raise AssistantError("native_command_context_invalid", 409)
+        if conversation.state == "attention":
+            raise AssistantError(
+                conversation.error_code or "assistant_continuation_unavailable"
+            )
+        message = AssistantMessage(
+            conversation_id=identifier,
+            native_action_id=native_action_id,
+            initial_native_command=request.initial_native_command,
+            client_message_id=request.client_message_id,
+            digest=digest,
+            text=request.text,
+            model=request.model or conversation.model,
+            effort=request.effort or conversation.effort,
+        )
+        conversation.model = message.model
+        conversation.effort = message.effort
+        conversation.active_message_id = message.id
+        conversation.state = "starting"
+        if conversation.title == "New conversation":
+            conversation.title = request.text[:80]
+        conversation.updated_at = time.time()
+        session.add(message)
+        session.add(conversation)
+        await session.flush()
+        return message.model_dump(mode="json", exclude={"digest"}), True
 
     async def message(self, owner, conversation_id, message_id):
         """Read a message only after checking its authenticated conversation owner."""
@@ -433,6 +540,17 @@ class AssistantStore:
                 message.state = state
                 if state == "stopping":
                     message.stop_requested = True
+            if (settled or state == "unknown") and message.native_action_id is not None:
+                action = await session.get(
+                    AssistantNativeAction, message.native_action_id
+                )
+                if (
+                    action is not None
+                    and action.result_message_id == message.id
+                    and action.state in {"executing", "unknown"}
+                ):
+                    action.state = state
+                    session.add(action)
             if response is not None:
                 message.response = response[:100000]
             if error is not None or settled:

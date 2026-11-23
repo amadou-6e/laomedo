@@ -22,6 +22,38 @@ if TYPE_CHECKING:
     from py_docker.containers.models import ContainerSpec
 
 
+class CodexCommandResult(BaseModel):
+    """Observed native command completion, distinct from a native model-turn result."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    command: str = Field(
+        description="Admitted native command whose result was observed."
+    )
+    stop_reason: str | None = Field(
+        default=None,
+        description="Actual ACP terminal stop reason when a response was received.",
+    )
+    status: str = Field(
+        description="Completed only with command-specific native and ACP terminal evidence; otherwise unknown."
+    )
+    answer: str | None = Field(
+        default=None,
+        description="Actual bounded ACP command response, without fabricated assistant text.",
+    )
+    native_terminal: dict | None = Field(
+        default=None,
+        description="Actual matched compaction turn/item evidence; never a fabricated model turn.",
+    )
+    turn_id: None = Field(
+        default=None,
+        description="Control commands do not have a native model-turn identity.",
+    )
+    error: str | None = Field(
+        default=None,
+        description="Stable failure category when the control result is uncertain.",
+    )
+
+
 class CodexLaunch(BaseModel):
     """Group run identity, application mounts and mediated execution scope."""
 
@@ -231,7 +263,7 @@ class CodexLaunch(BaseModel):
             read_only=False,
             stdin_open=True,
             tmpfs={
-                "/home/runner/.codex/skills": "ro,mode=0555",
+                "/home/runner/.codex/skills": "rw,noexec,nosuid,nodev,size=32m,uid=10001,gid=10001,mode=0700",
                 "/home/runner/.codex/plugins": "ro,mode=0555",
                 "/home/runner/.agents": "ro,mode=0555",
             },
@@ -243,6 +275,10 @@ class SplitPolicy(BaseModel):
     """Host-only provider configuration for a credential-free tool executor."""
 
     model_config = ConfigDict(extra="forbid", frozen=True, hide_input_in_errors=True)
+    managed_credential: bool = Field(
+        default=False,
+        description="Use the host-updated controller-private bearer file, never executor credentials.",
+    )
     provider_config: tuple[str, ...] = Field(
         default=(), description="Trusted host native provider configuration overrides."
     )
@@ -252,6 +288,21 @@ class SplitPolicy(BaseModel):
         exclude=True,
         description="Private launch-only controller access credential.",
     )
+
+
+class CodexSkillReceipt(BaseModel):
+    """Verified structured skill input bound to an accepted native turn.
+
+    This is an adapter admission receipt, not evidence of file or external effects.
+    """
+
+    model_config = ConfigDict(extra="forbid", strict=True, frozen=True)
+    invocation_id: str = Field(pattern=r"^[a-f0-9-]{36}$")
+    session_id: str = Field(min_length=1, max_length=200)
+    turn_id: str = Field(min_length=1, max_length=200)
+    name: str = Field(min_length=1, max_length=200)
+    path: str = Field(min_length=1, max_length=1000)
+    manifest_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
 
 
 class CodexTurn(BaseModel):
@@ -267,4 +318,8 @@ class CodexTurn(BaseModel):
     error: str | None = Field(
         default=None,
         description="Safe stable failure code when completion is not successful.",
+    )
+    native_skill: CodexSkillReceipt | None = Field(
+        default=None,
+        description="Attempt-bound skill input proof; absent for ordinary turns.",
     )

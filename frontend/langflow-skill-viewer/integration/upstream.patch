@@ -382,3 +382,22 @@ diff --git a/src/frontend/src/pages/FlowPage/components/PageComponent/index.tsx 
  
    useEffect(() => {
      setIsLoading(!showCanvas);
+diff --git a/src/frontend/src/components/authorization/authGuard/index.tsx b/src/frontend/src/components/authorization/authGuard/index.tsx
+--- a/src/frontend/src/components/authorization/authGuard/index.tsx
++++ b/src/frontend/src/components/authorization/authGuard/index.tsx
+@@ -53,6 +53,7 @@ export const ProtectedRoute = ({ children }) => {
+ 
+   if (shouldRedirect || testMockAutoLogin) {
+     const currentPath = window.location.pathname;
++    const returnTo = currentPath + window.location.search + window.location.hash;
+     const isHomePath = currentPath === "/" || currentPath === "/flows";
+     const isLoginPage = location.pathname.includes("login");
+     return (
+@@ -60,6 +61,6 @@ export const ProtectedRoute = ({ children }) => {
+         to={
+           "/login" +
+-          (!isHomePath && !isLoginPage ? "?redirect=" + currentPath : "")
++          (!isHomePath && !isLoginPage ? "?redirect=" + encodeURIComponent(returnTo) : "")
+         }
+         replace
+       />

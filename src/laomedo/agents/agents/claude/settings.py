@@ -5,13 +5,36 @@ from __future__ import annotations
 CLEANUP_SECONDS = 20.0
 
 
-IMAGE = "laomedo-claude-controller:2.1.310-acp0.98.0"
+IMAGE = "laomedo-claude-controller:2.1.310-acp0.98.0-skills1"
 
 
 PROFILE = "laomedo-claude-profile"
 
 
 CLI_VERSION = "2.1.310"
+
+# Pinned bundled prompt skills. None admits the native instruction-only route;
+# it grants no additional tool, filesystem, network or external-effect permission.
+BUNDLED_SKILL_REQUIREMENTS = {
+    "claude-api": None,
+    "deep-research": "native_skill_requires_external_services",
+    "design": "native_skill_requires_external_services",
+    "design-sync": "native_skill_requires_external_services",
+    "dataviz": "native_skill_requires_external_services",
+    "update-config": "native_skill_requires_provider_configuration",
+    "verify": "native_skill_requires_repository",
+    "debug": "native_skill_requires_provider_configuration",
+    "code-review": "native_skill_requires_subagents",
+    "simplify": "native_skill_requires_subagents",
+    "batch": "native_skill_requires_subagents",
+    "fewer-permission-prompts": "native_skill_requires_provider_configuration",
+    "doctor": "native_skill_requires_provider_configuration",
+    "loop": "native_skill_requires_scheduling",
+    "workflow-authoring": "native_skill_requires_external_services",
+    "run": "native_skill_requires_external_services",
+    "run-skill-generator": "native_skill_requires_provider_configuration",
+    "plugin-authoring": "native_skill_requires_provider_configuration",
+}
 
 
 EXECUTION_GUARD = """import os,sys,time

@@ -20,6 +20,7 @@ from laomedo.integrations.langflow.assistant.models import (
     AssistantDraftReceipt,
     AssistantGraphAction,
     AssistantGraphPermission,
+    AssistantSession,
 )
 from laomedo.integrations.langflow.assistant.persistence import AssistantStore
 
@@ -47,6 +48,9 @@ class StartupSchemaTests(unittest.IsolatedAsyncioTestCase):
                     await connection.exec_driver_sql(
                         "INSERT INTO user VALUES ('owned-profile', 'retained')"
                     )
+                    await connection.exec_driver_sql(
+                        "CREATE TABLE laomedo_assistant_message (id TEXT PRIMARY KEY)"
+                    )
                 await store.upgrade_retained()
                 async with engine.begin() as connection:
                     names = await connection.run_sync(
@@ -60,8 +64,10 @@ class StartupSchemaTests(unittest.IsolatedAsyncioTestCase):
                             "laomedo_assistant_message",
                             "laomedo_assistant_draft_receipt",
                             "laomedo_assistant_session",
+                            "laomedo_assistant_session_alias",
                             "laomedo_assistant_graph_action",
                             "laomedo_assistant_graph_permission",
+                            "laomedo_assistant_native_action",
                         },
                     )
                     rows = (
@@ -70,11 +76,169 @@ class StartupSchemaTests(unittest.IsolatedAsyncioTestCase):
                         )
                     ).all()
                     self.assertEqual(rows, [("owned-profile", "retained")])
+                    columns = await connection.run_sync(
+                        lambda conn: {
+                            column["name"]
+                            for column in inspect(conn).get_columns(
+                                "laomedo_assistant_message"
+                            )
+                        }
+                    )
+                    self.assertIn("initial_native_command", columns)
             finally:
                 await engine.dispose()
 
 
 class PersistenceTests(unittest.IsolatedAsyncioTestCase):
+    async def test_parallel_renewal_admission_serializes_the_first_alias_insert(self):
+        keys = await asyncio.gather(
+            *[
+                self.store.admit_session(
+                    "parallel-renewal",
+                    self.owner,
+                    time.time() + 2000,
+                    renewal_key=self.key,
+                )
+                for _ in range(8)
+            ]
+        )
+        self.assertEqual(keys, [self.key] * 8)
+        self.assertEqual(
+            await self.store.canonical_session_key("parallel-renewal"), self.key
+        )
+
+    async def test_verified_renewal_keeps_identity_and_survives_restart(self):
+        renewed = "renewed-token-hash"
+        self.assertEqual(
+            await self.store.admit_session(
+                renewed, self.owner, time.time() + 2000, renewal_key=self.key
+            ),
+            self.key,
+        )
+        reopened = AssistantStore(self.engine)
+        self.assertEqual(
+            await reopened.admit_session(renewed, self.owner, time.time() + 2000),
+            self.key,
+        )
+        self.assertEqual(
+            await reopened.admit_session(
+                "next-renewal", self.owner, time.time() + 3000, renewal_key=renewed
+            ),
+            self.key,
+        )
+        self.assertEqual(await reopened.canonical_session_key("next-renewal"), self.key)
+        self.assertEqual(
+            await reopened.admit_session(
+                "unrelated-login", self.owner, time.time() + 1000
+            ),
+            "unrelated-login",
+        )
+
+    async def test_unseen_renewal_logout_stays_revoked_after_restart(self):
+        await self.store.admit_session(
+            "renewed", self.owner, time.time() + 2000, renewal_key=self.key
+        )
+        self.assertEqual(
+            await self.store.revoke("unseen-renewal", renewal_key="renewed"), self.key
+        )
+        reopened = AssistantStore(self.engine)
+        for fingerprint in (self.key, "renewed", "unseen-renewal"):
+            with self.subTest(fingerprint=fingerprint):
+                with self.assertRaisesRegex(AssistantError, "assistant_session_locked"):
+                    await reopened.admit_session(
+                        fingerprint, self.owner, time.time() + 3000
+                    )
+
+    async def test_renewal_cannot_change_owner_or_rebind_existing_alias(self):
+        await self.store.admit_session(
+            "renewed", self.owner, time.time() + 2000, renewal_key=self.key
+        )
+        with self.assertRaisesRegex(AssistantError, "assistant_session_locked"):
+            await self.store.admit_session("renewed", uuid4(), time.time() + 2000)
+        await self.store.admit_session("other-browser", self.owner, time.time() + 2000)
+        with self.assertRaisesRegex(AssistantError, "assistant_session_locked"):
+            await self.store.admit_session(
+                "renewed", self.owner, time.time() + 2000, renewal_key="other-browser"
+            )
+
+    async def test_only_verified_renewal_extends_expired_root(self):
+        async with self.store.transaction() as session:
+            row = await session.get(AssistantSession, self.key)
+            row.expires_at = time.time() - 10
+            session.add(row)
+        with self.assertRaisesRegex(AssistantError, "assistant_session_locked"):
+            await self.store.admit_session(self.key, self.owner, time.time() + 1000)
+        self.assertEqual(
+            await self.store.admit_session(
+                "renewed", self.owner, time.time() + 1000, renewal_key=self.key
+            ),
+            self.key,
+        )
+        with self.assertRaisesRegex(AssistantError, "assistant_session_locked"):
+            await self.store.admit_session(
+                "expired", self.owner, time.time() - 1, renewal_key=self.key
+            )
+
+    async def test_initial_status_is_durable_and_bound_to_message_identity(self):
+        """Initial control intent survives history reads and cannot alias ordinary chat."""
+        request = MessageRequest(
+            client_message_id=uuid4(), text="/status", initial_native_command="status"
+        )
+        message, created = await self.store.reserve(
+            self.owner, self.identifier, request, session_key=self.key
+        )
+        self.assertTrue(created)
+        self.assertEqual(message["initial_native_command"], "status")
+        duplicate, created = await self.store.reserve(
+            self.owner, self.identifier, request, session_key=self.key
+        )
+        self.assertFalse(created)
+        self.assertEqual(duplicate["id"], message["id"])
+        with self.assertRaisesRegex(AssistantError, "assistant_message_conflict"):
+            await self.store.reserve(
+                self.owner,
+                self.identifier,
+                MessageRequest(
+                    client_message_id=request.client_message_id, text="/status"
+                ),
+                session_key=self.key,
+            )
+        detail = await self.store.detail(self.owner, self.identifier)
+        self.assertEqual(detail["messages"][0]["initial_native_command"], "status")
+
+    async def test_other_providers_refuse_initial_status_before_reserving(self):
+        """Codex's initial control mode cannot become a Claude or OpenCode prompt."""
+        for provider in ("claude", "opencode"):
+            conversation = await self.store.create(
+                self.owner,
+                ConversationRequest(
+                    connection_id=uuid4(),
+                    connection_generation=1,
+                    provider=provider,
+                    model="fixture",
+                    effort="low",
+                ),
+                session_key=self.key,
+            )
+            with (
+                self.subTest(provider=provider),
+                self.assertRaisesRegex(
+                    AssistantError, "native_command_context_invalid"
+                ),
+            ):
+                await self.store.reserve(
+                    self.owner,
+                    UUID(conversation["id"]),
+                    MessageRequest(
+                        client_message_id=uuid4(),
+                        text="/status",
+                        initial_native_command="status",
+                    ),
+                    session_key=self.key,
+                )
+            detail = await self.store.detail(self.owner, UUID(conversation["id"]))
+            self.assertEqual(detail["messages"], [])
+
     async def test_delete_removes_owned_chat_records_and_clears_successor_link(self):
         """Deleting a settled chat removes its private receipts and remembered grants."""
         message, _ = await self.store.reserve(
@@ -94,7 +258,11 @@ class PersistenceTests(unittest.IsolatedAsyncioTestCase):
         successor = await self.store.create(
             self.owner,
             ConversationRequest(
-                model="fixture", effort="low", linked_conversation_id=self.identifier
+                connection_id=uuid4(),
+                connection_generation=1,
+                model="fixture",
+                effort="low",
+                linked_conversation_id=self.identifier,
             ),
             session_key=self.key,
         )
@@ -339,7 +507,12 @@ class PersistenceTests(unittest.IsolatedAsyncioTestCase):
         await self.store.admit_session(self.key, self.owner, time.time() + 1000)
         self.conversation = await self.store.create(
             self.owner,
-            ConversationRequest(model="fixture", effort="low"),
+            ConversationRequest(
+                connection_id=uuid4(),
+                connection_generation=1,
+                model="fixture",
+                effort="low",
+            ),
             session_key=self.key,
         )
         self.identifier = UUID(self.conversation["id"])
@@ -428,7 +601,12 @@ class PersistenceTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaisesRegex(AssistantError, "assistant_session_locked"):
             await self.store.create(
                 self.owner,
-                ConversationRequest(model="fixture", effort="low"),
+                ConversationRequest(
+                    connection_id=uuid4(),
+                    connection_generation=1,
+                    model="fixture",
+                    effort="low",
+                ),
                 session_key=self.key,
             )
 

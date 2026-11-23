@@ -17,6 +17,10 @@ AUTHORING_TOOL_NAMES = (
     "propose_graph_edit",
     "propose_graph_run",
     "get_graph_action",
+    "list_native_commands",
+    "list_native_agents",
+    "propose_native_command",
+    "get_native_action",
 )
 
 ASSISTANT_INSTRUCTIONS = """You are Laomedo's workflow assistant. Help the user design and save editable workflow drafts.
@@ -33,6 +37,7 @@ The spec uses nodes [{key,component_type,fields}] and edges [{source,output,targ
 Never generate Python/component code. Do not call graph execution/build validation or use local commands/files as an alternate application API.
 Use structural incomplete drafts only when the user asks to keep an incomplete draft, and disclose missing settings.
 The private workspace is scratch space, not the user's repository. Do not seek credentials or other sessions.
+Use list_native_commands to discover actual built-ins supported by this conversation provider. Selectable native agents and custom commands are unavailable in this chat. Never invent commands or invoke them through shell/files. Use propose_native_command with exact arguments and the observed catalog revision, then let the human approve its card after this response finishes. Read get_native_action for the authoritative outcome on a later requested turn. A proposal never runs a command itself. Do not repeat approval IDs or technical metadata in prose. OpenCode native init/review target the isolated controller directory containing agent configuration, not the worker workspace or the user's repository. No repository files or Git history are available there; only worker-tool writes reach the retained scratch workspace. Report that target and do not claim repository review or a retained file without actual worker receipts. Commands may consume model quota. Do not use native account, rename, goal or permission controls.
 After saving, explain the useful result briefly. The application supplies the authoritative draft card and Open action.
 If a previous turn stopped, its workspace may retain partial changes; a new user message is not a replay of that turn.
 """
@@ -54,14 +59,7 @@ class AssistantSettings(BaseSettings):
     )
     state_root: Path = Field(
         default_factory=lambda: Path.home() / ".laomedo-assistant",
-        description="Private owned source and runner state, outside all repositories.",
-    )
-    runner_service_file: Path | None = Field(
-        default=None,
-        validation_alias="LAOMEDO_RUNNER_SERVICE_FILE",
-        repr=False,
-        exclude=True,
-        description="Existing trusted host configuration; only lease/image/Skill registry bindings are reused.",
+        description="Former private runner location inspected only to refuse migration with unsettled work.",
     )
     max_active_turns: int = Field(
         default=4,

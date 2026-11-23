@@ -1,0 +1,19 @@
+diff --git a/dist/acp-agent.js b/dist/acp-agent.js
+--- a/dist/acp-agent.js
++++ b/dist/acp-agent.js
+@@ -10120,9 +10120,10 @@
+             description: command.description || "",
+             input,
+-            ...(skillMdPath
+-                ? {
+-                    _meta: withAirMeta(withAirMeta(undefined, AIR_KIND_KEY, "skill"), AIR_SKILL_PATH_KEY, skillMdPath),
+-                }
+-                : {}),
++            _meta: {
++                laomedo: { builtin: command.builtin === true },
++                ...(skillMdPath
++                    ? withAirMeta(withAirMeta(undefined, AIR_KIND_KEY, "skill"), AIR_SKILL_PATH_KEY, skillMdPath)
++                    : {}),
++            },
+         };
+     })

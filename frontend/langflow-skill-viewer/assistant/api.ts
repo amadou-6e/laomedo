@@ -1,4 +1,3 @@
-import useAuthStore from "@/stores/authStore";
 
 export class AssistantFailure extends Error {
   constructor(public code: string) {
@@ -16,8 +15,7 @@ export async function assistantRequest<T>(
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
   };
-  const token = useAuthStore.getState().accessToken;
-  if (token) headers.Authorization = `Bearer ${token}`;
+  // Saved provider accounts require the verified HttpOnly browser session.
   const controller = new AbortController();
   const abort = () => controller.abort();
   signal?.addEventListener("abort", abort, { once: true });

@@ -11,6 +11,26 @@ from pydantic import SecretStr
 from laomedo.agents.connections.models import ConnectionRecord, LoginProgress
 
 
+class ClaudeCommandResult(BaseModel):
+    """A native command receipt, distinct from a model-turn answer or usage."""
+
+    model_config = ConfigDict(strict=True, extra="forbid", frozen=True)
+    command: str = Field(description="Exact admitted built-in command.")
+    native_terminal: dict[str, str] = Field(
+        description="Observed root native completion identity, without transcript content."
+    )
+
+
+class ClaudeControlResult(ClaudeCommandResult):
+    """Native local-command output, without an invented model turn or usage."""
+
+    answer: str = Field(
+        min_length=1,
+        max_length=1048576,
+        description="Actual ACP text produced by the admitted native read-only command.",
+    )
+
+
 class ClaudePolicy(BaseModel):
     """Group native model selection, pinned skills and available tool scope."""
 
@@ -62,6 +82,8 @@ class ClaudePolicy(BaseModel):
                 "disableAllHooks": True,
                 "enabledPlugins": {},
                 "autoMemoryEnabled": False,
+                "syncClaudeAiSkills": False,
+                "syncClaudeAiPlugins": False,
             },
             "allowDangerouslySkipPermissions": False,
             "promptSuggestions": False,

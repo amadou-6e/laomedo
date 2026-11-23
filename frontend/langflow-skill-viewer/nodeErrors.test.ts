@@ -3,6 +3,14 @@ import catalog from "./node-error-catalog.json";
 
 const run = "11111111-1111-4111-8111-111111111111";
 const request = "22222222-2222-4222-8222-222222222222";
+
+test("authenticated Codex restart refusal explains the existing boundary and explicit recovery", () => {
+  const failure = describeNodeFailure("resume_after_runner_restart_forbidden", undefined, { operation: "resume" });
+  expect(failure.title).toContain("runner restarted");
+  expect(failure.description).toContain("safeguard refuses continuation");
+  expect(failure.recovery).toContain("Start linked conversation");
+  expect(failure.diagnostics.code).toBe("resume_after_runner_restart_forbidden");
+});
 test("Claude model failures retain their code and redact native payload details",()=>{
  const failure=describeNodeFailure('Error building Component LaomedoClaudeAgent: \n\nunsupported_claude_effort; private-native-payload',undefined,
   {nodeId:'agent',nodeType:'LaomedoClaudeAgent',operation:'fresh'});

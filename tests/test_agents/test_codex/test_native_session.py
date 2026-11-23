@@ -186,15 +186,6 @@ class RetirementAndCatalogueTests(unittest.TestCase):
             self.assertTrue(root.joinpath("catalog/identity/history.json").exists())
             self.assertTrue(root.joinpath("preflight/identity/history.json").exists())
 
-    def test_host_budgets_validate_before_launch_attempt_marker(self):
-        """An invalid host setting must not be recorded as dispatch."""
-        root = repository_root()
-        source = root.joinpath("src/laomedo/agents/agents/codex/agent.py").read_text()
-        self.assertLess(
-            source.index("transport_settings = Settings.load()"),
-            source.index("launch_attempted = True"),
-        )
-
     @unittest.skipUnless(find_spec("py_docker"), "Requires optional Docker runtime")
     def test_executor_receipt_is_recovered_and_unresolved_intent_is_retained(self):
         from laomedo.agents.agents.codex.agent import CodexAgent

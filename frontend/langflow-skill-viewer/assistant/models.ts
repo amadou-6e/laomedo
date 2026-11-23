@@ -1,6 +1,10 @@
 import type { Projection } from "@/modals/graphAgents/models";
 
+export type SavedConnection = { connection_id: string; provider: string; method?: string; label: string; generation: number; lifecycle: string; auth_state: string };
+
 export type Conversation = {
+  connection_id?: string | null;
+  connection_generation?: number | null;
   id: string;
   title: string;
   provider: string;
@@ -15,6 +19,8 @@ export type Conversation = {
   linked_conversation_id: string | null;
 };
 export type Message = {
+  initial_native_command?: "status" | null;
+  native_action_id?: string | null;
   model?: string | null;
   effort?: string | null;
   id: string;
@@ -30,6 +36,7 @@ export type Message = {
   stop_requested: boolean;
 };
 export type PendingSubmission = {
+  initial_native_command?: "status";
   id: string;
   text: string;
   model?: string;
@@ -69,6 +76,7 @@ export type GraphAction = {
   run_id: string | null;
 };
 export type ConversationDetail = {
+  native_actions?: NativeAction[];
   permissions?: ("rename" | "edit" | "run")[];
   actions?: GraphAction[];
   conversation: Conversation;
@@ -76,6 +84,23 @@ export type ConversationDetail = {
   drafts: DraftReceipt[];
   next_cursor: number | null;
   observation_error?: string;
+};
+export type NativeAction = {
+  id: string;
+  message_id: string;
+  name: string;
+  arguments: string;
+  digest: string;
+  state: string;
+  may_use_model: boolean;
+  can_decide: boolean;
+  result_message_id: string | null;
+};
+export type NativeCommandCatalog = {
+  state: "available" | "unavailable";
+  revision?: string;
+  reason?: string;
+  commands: { name: string; kind?: "command" | "skill"; description: string; input_hint?: string | null; executable: boolean; accepts_arguments: boolean; reason?: string | null }[];
 };
 export type ActivityPage = {
   tool_names?: Record<string, string>;

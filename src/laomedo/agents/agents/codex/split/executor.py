@@ -44,6 +44,12 @@ class CodexCommandExecutor(BaseSplitCommandExecutor):
                 name=self.environment_id,
                 stdin_open=True,
                 command=[
+                    "sh",
+                    "-c",
+                    "mkdir -p /home/runner/.codex/skills && "
+                    "ln -s /opt/acp/system-skills /home/runner/.codex/skills/.system && "
+                    'exec "$@"',
+                    "laomedo-executor",
                     "codex",
                     "exec-server",
                     "--listen",

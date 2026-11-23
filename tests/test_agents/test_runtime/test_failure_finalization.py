@@ -42,6 +42,7 @@ class OpenCodeReceiptTests(unittest.TestCase):
         backend.broker = backend.session = None
         backend.closing = backend.termination_verified = False
         backend.cleanup_observed = None
+        backend._controller_staging = None
         return backend
 
     def test_catalogue_cleanup_failure_keeps_primary_and_registers_before_dispatch(
@@ -64,6 +65,9 @@ class OpenCodeReceiptTests(unittest.TestCase):
             ) as raised:
                 backend.models()
             job = backend.docker.jobs.run.call_args.args[0]
+            self.assertEqual(
+                job.spec.command[-3:], ["opencode-go", "--refresh", "--verbose"]
+            )
             self.assertIn(job.receipt_path, backend.allocated_receipts)
             self.assertEqual(
                 raised.exception.observation.primary_operation, "create container"

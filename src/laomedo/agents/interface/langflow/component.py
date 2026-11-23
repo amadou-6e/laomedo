@@ -173,6 +173,7 @@ _ROUTABLE_ERRORS = {
     "opencode_provider_model_required",
     "opencode_response_identity_mismatch",
     "opencode_response_not_terminal",
+    "opencode_native_command_failed",
     "opencode_runtime_pin_mismatch",
     "opencode_session_identity_invalid",
     "opencode_sse_frame_size_limit",

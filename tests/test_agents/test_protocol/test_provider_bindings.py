@@ -11,6 +11,7 @@ import unittest
 from unittest.mock import AsyncMock, Mock, patch
 
 from laomedo.agents.agents.claude.agent import ClaudeAgent
+from laomedo.agents.agents.base.acp.models import NativeCommandCatalog
 from laomedo.agents.agents.opencode.runtime import OpenCodeAgentRuntime
 from laomedo.agents.agents.opencode.settings import CLI_VERSION
 from laomedo.agents.agents.opencode.utils import model_metadata
@@ -32,6 +33,7 @@ class ProviderBindingTests(unittest.IsolatedAsyncioTestCase):
                 tempfile.TemporaryDirectory() as directory,
             ):
                 runner = ClaudeAgent.__new__(ClaudeAgent)
+                runner.image_id = "sha256:" + "a" * 64
                 runner._event = Mock()
                 runner._native_event = Mock()
                 identity = "11111111-1111-4111-8111-111111111111"
@@ -51,6 +53,7 @@ class ProviderBindingTests(unittest.IsolatedAsyncioTestCase):
                 }
                 client = SimpleNamespace(
                     session_id=identity,
+                    command_catalog=lambda: NativeCommandCatalog(commands=[]),
                     initialize=AsyncMock(),
                     open=AsyncMock(),
                     prompt=AsyncMock(return_value=SimpleNamespace(stop_reason=stop)),
@@ -109,10 +112,13 @@ class ProviderBindingTests(unittest.IsolatedAsyncioTestCase):
         ):
             with self.subTest(version=version, observed=observed):
                 runner = OpenCodeAgentRuntime.__new__(OpenCodeAgentRuntime)
+                runner.identity = SimpleNamespace(image_id="sha256:" + "a" * 64)
+                runner._builtins_only = True
                 runner.session = Mock()
                 runner.check_transport = Mock()
                 client = SimpleNamespace(
                     session_id="native-session",
+                    command_catalog=lambda: NativeCommandCatalog(commands=[]),
                     on_update=None,
                     initialize=AsyncMock(
                         return_value=SimpleNamespace(

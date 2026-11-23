@@ -7,6 +7,7 @@ from contextlib import ExitStack
 from pathlib import Path
 from uuid import uuid4
 import json
+import os
 import secrets
 import shutil
 import threading
@@ -19,11 +20,13 @@ from laomedo.agents.agents.opencode.settings import WORKER_IMAGE
 from laomedo.agents.agents.opencode.settings import WORKER_IMAGE_ID
 from laomedo.agents.agents.opencode.utils import _credential_binding
 from laomedo.agents.agents.opencode.utils import model_metadata
+from laomedo.agents.agents.opencode.utils import remove_controller_directory
 from laomedo.agents.errors import RunnerError
 from laomedo.docker import DockerRuntime
 from laomedo.container_images.errors import ImageBuildError
 from laomedo.agents.agents.opencode.settings import IMAGE
 from laomedo.agents.agents.opencode.credentials import OpenCodeCredentialProvider
+from laomedo.agents.agents.opencode.commands import OpenCodeCommands
 from laomedo.agents.agents.base.models import CredentialRequest
 from laomedo.agents.agents.base.utils import _json
 from laomedo.agents.agents.base.utils import _private
@@ -56,6 +59,7 @@ class OpenCodeAgentRuntime:
         self.receipts = None
         self.allocated_receipts = set()
         self.closing = False
+        self._controller_staging = None
         selected_worker_id = worker_image_id or WORKER_IMAGE_ID
         self.profile = _private(Path(profile))
         if not (self.profile / "auth.json").is_file():
@@ -104,6 +108,10 @@ class OpenCodeAgentRuntime:
             raise RunnerError("opencode_container_configuration_invalid") from None
         except DockerOperationError:
             raise RunnerError("opencode_controller_startup_failed") from None
+        self.native_commands = None
+        self._builtins_only = configure_agents is None and not any(
+            (workspace / ".agents/skills").iterdir()
+        )
         self.identity = OpenCodeRuntimeIdentity(
             runtime_version=CLI_VERSION,
             image=image,
@@ -113,17 +121,21 @@ class OpenCodeAgentRuntime:
             worker_image_id=selected_worker_id,
             credential_binding=_credential_binding(self.profile),
         )
-        root = evidence / ("controller-" + uuid4().hex)
+        root = (self.profile if os.name == "nt" else evidence) / (
+            "controller-" + uuid4().hex
+        )
         root.mkdir()
+        if os.name == "nt":
+            self._controller_staging = root
         view = root / "view"
-        view.mkdir()
-        # No user project configs/custom tools are ever mounted in the controller.
-        shutil.copytree(workspace / ".agents", view / ".agents")
         self.broker = None
         self.name = None
         self.session = self.docker = None
         self.closing = False
         try:
+            view.mkdir()
+            # No user project configs/custom tools are mounted in the controller.
+            shutil.copytree(workspace / ".agents", view / ".agents")
             self.broker = OpenCodeCommandExecutor(
                 workspace,
                 evidence / "canonical",
@@ -280,6 +292,7 @@ class OpenCodeAgentRuntime:
                                 "60",
                                 "opencode",
                                 "models",
+                                "opencode-go",
                                 "--refresh",
                                 "--verbose",
                             ],
@@ -323,7 +336,17 @@ class OpenCodeAgentRuntime:
             self.evidence,
         )
 
-    def run(self, task, *, model, session_id, cancelled, capture, on_session):
+    def run(
+        self,
+        task,
+        *,
+        model,
+        session_id,
+        cancelled,
+        capture,
+        on_session,
+        native_command=None,
+    ):
         """Execute over shared ACP; no published port, password or SSE reader."""
         from py_docker.sessions.models import ContainerSession
         from py_docker.streams.models import StreamLimits
@@ -347,7 +370,15 @@ class OpenCodeAgentRuntime:
         self._cancelled = cancelled
         try:
             return asyncio.run(
-                self._run_acp(task, model, session_id, cancelled, capture, on_session)
+                self._run_acp(
+                    task,
+                    model,
+                    session_id,
+                    cancelled,
+                    capture,
+                    on_session,
+                    native_command,
+                )
             )
         finally:
             self._cancelled = None
@@ -436,6 +467,12 @@ class OpenCodeAgentRuntime:
             raise RunnerError(
                 "opencode_container_cleanup_unverified", observation=observation
             ) from None
+        if self._controller_staging is not None:
+            try:
+                remove_controller_directory(self._controller_staging, self.profile)
+            except OSError:
+                raise RunnerError("opencode_container_cleanup_unverified") from None
+            self._controller_staging = None
         self.termination_verified = True
 
     def check_auth_fresh(self):
@@ -455,7 +492,16 @@ class OpenCodeAgentRuntime:
         _json(self.root / "config.json", config)
         self.mcp_access = access
 
-    async def _run_acp(self, task, model, session_id, cancelled, capture, on_session):
+    async def _run_acp(
+        self,
+        task,
+        model,
+        session_id,
+        cancelled,
+        capture,
+        on_session,
+        native_command=None,
+    ):
         """Validate agent identity, load the same native session and await its prompt."""
         from laomedo.agents.agents.base.acp.session import AcpSession
 
@@ -494,6 +540,35 @@ class OpenCodeAgentRuntime:
             if cancelled.is_set():
                 raise RunnerError("opencode_cancelled_before_dispatch")
             self._native_session = client.session_id
+            deadline = asyncio.get_running_loop().time() + 2
+            while (
+                client.command_catalog() is None
+                and asyncio.get_running_loop().time() < deadline
+            ):
+                await asyncio.sleep(0.02)
+            catalog = client.command_catalog()
+            image_id = self.identity.image_id
+            self.native_commands = {
+                "thread_id": client.session_id,
+                "catalog": (
+                    catalog.model_dump(mode="json") if catalog is not None else None
+                ),
+                "projection": (
+                    OpenCodeCommands.project(
+                        catalog.model_dump(mode="json"),
+                        image_id,
+                        builtins_only=self._builtins_only,
+                    )
+                    if catalog is not None
+                    else None
+                ),
+            }
+            if native_command is not None:
+                if task != native_command.text():
+                    raise RunnerError("native_command_context_invalid")
+                OpenCodeCommands.admit(
+                    native_command, catalog, image_id, builtins_only=self._builtins_only
+                )
             on_session(client.session_id)
             capture.begin(client.session_id, task)
             client.on_update = capture.update

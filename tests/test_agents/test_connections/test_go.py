@@ -76,6 +76,11 @@ class GoConnectionTests(unittest.TestCase):
         )
         record = self.service._record(self.profile, one.connection_id)
         profile = self.service.go.profile(self.profile, record)
+        staged = profile / ("controller-" + "a" * 32)
+        staged.mkdir()
+        (staged / "config.json").write_text("dead scoped fixture capability")
+        unrelated = profile / "controller-not-owned"
+        unrelated.mkdir()
         controller = Mock()
         self.service.controllers = controller
         controller.inventory.return_value = (1, 7)
@@ -85,6 +90,7 @@ class GoConnectionTests(unittest.TestCase):
         result = self.service.disconnect(self.profile, one.connection_id, 1, 7)
         self.assertEqual(result.status, "cleanup_required")
         self.assertTrue((profile / "auth.json").exists())
+        self.assertTrue(staged.exists())
         with self.assertRaises(ProviderConnectionError):
             self.service.admitted(self.profile, one.connection_id)
         controller.stop.side_effect = None
@@ -94,6 +100,8 @@ class GoConnectionTests(unittest.TestCase):
             "removed",
         )
         self.assertFalse((profile / "auth.json").exists())
+        self.assertFalse(staged.exists())
+        self.assertTrue(unrelated.exists())
         self.assertEqual(self.service.list(self.profile), [])
 
     def test_interrupted_publication_scrubs_only_unadmitted_go_key(self):

@@ -20,6 +20,8 @@ from laomedo.agents.activity.models import ActivityAttemptRecord
 from laomedo.agents.activity.utils import now
 from laomedo.agents.activity.runner.feed import line_count
 from laomedo.agents.agents.opencode.settings import CLI_VERSION
+from laomedo.agents.agents.opencode.commands import OpenCodeCommands
+from laomedo.agents.agents.base.models import NativeCommandInvocation
 from laomedo.agents.errors import RunnerError
 from laomedo.agents.agents.base.agent import BaseAgent
 from laomedo.agents.agents.base.models import RuntimeBinding
@@ -60,9 +62,7 @@ class OpenCodeAgent(BaseAgent):
         """Bind admitted configuration and owned state; provider startup errors propagate before use."""
         if profile is not None:
             if transport_factory is not None:
-                raise ValueError(
-                    "Provide either profile or transport_factory, not both"
-                )
+                raise RunnerError("opencode_isolated_transport_required")
             from laomedo.agents.agents.opencode.runtime import OpenCodeAgentRuntime
 
             transport_factory = partial(OpenCodeAgentRuntime, profile=profile)
@@ -139,6 +139,25 @@ class OpenCodeAgent(BaseAgent):
             "submitted_turns": 0,
         }
 
+    def prepare_resume(self, run_id, body):
+        """Validate exact native command metadata before the shared resume dispatch."""
+        ordinary = {
+            key: value for key, value in body.items() if key != "native_command"
+        }
+        extra = super().prepare_resume(run_id, ordinary)
+        if body.get("native_command") is not None:
+            command = NativeCommandInvocation.model_validate(body["native_command"])
+            OpenCodeCommands.validate(command)
+            record = self.status(run_id)
+            if (
+                record.get("skills")
+                or record.get("output_requirements")
+                or record.get("github_scope")
+            ):
+                raise RunnerError("native_command_context_invalid")
+            extra["native_command"] = command
+        return extra
+
     def resume(
         self,
         run_id: str,
@@ -150,8 +169,13 @@ class OpenCodeAgent(BaseAgent):
         effort: str,
         activity_attempt_id: str | None = None,
         run_timeout_seconds: int | None = None,
+        native_command=None,
     ) -> dict:
         """Admit an existing session/workspace binding before continuing it; failures never create a fresh session."""
+        if native_command is not None:
+            OpenCodeCommands.validate(native_command)
+            if task != native_command.text():
+                raise RunnerError("native_command_context_invalid")
         self._validate_run_timeout(run_timeout_seconds)
         self._validate_provider(model, effort)
         record = self.status(run_id)
@@ -181,7 +205,11 @@ class OpenCodeAgent(BaseAgent):
             raise RunnerError("protected_mount_changed")
         self._verify_pinned_skills(root / "workspace", record)
         return self._execute(
-            run_id, task, resume=True, activity_attempt_id=activity_attempt_id
+            run_id,
+            task,
+            resume=True,
+            activity_attempt_id=activity_attempt_id,
+            native_command=native_command,
         )
 
     def cancel(self, run_id: str) -> dict:
@@ -330,7 +358,9 @@ class OpenCodeAgent(BaseAgent):
         except ValueError as exc:
             raise RunnerError(str(exc)) from None
 
-    def _execute(self, run_id, task, *, resume, activity_attempt_id=None):
+    def _execute(
+        self, run_id, task, *, resume, activity_attempt_id=None, native_command=None
+    ):
         """Own one admitted attempt and its cancellation, snapshot, evidence and exact cleanup finalization."""
         if activity_attempt_id is not None:
             _id(activity_attempt_id)
@@ -454,10 +484,18 @@ class OpenCodeAgent(BaseAgent):
                 ),
             )
 
+            if native_command is not None and (
+                reader is None or baseline is None or not baseline_available
+            ):
+                raise RunnerError("native_command_context_invalid")
+
             def bind(session_id):
                 """Persist the actual native binding before submitting the prompt."""
                 record["thread_id"] = session_id
                 record["communication_protocol"] = "acp.v1"
+                observed = getattr(backend, "native_commands", None)
+                if observed is not None:
+                    record["native_commands"] = observed
                 _json(root / "record.json", record)
 
             # Discovery can take long enough for a bounded credential to expire.
@@ -472,6 +510,11 @@ class OpenCodeAgent(BaseAgent):
                 cancelled=flag,
                 capture=capture,
                 on_session=bind,
+                **(
+                    {"native_command": native_command}
+                    if native_command is not None
+                    else {}
+                ),
             )
             normalized = {
                 "answer": outcome.answer,
@@ -487,7 +530,11 @@ class OpenCodeAgent(BaseAgent):
                     for tool in normalized["tools"]
                 ):
                     raise RunnerError("opencode_outstanding_tool")
-            if not normalized["answer"] and not flag.is_set():
+            if (
+                not normalized["answer"]
+                and not flag.is_set()
+                and native_command is None
+            ):
                 raise RunnerError("completed_without_agent_message")
             if flag.is_set():
                 record["status"] = "cancelled"
@@ -541,7 +588,7 @@ class OpenCodeAgent(BaseAgent):
                         reader.retain(history, baseline, capture, catalog)
                         record.update(history.record_fields(baseline))
                         if record["status"] == "completed":
-                            if not record.get("answer"):
+                            if not record.get("answer") and native_command is None:
                                 record.update(
                                     status="failed",
                                     error_category="completed_without_agent_message",
@@ -576,6 +623,35 @@ class OpenCodeAgent(BaseAgent):
                             record["turns"][-1]["native_turn_id"] = record.get(
                                 "native_turn_id"
                             )
+                        if (
+                            native_command is not None
+                            and record.get("status") == "completed"
+                        ):
+                            try:
+                                command_result = OpenCodeCommands.result(
+                                    native_command,
+                                    history,
+                                    baseline,
+                                    external_tools=self.mcp_names(record),
+                                )
+                            except RunnerError as error:
+                                record.update(
+                                    status="failed", error_category=error.code
+                                )
+                            else:
+                                record.setdefault("native_command_receipts", []).append(
+                                    {
+                                        "request": native_command.model_dump(
+                                            mode="json"
+                                        ),
+                                        "result": command_result.model_dump(
+                                            mode="json"
+                                        ),
+                                        "attempt_id": attempt_id,
+                                        "status": "completed",
+                                        "error_category": None,
+                                    }
+                                )
                         complete = capture.finished and history.terminal_complete(
                             baseline
                         )
@@ -594,6 +670,19 @@ class OpenCodeAgent(BaseAgent):
                             "opencode_native_snapshot_unavailable"
                         )
                         record["evidence_complete"] = "partial"
+                if (
+                    native_command is not None
+                    and record is not None
+                    and record.get("status") == "completed"
+                    and not any(
+                        item.get("attempt_id") == attempt_id
+                        and item.get("status") == "completed"
+                        for item in record.get("native_command_receipts", [])
+                    )
+                ):
+                    record.update(
+                        status="failed", error_category="opencode_response_not_terminal"
+                    )
                 if record is not None and record.get("status") == "completed":
                     record.update(
                         post_run_hash=self._freeze_workspace(root, record),
