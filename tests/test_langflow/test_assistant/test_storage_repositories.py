@@ -139,6 +139,28 @@ class ProjectRepositoryTests(unittest.TestCase):
             list((self.storage.root / "checkouts" / str(self.owner)).iterdir()), []
         )
 
+    def test_empty_remote_can_store_the_first_graph_before_its_first_commit(self):
+        empty = self.root / "empty"
+        empty.mkdir()
+        result = GitCommandRunner().run(
+            GitCommand(
+                arguments=["init", "--quiet"],
+                directory=empty,
+                context=GitExecutionContext(hardened=True),
+            )
+        )
+        self.assertEqual(result.returncode, 0)
+        self.runner.source = empty
+        ProjectRepositories(self.storage, runner=self.runner).clone(
+            self.owner,
+            RepositoryClone(name="Empty project", repository="example/empty"),
+        )
+        repository = self.storage.document(self.owner).repositories[0]
+        self.assertTrue((Path(repository.path) / ".git").is_dir())
+        self.assertEqual(
+            [item.name for item in Path(repository.path).iterdir()], [".git"]
+        )
+
     def test_repository_selection_cannot_supply_url_credentials_or_native_options(self):
         for value in (
             "https://secret@github.com/a/b",

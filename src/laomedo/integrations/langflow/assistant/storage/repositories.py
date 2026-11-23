@@ -65,23 +65,7 @@ class ProjectRepositories:
                         str(directory),
                     ],
                 )
-                entries = self.run(
-                    command,
-                    ["ls-tree", "-rz", "--full-tree", "HEAD"],
-                    directory=directory,
-                ).split(b"\0")
-                if len(entries) > 10001 or any(
-                    entry and not entry.startswith((b"100644 blob ", b"100755 blob "))
-                    for entry in entries
-                ):
-                    raise AssistantError(
-                        "assistant_storage_repository_unsupported", 422
-                    )
-                self.run(
-                    command,
-                    ["checkout", "--quiet", "--detach", "HEAD"],
-                    directory=directory,
-                )
+                self.checkout(command, directory)
                 # Origin retains only the selected credential-free repository URL.
                 # Native providers receive selected files, never this .git directory.
             result = self.storage.register(
@@ -98,6 +82,29 @@ class ProjectRepositories:
                 if directory.parent.parent.parent != self.storage.root:
                     raise RuntimeError("invalid_owned_clone_directory")
                 shutil.rmtree(directory, onerror=self._remove_readonly)
+
+    def checkout(self, command, directory):
+        """Permit an empty remote; inspect nonempty trees before materialization."""
+        refs = self.run(
+            command, ["for-each-ref", "--format=%(refname)"], directory=directory
+        )
+        if not refs.strip():
+            return
+        entries = self.run(
+            command,
+            ["ls-tree", "-rz", "--full-tree", "HEAD"],
+            directory=directory,
+        ).split(b"\0")
+        if len(entries) > 10001 or any(
+            entry and not entry.startswith((b"100644 blob ", b"100755 blob "))
+            for entry in entries
+        ):
+            raise AssistantError("assistant_storage_repository_unsupported", 422)
+        self.run(
+            command,
+            ["checkout", "--quiet", "--detach", "HEAD"],
+            directory=directory,
+        )
 
     def run(self, command, arguments, *, directory=None):
         """Execute one private command; surface a safe domain code instead of stderr."""
