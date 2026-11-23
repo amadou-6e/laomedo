@@ -12,10 +12,12 @@ from laomedo.integrations.langflow.assistant.storage.models import (
     GraphFileRequest,
 )
 
-router = APIRouter(prefix="/api/v1/laomedo/assistant/storage", tags=["Project storage"])
+storage_router = APIRouter(
+    prefix="/api/v1/laomedo/assistant/storage", tags=["Project storage"]
+)
 
 
-@router.get("")
+@storage_router.get("")
 async def describe_storage(context=Depends(access)):
     runtime, owner, key = context
     try:
@@ -26,7 +28,7 @@ async def describe_storage(context=Depends(access)):
         raise HTTPException(error.status, detail={"code": error.code}) from None
 
 
-@router.post("/repositories")
+@storage_router.post("/repositories")
 async def register_repository(body: RepositoryRegistration, context=Depends(access)):
     runtime, owner, key = context
     try:
@@ -38,7 +40,7 @@ async def register_repository(body: RepositoryRegistration, context=Depends(acce
         raise HTTPException(error.status, detail={"code": error.code}) from None
 
 
-@router.post("/agent-files")
+@storage_router.post("/agent-files")
 async def configure_agent_files(body: RepositoryLocation, context=Depends(access)):
     runtime, owner, key = context
     try:
@@ -53,7 +55,7 @@ async def configure_agent_files(body: RepositoryLocation, context=Depends(access
         raise HTTPException(error.status, detail={"code": error.code}) from None
 
 
-@router.post("/graphs/{identifier}/{operation}")
+@storage_router.post("/graphs/{identifier}/{operation}")
 async def synchronize_graph(
     identifier: UUID, operation: str, body: GraphFileRequest, context=Depends(access)
 ):

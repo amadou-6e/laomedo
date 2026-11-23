@@ -3,7 +3,7 @@
 from uuid import UUID
 from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
-from laomedo.integrations.langflow.assistant.models import DraftGraph
+from laomedo.integrations.langflow.assistant.models import DraftGraph, DraftNode
 
 
 class RepositoryRegistration(BaseModel):
@@ -61,6 +61,12 @@ class AgentFileWrite(BaseModel):
     expected_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
 
 
+class PortableGraphDefinition(DraftGraph):
+    """The authoring contract also permits saving an empty editor canvas."""
+
+    nodes: list[DraftNode] = Field(default_factory=list, max_length=40)
+
+
 class PortableGraph(BaseModel):
     """Secret-free graph definition plus existing node identities for safe restoration."""
 
@@ -68,5 +74,5 @@ class PortableGraph(BaseModel):
     format: Literal["laomedo.graph.v1"] = "laomedo.graph.v1"
     workflow_id: UUID
     name: str = Field(max_length=500)
-    spec: DraftGraph
+    spec: PortableGraphDefinition
     node_ids: dict[str, str] = Field(max_length=40)

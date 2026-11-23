@@ -3,6 +3,7 @@ import { FolderGit2 } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AssistantFailure, assistantRequest } from "../api";
 import type { ProjectStorageState } from "./models";
+import { describeNodeFailure } from "@/components/laomedoErrors/nodeErrors";
 
 export default function ProjectStorage({ onFailure }: { onFailure: (error: unknown) => void }) {
   const [open, setOpen] = useState(false);
@@ -31,18 +32,8 @@ export default function ProjectStorage({ onFailure }: { onFailure: (error: unkno
   function failed(failure: unknown) {
     const code = failure instanceof AssistantFailure ? failure.code : "assistant_storage_unavailable";
     if (code === "assistant_session_locked") onFailure(failure);
-    const messages: Record<string, string> = {
-      assistant_storage_repository_unavailable: "The checkout is unavailable. Use an existing local Git checkout.",
-      assistant_storage_path_invalid: "Choose a normal relative project path without links, private folders or environment files.",
-      assistant_storage_file_changed: "The file changed or already exists. Refresh storage and inspect it before saving again.",
-      assistant_source_revision_changed: "The saved graph changed. Refresh storage before trying again.",
-      assistant_storage_graph_locked: "Unlock the graph in the editor before loading its file.",
-      assistant_storage_location_conflict: "Graph files and agent files need separate locations. Another graph may already use this file.",
-      assistant_storage_graph_invalid: "This file or graph is not supported by the portable graph format. The saved graph was preserved.",
-      assistant_storage_file_missing: "The selected graph file is missing. Save it first or restore the checkout.",
-      assistant_storage_file_too_large: "The selected file exceeds the pilot file limit.",
-    };
-    setError(messages[code] ?? "Storage could not be confirmed. Refresh before trying again; your existing app graph remains available.");
+    const explanation = describeNodeFailure(code, undefined);
+    setError(explanation.title + ". " + explanation.recovery);
   }
 
   async function perform(operation: () => Promise<string>) {
@@ -104,6 +95,7 @@ export default function ProjectStorage({ onFailure }: { onFailure: (error: unkno
       <fieldset disabled={busy} className="min-w-0 space-y-5 disabled:opacity-60">
         <section className="space-y-2">
           <h3 className="text-sm font-medium">Connect a checkout</h3>
+          {state?.repositories.map(repo => <p key={repo.id} className="break-all text-xs text-muted-foreground">{repo.name} · {repo.path}</p>)}
           <label className="block text-xs">Repository name<input className={input} value={name} onChange={event => setName(event.target.value)} /></label>
           <label className="block text-xs">Local checkout path<input className={input} value={path} placeholder="C:\projects\my-project" onChange={event => setPath(event.target.value)} /></label>
           <button className={button} type="button" disabled={!name.trim() || !path.trim()} onClick={() => void perform(async () => {
@@ -116,7 +108,7 @@ export default function ProjectStorage({ onFailure }: { onFailure: (error: unkno
           <p className="text-xs text-muted-foreground">Persistent files available to chat through Laomedo tools.</p>
           {state?.agent_files && <p className="break-all text-xs text-muted-foreground">Current: {state.repositories.find(repo => repo.id === state.agent_files?.repository_id)?.name} / {state.agent_files.path}</p>}
           <label className="block text-xs">Agent repository<select className={input} value={agentRepo} onChange={event => setAgentRepo(event.target.value)}>{choices}</select></label>
-          <label className="block text-xs">Agent folder<input className={input} value={agentPath} onChange={event => setAgentPath(event.target.value)} /></label>
+          <label className="block text-xs">Agent folder (relative to repository)<input className={input} value={agentPath} onChange={event => setAgentPath(event.target.value)} /></label>
           <button className={button} type="button" disabled={!agentRepo || !agentPath} onClick={() => void perform(async () => {
             await assistantRequest("/storage/agent-files", {repository_id: agentRepo, path: agentPath}, controller.current?.signal);
             return "Agent-files folder selected. Chat can access it through project file tools.";
@@ -128,10 +120,12 @@ export default function ProjectStorage({ onFailure }: { onFailure: (error: unkno
           <label className="block text-xs">Graph<select className={input} value={graph} onChange={event => chooseGraph(event.target.value)}><option value="">Select graph</option>{state?.workflows.map(row => <option key={row.id} value={row.id}>{row.name}</option>)}</select></label>
           <label className="block text-xs">Graph repository<select className={input} value={graphRepo} onChange={event => setGraphRepo(event.target.value)}>{choices}</select></label>
           <label className="block text-xs">Graph JSON file<input className={input} value={graphPath} onChange={event => setGraphPath(event.target.value)} /></label>
+          <p className="text-xs text-muted-foreground">Relative to the selected repository</p>
           <div className="flex gap-2"><button className={button} type="button" disabled={!selectedGraph || !graphRepo || !graphPath} onClick={() => void synchronize("save")}>Save graph file</button><button className={button} type="button" disabled={!selectedGraph || !sameLocation} onClick={() => {
             if (window.confirm("Replace this saved graph with its file contents? Reload open graph editors afterward.")) void synchronize("load");
           }}>Load graph file</button></div>
           <p className="text-xs text-muted-foreground">Portable files omit secrets and component code. Loading preserves existing app-managed settings on matching components.</p>
+          <p className="text-xs text-muted-foreground">Prompts, ordinary field values and agent files become repository files. Review them before committing.</p>
         </section>
         <button className={button} type="button" onClick={() => void perform(async () => "Storage refreshed.")}>Refresh storage</button>
       </fieldset>

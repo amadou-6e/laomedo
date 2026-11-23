@@ -112,6 +112,9 @@ class McpTransportTests(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(
                     {tool.name for tool in tools},
                     {
+                        "list_project_files",
+                        "read_project_file",
+                        "write_agent_file",
                         "list_workflows",
                         "get_workflow",
                         "search_components",
@@ -217,3 +220,90 @@ class McpTransportTests(unittest.IsolatedAsyncioTestCase):
                 },
             )
             self.assertEqual(denied.status_code, 421)
+
+    async def test_actual_project_file_tools_persist_and_refuse_revoked_authority(self):
+        from pathlib import Path
+        import json
+        import tempfile
+        from laomedo.integrations.langflow.assistant.storage.files import ProjectStorage
+        from laomedo.integrations.langflow.assistant.storage.models import (
+            RepositoryLocation,
+            RepositoryRegistration,
+        )
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "repo" / ".git").mkdir(parents=True)
+            files = ProjectStorage(root / "state")
+            owner = self.control.context.owner_id
+            files.register(
+                owner, RepositoryRegistration(name="Project", path=str(root / "repo"))
+            )
+            files.configure_agent_files(
+                owner,
+                RepositoryLocation(
+                    repository_id=files.document(owner).repositories[0].id,
+                    path="agent-files",
+                ),
+            )
+            self.control.project_storage = files
+            async with streamablehttp_client(
+                self.origin + "/mcp/",
+                headers={"Authorization": "Bearer " + self.control.token},
+                timeout=timedelta(seconds=10),
+            ) as (read, write, _):
+                async with ClientSession(read, write) as session:
+                    await session.initialize()
+                    result = await session.call_tool(
+                        "write_agent_file",
+                        {
+                            "path": "notes.md",
+                            "content": "Persistent project note",
+                            "expected_sha256": None,
+                        },
+                    )
+                    self.assertFalse(result.isError)
+                    result = await session.call_tool(
+                        "read_project_file", {"path": "notes.md"}
+                    )
+                    self.assertFalse(result.isError)
+                    self.assertIn("Persistent project note", result.content[0].text)
+                    stale = await session.call_tool(
+                        "write_agent_file",
+                        {
+                            "path": "notes.md",
+                            "content": "Wrong overwrite",
+                            "expected_sha256": None,
+                        },
+                    )
+                    self.assertTrue(stale.isError)
+                    escaped = await session.call_tool(
+                        "read_project_file", {"path": "../.git/config"}
+                    )
+                    self.assertTrue(escaped.isError)
+            self.control.revoked = True
+            import httpx
+
+            async with httpx.AsyncClient() as client:
+                denied = await client.post(
+                    self.origin + "/mcp/",
+                    headers={"Authorization": "Bearer " + self.control.token},
+                    json={
+                        "jsonrpc": "2.0",
+                        "id": 1,
+                        "method": "tools/call",
+                        "params": {
+                            "name": "write_agent_file",
+                            "arguments": {
+                                "path": "notes.md",
+                                "content": "Revoked",
+                                "expected_sha256": None,
+                            },
+                        },
+                    },
+                )
+                self.assertEqual(denied.status_code, 401)
+            self.assertEqual(
+                (root / "repo/agent-files/notes.md").read_text(),
+                "Persistent project note",
+            )

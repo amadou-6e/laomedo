@@ -2,13 +2,16 @@
 
 from copy import deepcopy
 import json
+from uuid import uuid4
 
 from sqlmodel import select
 
 from laomedo.integrations.langflow.assistant.catalog import ComponentCatalog
 from laomedo.integrations.langflow.assistant.errors import AssistantError
-from laomedo.integrations.langflow.assistant.models import DraftGraph
-from laomedo.integrations.langflow.assistant.storage.models import PortableGraph
+from laomedo.integrations.langflow.assistant.storage.models import (
+    PortableGraph,
+    PortableGraphDefinition,
+)
 from laomedo.integrations.langflow.assistant.workflows import WorkflowDrafts
 
 
@@ -43,7 +46,17 @@ class ProjectGraphs:
 
     async def sync(self, owner, key, identifier, request, *, load=False):
         from langflow.services.database.models.flow.model import Flow
-        from langflow.services.database.models.flow.guards import lock_flow_for_update
+        from langflow.services.database.models.flow.guards import (
+            lock_flow_for_update,
+            ensure_flow_update_allowed,
+        )
+
+        if (
+            load
+            and getattr(ensure_flow_update_allowed, "laomedo_storage_fence", False)
+            is not True
+        ):
+            raise AssistantError("assistant_storage_editor_fence_missing", 503)
 
         catalog = await ComponentCatalog.from_installed(owner)
         revisions = WorkflowDrafts(None, catalog, None)
@@ -125,6 +138,7 @@ class ProjectGraphs:
                     compiled["viewport"] = deepcopy(
                         (flow.data or {}).get("viewport", compiled["viewport"])
                     )
+                    compiled["laomedo_storage_revision"] = str(uuid4())
                     flow.data = compiled
                     # A load updates graph contents only; name and app metadata stay owned by the app.
                     session.add(flow)
@@ -158,7 +172,12 @@ class ProjectGraphs:
                         edge["source"] = keys[edge["source"]]
                         edge["target"] = keys[edge["target"]]
                     projected["allow_incomplete"] = True
-                    graph = DraftGraph.model_validate(projected)
+                    try:
+                        graph = PortableGraphDefinition.model_validate(projected)
+                    except ValueError:
+                        raise AssistantError(
+                            "assistant_storage_graph_invalid", 422
+                        ) from None
                     value = PortableGraph(
                         workflow_id=identifier,
                         name=flow.name,

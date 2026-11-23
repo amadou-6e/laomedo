@@ -68,7 +68,7 @@ class AssistantRuntime:
         owner = cls(AssistantSettings())
         from laomedo.integrations.langflow.assistant.storage.files import ProjectStorage
         from laomedo.integrations.langflow.assistant.storage.routes import (
-            router as storage_router,
+            storage_router,
         )
 
         owner.project_storage = ProjectStorage(owner.settings.storage_root)
