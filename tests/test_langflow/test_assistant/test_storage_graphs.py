@@ -166,6 +166,42 @@ class ProjectGraphTests(unittest.IsolatedAsyncioTestCase):
             restarted.graph_path(self.owner, bindings[str(second_id)].location),
         )
 
+    async def test_empty_editor_canvas_round_trips(self):
+        async with self.store.transaction() as session:
+            flow = await session.get(Flow, self.graph)
+            flow.data = {"nodes": [], "edges": []}
+        saved = await self.graphs.sync(
+            self.owner, "fixture", self.graph, await self.storage_request()
+        )
+        await self.graphs.sync(
+            self.owner,
+            "fixture",
+            self.graph,
+            await self.storage_request(digest=saved["sha256"]),
+            load=True,
+        )
+        async with self.store.sessions() as session:
+            flow = await session.get(Flow, self.graph)
+            self.assertEqual(flow.data["nodes"], [])
+            self.assertTrue(flow.data["laomedo_storage_revision"])
+
+    async def test_loading_refuses_an_installation_without_the_editor_fence(self):
+        with patch(
+            "langflow.services.database.models.flow.guards.ensure_flow_update_allowed.laomedo_storage_fence",
+            False,
+        ):
+            with self.assertRaisesRegex(
+                AssistantError, "assistant_storage_editor_fence_missing"
+            ):
+                await self.graphs.sync(
+                    self.owner,
+                    "fixture",
+                    self.graph,
+                    await self.storage_request(),
+                    load=True,
+                )
+        self.assertFalse(self.files.graph_path(self.owner, self.location).exists())
+
     async def test_wrong_owner_locked_and_invalid_files_preserve_graph(self):
         request = await self.storage_request()
         with self.assertRaises(AssistantError):
