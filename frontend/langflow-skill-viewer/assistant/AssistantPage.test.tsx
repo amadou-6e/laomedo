@@ -28,6 +28,47 @@ jest.mock("@/contexts/authContext", () => ({
 }));
 
 describe("uncertain assistant submission", () => {
+  it("automatically loads a visible history sentinel even when the first page cannot scroll", async () => {
+    const previous=global.IntersectionObserver;
+    let intersect!: IntersectionObserverCallback;
+    global.IntersectionObserver=class { constructor(callback:IntersectionObserverCallback){intersect=callback;} observe(){} disconnect(){} unobserve(){} } as any;
+    const row={id:"saved",title:"Current",provider:"codex",state:"idle",active_message_id:null,updated_at:1};
+    jest.mocked(assistantRequest).mockImplementation(async path=>{
+      if(path==="/connections")return {connections:[]};
+      if(path==="/conversations")return {conversations:[row],next_cursor:30};
+      if(path==="/conversations?cursor=30")return {conversations:[{...row,id:"older",title:"Earlier"}],next_cursor:null};
+      return {conversation:row,messages:[],drafts:[],next_cursor:null};
+    });
+    try {
+      render(<MemoryRouter initialEntries={["/assistant?conversation=saved"]}><AssistantPage /></MemoryRouter>);
+      await screen.findByRole("heading",{name:"Current"});
+      await waitFor(()=>expect(intersect).toBeDefined());
+      act(()=>intersect([{isIntersecting:true}] as IntersectionObserverEntry[],{} as IntersectionObserver));
+      expect(await screen.findByRole("button",{name:/Earlier/})).toBeVisible();
+    } finally {global.IntersectionObserver=previous;}
+  });
+
+  it("clears an old profile's history loading state and discards its late page", async () => {
+    const {AuthContext}=require("@/contexts/authContext") as {AuthContext:Context<any>};
+    let finish!: (value: unknown)=>void;
+    const older=new Promise(resolve=>{finish=resolve;});
+    const row={id:"saved",title:"Current",provider:"codex",state:"idle",active_message_id:null,updated_at:1};
+    jest.mocked(assistantRequest).mockImplementation(async path=>{
+      if(path==="/connections")return {connections:[]};
+      if(path==="/conversations")return {conversations:[row],next_cursor:30};
+      if(path==="/conversations?cursor=30")return older;
+      return {conversation:row,messages:[],drafts:[],next_cursor:null};
+    });
+    const view=(owner:string)=><AuthContext.Provider value={{userData:{id:owner}}}><MemoryRouter initialEntries={["/assistant?conversation=saved"]}><AssistantPage /></MemoryRouter></AuthContext.Provider>;
+    const rendered=render(view("first"));
+    await screen.findByRole("heading",{name:"Current"});
+    fireEvent.scroll(screen.getByRole("navigation",{name:"Conversation history"}));
+    await screen.findByText("Loading earlier conversations");
+    rendered.rerender(view("second"));
+    await waitFor(()=>expect(screen.queryByText("Loading earlier conversations")).toBeNull());
+    await act(async()=>{finish({conversations:[{...row,id:"private",title:"Old private page"}],next_cursor:null});await older;});
+    expect(screen.queryByText("Old private page")).toBeNull();
+  });
   it("loads earlier conversations on scroll once and shows background work instead of the switching tip", async () => {
     let finish!: (value: unknown) => void;
     const earlier = new Promise(resolve => {finish=resolve;});
@@ -77,17 +118,24 @@ describe("uncertain assistant submission", () => {
   });
 
   it("Enter chooses the first matching skill without dispatching and Shift Enter retains a newline", async () => {
+    let finish!: (value: unknown)=>void;
+    const discovery=new Promise(resolve=>{finish=resolve;});
     const chat={id:"saved",provider:"claude",connection_id:"account",connection_generation:1,run_id:"run",model:"fixture",effort:"low",state:"idle",active_message_id:null};
     jest.mocked(assistantRequest).mockImplementation(async path=>{
       if(path==="/connections")return {connections:[{connection_id:"account",generation:1,provider:"claude",label:"Account",lifecycle:"connected",auth_state:"ready"}]};
       if(path.startsWith("/models?"))return {provider:"claude",models:[{id:"fixture",efforts:["low"]}]};
       if(path==="/conversations")return {conversations:[chat],next_cursor:null};
-      if(path.endsWith("/native-commands"))return {state:"available",revision:"a".repeat(64),commands:[{name:"claude-api",kind:"skill",description:"API reference",executable:true,accepts_arguments:true}]};
+      if(path.endsWith("/native-commands"))return discovery;
       return {conversation:chat,messages:[],drafts:[],next_cursor:null};
     });
     render(<MemoryRouter initialEntries={["/assistant?conversation=saved"]}><AssistantPage /></MemoryRouter>);
     const box=screen.getByRole("textbox",{name:"Message this assistant"});
     fireEvent.change(box,{target:{value:"/cla"}});
+    await screen.findByText(/Loading native commands/);
+    fireEvent.keyDown(box,{key:"Enter"});
+    expect(box).toHaveValue("/cla");
+    expect(jest.mocked(assistantRequest).mock.calls.some(([,body])=>body)).toBe(false);
+    await act(async()=>{finish({state:"available",revision:"a".repeat(64),commands:[{name:"claude-api",kind:"skill",description:"API reference",executable:true,accepts_arguments:true}]});await discovery;});
     await screen.findByRole("button",{name:/claude-api/});
     box.focus();
     fireEvent.keyDown(box,{key:"Enter"});

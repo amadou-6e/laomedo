@@ -63,7 +63,9 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
   });
   const [detail, setDetail] = useState<ConversationDetail>();
   const [loadingHistory, setLoadingHistory] = useState(false);
-  const historyLoading = useRef(false);
+  const historyLoading = useRef<symbol>();
+  const historyList = useRef<HTMLElement>(null);
+  const historySentinel = useRef<HTMLDivElement>(null);
   const [models, setModels] = useState<Models>();
   const [provider, setProvider] = useState("codex");
   const selectedProvider = detail?.conversation.id === selected ? detail.conversation.provider : index.conversations.find((item) => item.id === selected)?.provider;
@@ -198,6 +200,8 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
     setDrafts({});
     setPending({});
     setRetryable({});
+    historyLoading.current = undefined;
+    setLoadingHistory(false);
     setPendingOwner(undefined);
     try {
       if (previousOwner.current && previousOwner.current !== owner)
@@ -681,7 +685,8 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
 
   async function olderConversations() {
     if (index.next_cursor === null || historyLoading.current) return;
-    historyLoading.current = true;
+    const request = Symbol();
+    historyLoading.current = request;
     setLoadingHistory(true);
     const epoch = generation.current;
     try {
@@ -702,10 +707,22 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
     } catch (failure) {
       if (epoch === generation.current) fail(failure);
     } finally {
-      historyLoading.current = false;
-      if (epoch === generation.current) setLoadingHistory(false);
+      if (historyLoading.current === request) {
+        historyLoading.current = undefined;
+        setLoadingHistory(false);
+      }
     }
   }
+
+  useEffect(() => {
+    const target = historySentinel.current;
+    if (!history || index.next_cursor === null || !target || typeof IntersectionObserver === "undefined") return;
+    const observer = new IntersectionObserver(entries => {
+      if (entries.some(entry => entry.isIntersecting)) void olderConversations();
+    }, { root: historyList.current, rootMargin: "100px" });
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [history, index.next_cursor, index.conversations.length, owner]);
 
   if (locked)
     return (
@@ -778,7 +795,7 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
           aria-label="Conversations"
         >
           <div className="mb-4 flex items-center gap-2"><h2 className="flex-1 text-sm font-semibold">Conversations</h2>{embedded && <>{historyControl}{headerActions}</>}</div>
-          <nav aria-label="Conversation history" className="min-h-0 flex-1 space-y-1 overflow-y-auto"
+          <nav ref={historyList} aria-label="Conversation history" className="min-h-0 flex-1 space-y-1 overflow-y-auto"
             onScroll={event => { const list = event.currentTarget; if (list.scrollHeight - list.scrollTop - list.clientHeight < 100) void olderConversations(); }}>
             {index.conversations.map((item) => (
               <button
@@ -802,6 +819,7 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
                 {item.active_message_id && <Loader2 size={12} className="shrink-0 animate-spin text-muted-foreground" aria-label="Conversation working" />}
               </button>
             ))}
+            <div ref={historySentinel} aria-hidden="true" />
             {loadingHistory && <p role="status" className="flex justify-center py-3 text-muted-foreground"><Loader2 size={14} className="animate-spin" aria-hidden="true" /><span className="sr-only">Loading earlier conversations</span></p>}
           </nav>
           {index.conversations.some(item => item.id !== selected && item.active_message_id) && <p role="status" className="mt-3 flex items-center gap-2 text-xs text-muted-foreground"><Loader2 size={12} className="animate-spin" aria-hidden="true" />Working in background</p>}
@@ -1201,6 +1219,7 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
                     !event.nativeEvent.isComposing
                   ) {
                     event.preventDefault();
+                    if (document.querySelector('#assistant-native-commands [role="status"]')) return;
                     const first = document.querySelector<HTMLButtonElement>("#assistant-native-commands button:not(:disabled):not([data-command-retry])");
                     if (first) { first.click(); return; }
                     void send();

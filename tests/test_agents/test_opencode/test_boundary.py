@@ -545,7 +545,17 @@ class BoundaryTests(unittest.TestCase):
             spec = job.spec
             self.assertEqual(spec.image, CONTROLLER_ID)
             self.assertEqual(spec.network_mode, "none")
-            self.assertEqual(spec.environment, {})
+            self.assertEqual(
+                {
+                    key: value.get_secret_value()
+                    for key, value in spec.environment.items()
+                },
+                {
+                    "GIT_CONFIG_COUNT": "1",
+                    "GIT_CONFIG_KEY_0": "safe.directory",
+                    "GIT_CONFIG_VALUE_0": "/draft",
+                },
+            )
             self.assertEqual(spec.cap_drop, ["ALL"])
             self.assertEqual(len(spec.mounts), 3)
             self.assertTrue(

@@ -34,6 +34,10 @@ validates the borrowed native profile. `OpenCodeModelCatalog` in `catalog.py` ow
 zero-turn discovery; `read_activity` with internal `activity/projection.py` helpers owns
 native interpretation and pricing. See the [role methods](../README.md#provider-role-contracts-275).
 
+Credential-free command workers trust only their fixed `/draft` mount as a Git
+safe directory through a three-key process environment. This supports host-owned
+bind mounts without global wildcard trust, profile mounts or inherited credentials.
+
 The controller and broker span an attempt. Native history export follows confirmed closure and precedes the final freeze. Output requirements are currently unsupported.
 
 | Method vocabulary | Provider contract |
