@@ -1,10 +1,13 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import ConversationHistory from "./ConversationHistory";
 
 jest.mock("../ProviderIcon", () => ({ __esModule: true, default: () => null }));
 
 test("collapsed history keeps its measured panel mounted across a narrow resize", () => {
   let available = 1000;
+  const previousObserver = global.ResizeObserver;
+  let resized!: ResizeObserverCallback;
+  global.ResizeObserver = class {constructor(callback: ResizeObserverCallback) {resized = callback;} observe(){} disconnect(){} unobserve(){}} as typeof ResizeObserver;
   const clientWidth = jest.spyOn(HTMLElement.prototype, "clientWidth", "get").mockImplementation(() => available);
   try {
     const props = {index: {conversations: [], next_cursor: null}, onIndex: jest.fn(),
@@ -14,10 +17,10 @@ test("collapsed history keeps its measured panel mounted across a narrow resize"
     const view = render(<div><ConversationHistory {...props} history={false} /></div>);
     expect(screen.getByRole("button", {name: "Expand conversations"})).toBeVisible();
     available = 500;
-    fireEvent(window, new Event("resize"));
+    act(() => resized([], {} as ResizeObserver));
     view.rerender(<div><ConversationHistory {...props} history /></div>);
     expect(screen.getByRole("separator", {name: "Resize history"})).toHaveAttribute("aria-valuemax", "220");
-  } finally {clientWidth.mockRestore();}
+  } finally {clientWidth.mockRestore(); global.ResizeObserver = previousObserver;}
 });
 
 test("history divider resizes within bounds and a drag never toggles the panel", () => {
