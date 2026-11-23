@@ -12,7 +12,7 @@ test("selects a discovered Codex system skill using its native dollar syntax", a
   render(<NativeCommandMenu conversation="chat" text="/skill-c" onSelect={select} onClose={() => {}} />);
   fireEvent.click(await screen.findByRole("button", {name: /\$skill-creator/}));
   expect(select).toHaveBeenCalledWith("$skill-creator ");
-  expect(screen.getByText("Skills")).toBeVisible();
+  expect(screen.queryByText("Skills")).toBeNull();
   expect(screen.queryByText("Commands")).toBeNull();
 });
 
@@ -27,6 +27,37 @@ test("groups native skills separately and explains unsupported provider configur
   expect(skill).toBeDisabled();
   expect(skill).toHaveAccessibleDescription("This skill edits provider configuration, which is managed by Laomedo.");
   expect(screen.getByText("Commands")).toBeVisible();
+  expect(screen.getByText("App-managed settings")).toBeVisible();
+  expect(screen.getByText("Commands").compareDocumentPosition(screen.getByText("Skills")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+});
+
+test("filters both groups and removes grouping when only one group matches", async () => {
+  jest.mocked(assistantRequest).mockResolvedValue({state: "available", commands: [
+    {name: "context-skill", kind: "skill", description: "Skill context", executable: true},
+    {name: "context-extra", kind: "command", description: "Unsupported context", executable: false, reason: "outside_assistant_command_policy"},
+    {name: "context", kind: "command", description: "Session context", executable: true},
+  ]});
+  const props = {conversation: "chat", provider: "claude", onSelect: jest.fn(), onClose: jest.fn()};
+  const view = render(<NativeCommandMenu {...props} text="/context" />);
+  await screen.findByText("Skills");
+  const buttons = screen.getAllByRole("button");
+  expect(buttons.map(button => button.textContent)).toEqual([
+    expect.stringContaining("/contextSession context"),
+    expect.stringContaining("/context-extraUnsupported contextNot integrated"),
+    expect.stringContaining("/context-skillSkill context"),
+  ]);
+  view.rerender(<NativeCommandMenu {...props} text="/context-s" />);
+  expect(screen.queryByText("Commands")).toBeNull();
+  expect(screen.queryByText("Skills")).toBeNull();
+  expect(screen.getAllByRole("button")).toHaveLength(1);
+  view.rerender(<NativeCommandMenu {...props} text="/context-e" />);
+  expect(screen.queryByText("Commands")).toBeNull();
+  expect(screen.queryByText("Skills")).toBeNull();
+  expect(screen.getByText("Not integrated")).toBeVisible();
+  view.rerender(<NativeCommandMenu {...props} text="/no-match" />);
+  expect(screen.queryByRole("button")).toBeNull();
+  expect(screen.queryByText("Skills")).toBeNull();
+  expect(screen.getByText(/No matching command/)).toBeVisible();
 });
 
 test("refreshes Claude commands after the native thread settles while the menu stays open", async () => {

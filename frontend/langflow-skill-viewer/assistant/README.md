@@ -257,7 +257,11 @@ for the selected conversation, available models and execution admission. Native
 approval cards align to the right; their white Approve button is the primary action.
 
 `NativeCommandMenu.tsx` reads the selected session's observed command catalog when
-the user types `/`, filters executable commands, and inserts the chosen command.
+the user types `/`, filters discovered entries, and inserts the chosen command.
+Matching commands precede matching skills, with usable entries first within each
+group. Headings and the divider appear only when both groups have matches.
+Blocked entries show a concise capability reason; their full explanation remains
+in the title and accessible description. Filtering never grants execution.
 The menu floats above the composer without resizing it. Compact single-line rows
 pair a command icon/name with a muted, ellipsized native description; the full
 description remains available in the button title and accessible content.
@@ -272,8 +276,8 @@ earlier token usage or a partial-model-reply warning. Claude control outcomes sa
 "Output received": the native report can describe an upstream error and does not
 establish that the reported service is healthy.
 
-Only explicitly typed Codex `/status`, classified as non-model by the actual
-catalog, skips a second approval. Other typed commands retain confirmation.
+Sending an explicitly selected native command or skill is the human approval of
+that exact invocation. Assistant-proposed invocations still require a decision.
 
 Chat reads the signed-in profile from the application AuthContext, which the
 HttpOnly-cookie session probe updates. It does not read the separate Zustand
