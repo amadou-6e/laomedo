@@ -272,9 +272,10 @@ observed commands use the human native-command route; they never fall back to
 ordinary prose after refused or uncertain dispatch. Unmatched slash text is chat.
 Completed native controls are classified by provider and command name. Their
 retained output is rendered and copied directly, without model Activity lanes,
-earlier token usage or a partial-model-reply warning. Claude control outcomes say
-"Output received": the native report can describe an upstream error and does not
-establish that the reported service is healthy.
+earlier token usage or a partial-model-reply warning. Completed command receipts
+are not rendered as duplicate cards; the command message and its retained result
+remain visible. Pending approvals and non-success outcomes remain visible. A native
+report may describe an upstream error without establishing service health.
 
 Sending an explicitly selected native command or skill is the human approval of
 that exact invocation. Assistant-proposed invocations still require a decision.

@@ -27,17 +27,20 @@ test("completed, rejected and foreign-session receipts offer no execution contro
     { ...action, id: "rejected", state: "rejected" },
     { ...action, id: "foreign", can_decide: false },
   ]} onFailure={() => {}} />);
-  expect(screen.getByText('Ran /review with arguments "inspect error handling".')).toBeVisible();
-  expect(screen.getByText("Completed")).toBeVisible();
+  expect(screen.queryByText(/Ran \/review/)).toBeNull();
+  expect(screen.queryByText("Completed")).toBeNull();
   expect(screen.getByText("Rejected")).toBeVisible();
   expect(screen.queryByRole("button")).toBeNull();
   expect(assistantRequest).not.toHaveBeenCalled();
 });
-test("labels a received Claude control report neutrally even if it describes a native error", () => {
-  render(<NativeActions conversation="chat" provider="claude" actions={[{...action, name: "context", arguments: "", may_use_model: false, state: "completed"}]} onFailure={() => {}} />);
-  expect(screen.getByText("Received output from /context.")).toBeVisible();
-  expect(screen.getByText("Output received")).toBeVisible();
-  expect(screen.queryByText("Completed")).toBeNull();
+test.each(["codex", "claude", "opencode"])("omits completed command receipts for %s", provider => {
+  render(<NativeActions conversation="chat" provider={provider} actions={[
+    {...action, id: "status", name: "status", state: "completed"},
+    {...action, id: "skills", name: "skills", state: "completed"},
+    {...action, id: "review", name: "review", state: "completed"},
+  ]} onFailure={() => {}} />);
+  expect(screen.queryByRole("article")).toBeNull();
+  expect(assistantRequest).not.toHaveBeenCalled();
 });
 
 test("omits a completed usage card while retaining approval for a pending proposal", () => {
