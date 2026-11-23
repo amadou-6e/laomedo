@@ -6,6 +6,7 @@ import ConversationHistory from "./history/ConversationHistory";
 import Composer from "./composer/Composer";
 import Welcome from "./conversation/Welcome";
 import ConversationTitle from "./conversation/ConversationTitle";
+import ProjectStorage from "./storage/ProjectStorage";
 import {
   applicationCommands,
   providerCommandNames,
@@ -940,6 +941,7 @@ export default function AssistantPage({
           </div>
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             {historyControl}
+            {!locked && <ProjectStorage key={owner} onFailure={fail} />}
             {conversation && !locked && (
               <>
                 <span role="status" aria-live="polite">

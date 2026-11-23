@@ -95,6 +95,26 @@ class AuthoringMcp:
             self.runtime.tool_tasks.setdefault(context.message_id, set()).add(task)
             await self.runtime.authorize(context)
             if operation in {
+                "list_project_files",
+                "read_project_file",
+                "write_agent_file",
+            }:
+                from laomedo.integrations.langflow.assistant.storage.models import (
+                    AgentFileWrite,
+                )
+
+                files = self.runtime.project_storage
+                if operation == "list_project_files":
+                    result = files.list_files(context.owner_id)
+                elif operation == "read_project_file":
+                    result = files.read_file(
+                        context.owner_id, arguments["path"], arguments.get("graph_id")
+                    )
+                else:
+                    result = files.write_file(
+                        context.owner_id, AgentFileWrite.model_validate(arguments)
+                    )
+            elif operation in {
                 "list_native_commands",
                 "list_native_agents",
                 "propose_native_command",
@@ -173,6 +193,30 @@ class AuthoringMcp:
         finally:
             if context is not None:
                 self.runtime.tool_tasks.get(context.message_id, set()).discard(task)
+
+    async def list_project_files(self, ctx: Context) -> dict:
+        """List connected graph IDs and persistent agent files. No whole-repository access."""
+        return await self._invoke(ctx, "list_project_files")
+
+    async def read_project_file(
+        self, path: str, ctx: Context, graph_id: str | None = None
+    ) -> dict:
+        """Read an agent-relative text file, or a connected graph file using graph_id."""
+        return await self._invoke(
+            ctx, "read_project_file", path=path, graph_id=graph_id
+        )
+
+    async def write_agent_file(
+        self, path: str, content: str, expected_sha256: str | None, ctx: Context
+    ) -> dict:
+        """Write a persistent agent file; null hash requires absence, otherwise exact observed hash."""
+        return await self._invoke(
+            ctx,
+            "write_agent_file",
+            path=path,
+            content=content,
+            expected_sha256=expected_sha256,
+        )
 
     async def list_native_commands(self, ctx: Context) -> dict:
         """List this conversation's observed Codex built-ins and their availability; no command runs."""

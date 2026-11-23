@@ -66,6 +66,13 @@ class AssistantRuntime:
         from laomedo.integrations.langflow.assistant.boundary import AssistantBoundary
 
         owner = cls(AssistantSettings())
+        from laomedo.integrations.langflow.assistant.storage.files import ProjectStorage
+        from laomedo.integrations.langflow.assistant.storage.routes import (
+            router as storage_router,
+        )
+
+        owner.project_storage = ProjectStorage(owner.settings.storage_root)
+        app.include_router(storage_router)
         app.state.laomedo_assistant = owner
         app.include_router(router)
         if owner.settings.app_url:

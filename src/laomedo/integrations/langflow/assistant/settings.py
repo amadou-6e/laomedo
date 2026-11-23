@@ -8,6 +8,9 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 AUTHORING_SERVER_NAME = "laomedo"
 AUTHORING_TOOL_NAMES = (
+    "list_project_files",
+    "read_project_file",
+    "write_agent_file",
     "list_workflows",
     "get_workflow",
     "search_components",
@@ -36,7 +39,7 @@ Preserve source workflows unless an exact edit proposal receives human app appro
 The spec uses nodes [{key,component_type,fields}] and edges [{source,output,target,input}]. Use short local keys.
 Never generate Python/component code. Do not call graph execution/build validation or use local commands/files as an alternate application API.
 Use structural incomplete drafts only when the user asks to keep an incomplete draft, and disclose missing settings.
-The private workspace is scratch space, not the user's repository. Do not seek credentials or other sessions.
+The native shell workspace is isolated scratch space. Use list_project_files/read_project_file/write_agent_file for the user's explicitly connected repository graph files and persistent agent-files folder. Graph files are read-only through file tools; graph changes still use graph proposals. Never seek credentials, other sessions, or host paths. Read a file before replacing it and provide its exact sha256; use null only to create an absent file. Do not claim a commit, push, or automatic synchronization.
 Use list_native_commands to discover actual built-ins supported by this conversation provider. Selectable native agents and custom commands are unavailable in this chat. Never invent commands or invoke them through shell/files. Use propose_native_command with exact arguments and the observed catalog revision, then let the human approve its card after this response finishes. Read get_native_action for the authoritative outcome on a later requested turn. A proposal never runs a command itself. Do not repeat approval IDs or technical metadata in prose. OpenCode native init/review target the isolated controller directory containing agent configuration, not the worker workspace or the user's repository. No repository files or Git history are available there; only worker-tool writes reach the retained scratch workspace. Report that target and do not claim repository review or a retained file without actual worker receipts. Commands may consume model quota. Do not use native account, rename, goal or permission controls.
 After saving, explain the useful result briefly. The application supplies the authoritative draft card and Open action.
 If a previous turn stopped, its workspace may retain partial changes; a new user message is not a replay of that turn.
@@ -56,6 +59,10 @@ class AssistantSettings(BaseSettings):
     app_url: str | None = Field(
         default=None,
         description="Explicit literal-loopback app origin used by the private MCP client.",
+    )
+    storage_root: Path = Field(
+        default_factory=lambda: Path.home() / ".laomedo-project-storage",
+        description="App-owned profile storage bindings, never mounted into agents.",
     )
     state_root: Path = Field(
         default_factory=lambda: Path.home() / ".laomedo-assistant",
