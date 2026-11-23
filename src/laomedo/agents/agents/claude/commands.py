@@ -117,7 +117,22 @@ class ClaudeCommands:
 
     @classmethod
     def revision(cls, catalog, image_id, *, builtin_skills=()):
-        """Bind observed entries to the actual provider, pinned handler and image."""
+        """Bind executable contracts; display-only discovery is not approval scope."""
+        executable = [
+            item.model_dump(mode="json")
+            for item in catalog.commands
+            if item.name in {"compact", "usage", "context", "mcp"}
+            or (
+                item.name in builtin_skills
+                and cls.skill_reason(
+                    item,
+                    catalog,
+                    builtins_only=True,
+                    builtin_skills=builtin_skills,
+                )
+                is None
+            )
+        ]
         return hashlib.sha256(
             json.dumps(
                 {
@@ -125,7 +140,9 @@ class ClaudeCommands:
                     "cli": CLI_VERSION,
                     "adapter": "0.98.0",
                     "image_id": image_id,
-                    "catalog": catalog.model_dump(mode="json"),
+                    "executable_contracts": sorted(
+                        executable, key=lambda item: item["name"]
+                    ),
                     "builtin_skills": sorted(builtin_skills),
                 },
                 sort_keys=True,

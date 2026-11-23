@@ -224,3 +224,7 @@ the saved account's exact profile volume. The login-custody image remains pinned
 for authentication operations; it must not silently freeze chat's adapter version.
 Graph controllers retain their existing image selection. Existing run image and
 thread identity checks still refuse incompatible resume; no history is replayed.
+
+Claude's approval revision covers executable native contracts, their provenance,
+the observed skill set and the pinned image. Unsupported display-only commands
+may appear on resume without invalidating an unchanged executable contract.

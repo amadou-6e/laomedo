@@ -12,6 +12,50 @@ from laomedo.agents.errors import RunnerError
 class ClaudeCommandTests(unittest.TestCase):
     """Supporting receipt-validation tests, never live native acceptance."""
 
+    def test_display_only_discovery_changes_do_not_change_executable_approval_scope(
+        self,
+    ):
+        skill = {
+            "name": "claude-api",
+            "description": "API reference",
+            "_meta": {"laomedo": {"builtin": True}},
+        }
+        names = ("claude-api", "doctor")
+        initial = NativeCommandCatalog(
+            commands=[skill, {"name": "usage", "description": "Usage"}]
+        )
+        resumed = NativeCommandCatalog(
+            commands=[
+                {
+                    "name": "doctor",
+                    "description": "Setup",
+                    "_meta": {"laomedo": {"builtin": True}},
+                },
+                *reversed(initial.commands),
+            ]
+        )
+        revision = ClaudeCommands.revision(initial, "image", builtin_skills=names)
+        self.assertEqual(
+            revision, ClaudeCommands.revision(resumed, "image", builtin_skills=names)
+        )
+        for changed in (
+            {**skill, "description": "Changed reference"},
+            {**skill, "_meta": {"laomedo": {"builtin": False}}},
+        ):
+            with self.subTest(changed=changed):
+                self.assertNotEqual(
+                    revision,
+                    ClaudeCommands.revision(
+                        NativeCommandCatalog(commands=[changed, initial.commands[1]]),
+                        "image",
+                        builtin_skills=names,
+                    ),
+                )
+        self.assertNotEqual(
+            revision,
+            ClaudeCommands.revision(initial, "different-image", builtin_skills=names),
+        )
+
     def test_bundled_guidance_requires_both_builtin_marker_and_native_skill_list(self):
         catalog = NativeCommandCatalog.model_validate(
             {
