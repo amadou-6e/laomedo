@@ -29,7 +29,7 @@ export default function NativeCommandMenu({ conversation, provider = "codex", ru
   ).filter(item => !appCommands.some(app => app.name === item.name)).map(item => ({...item, reason: ["plan", "goal"].includes(item.name) ? "deferred" : ["review-branch", "review-commit"].includes(item.name) ? "scratch_workspace" : item.reason}));
   const commands: NativeCommandCatalog["commands"] = [...nativeCommands, ...appCommands.map(item => ({...item, executable: item.action !== "rename" || Boolean(conversation), reason: "conversation_required"}))]
     .filter(item => (!text.startsWith("$") || item.name.startsWith("$")) && item.name.replace(/^\$/, "").toLowerCase().startsWith(text.slice(1).toLowerCase()))
-    .sort((left, right) => Number(left.kind === "skill") - Number(right.kind === "skill") || Number(right.executable) - Number(left.executable));
+    .sort((left, right) => Number(("kind" in left && left.kind) === "skill") - Number(("kind" in right && right.kind) === "skill") || Number(right.executable) - Number(left.executable));
   const hasBothGroups = commands.some(item => item.kind === "skill") && commands.some(item => item.kind !== "skill");
   const blockedLabel = (reason?: string | null) => reason === "native_session_not_created" ? "Start session"
     : reason === "conversation_required" ? "Needs conversation"
