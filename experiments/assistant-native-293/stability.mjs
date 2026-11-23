@@ -44,6 +44,18 @@ if(process.env.UI_ONLY==='1') {
  checks.push('native_enter_selects_without_dispatch','shift_enter_newline');
  await box.fill('');
  const history=page.getByRole('navigation',{name:'Conversation history'});
+ await page.getByRole('heading',{name:'History',exact:true}).waitFor();
+ const historyRail=page.getByRole('separator',{name:'Resize history'});
+ const historyWidth=Number(await historyRail.getAttribute('aria-valuenow'));
+ const historyRect=await historyRail.boundingBox();
+ await page.mouse.move(historyRect.x+historyRect.width/2,historyRect.y+historyRect.height/2);
+ await page.mouse.down();await page.mouse.move(historyRect.x+65,historyRect.y+historyRect.height/2,{steps:10});await page.mouse.up();
+ if(!(await history.isVisible())||Number(await historyRail.getAttribute('aria-valuenow'))<=historyWidth)throw Error('history_drag_collapsed_or_no_resize');
+ await page.getByRole('button',{name:'Collapse conversations',exact:true}).click();
+ if(await history.isVisible())throw Error('history_click_did_not_collapse');
+ await page.getByRole('button',{name:'Expand conversations',exact:true}).click();
+ await history.waitFor();
+ checks.push('history_rail_drag_resizes_without_collapsing','history_click_toggles');
  const before=await history.getByRole('button').count();
  await history.evaluate(node=>{node.scrollTop=node.scrollHeight;});
  const until=Date.now()+10000;
