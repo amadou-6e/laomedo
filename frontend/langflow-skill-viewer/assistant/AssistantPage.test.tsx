@@ -28,6 +28,30 @@ jest.mock("@/contexts/authContext", () => ({
 }));
 
 describe("uncertain assistant submission", () => {
+  it("loads earlier conversations on scroll once and shows background work instead of the switching tip", async () => {
+    let finish!: (value: unknown) => void;
+    const earlier = new Promise(resolve => {finish=resolve;});
+    const current={id:"saved",title:"Current",provider:"codex",connection_id:"account",connection_generation:1,model:"fixture",effort:"low",state:"idle",active_message_id:null,updated_at:1};
+    const background={...current,id:"background",title:"Background",state:"running",active_message_id:"message"};
+    jest.mocked(assistantRequest).mockImplementation(async path=>{
+      if(path==="/connections")return {connections:[{connection_id:"account",generation:1,provider:"codex",label:"Account",lifecycle:"connected",auth_state:"ready"}]};
+      if(path.startsWith("/models?"))return {provider:"codex",models:[{id:"fixture",efforts:["low"]}]};
+      if(path==="/conversations")return {conversations:[current,background],next_cursor:30};
+      if(path==="/conversations?cursor=30")return earlier;
+      return {conversation:current,messages:[],drafts:[],next_cursor:null};
+    });
+    render(<MemoryRouter initialEntries={["/assistant?conversation=saved"]}><AssistantPage /></MemoryRouter>);
+    await screen.findByRole("button",{name:/Background/});
+    expect(screen.getByText("Working in background")).toBeVisible();
+    expect(screen.queryByText(/Switching conversations/)).toBeNull();
+    expect(screen.queryByRole("button",{name:"Load earlier conversations"})).toBeNull();
+    const history=screen.getByRole("navigation",{name:"Conversation history"});
+    fireEvent.scroll(history);
+    fireEvent.scroll(history);
+    await waitFor(()=>expect(jest.mocked(assistantRequest).mock.calls.filter(([path])=>path==="/conversations?cursor=30")).toHaveLength(1));
+    await act(async()=>{finish({conversations:[{...current,id:"older",title:"Earlier"}],next_cursor:null});await earlier;});
+    expect(await screen.findByRole("button",{name:/Earlier/})).toBeVisible();
+  });
   it("does not strand an idle conversation after an overlapping native request was refused", async () => {
     const chat = {id:"saved", title:"Saved", provider:"codex", connection_id:"account", connection_generation:1, run_id:"run", model:"fixture", effort:"low", state:"idle", active_message_id:null};
     jest.mocked(assistantRequest).mockImplementation(async (path, body) => {

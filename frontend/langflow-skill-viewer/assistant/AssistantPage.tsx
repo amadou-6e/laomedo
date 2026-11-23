@@ -777,26 +777,28 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
           aria-label="Conversations"
         >
           <div className="mb-4 flex items-center gap-2"><h2 className="flex-1 text-sm font-semibold">Conversations</h2>{embedded && <>{historyControl}{headerActions}</>}</div>
-          <nav aria-label="Conversation history" className="min-h-0 flex-1 divide-y divide-border/20 overflow-y-auto"
+          <nav aria-label="Conversation history" className="min-h-0 flex-1 space-y-1 overflow-y-auto"
             onScroll={event => { const list = event.currentTarget; if (list.scrollHeight - list.scrollTop - list.clientHeight < 100) void olderConversations(); }}>
             {index.conversations.map((item) => (
               <button
                 key={item.id}
                 type="button"
                 aria-current={selected === item.id ? "page" : undefined}
-                className={`w-full rounded-lg p-3 text-left text-sm hover:bg-muted focus-visible:outline focus-visible:outline-2 ${selected === item.id ? "bg-muted" : ""}`}
+                className={`flex w-full items-center gap-2 rounded-lg p-3 text-left text-sm hover:bg-muted focus-visible:outline focus-visible:outline-2 ${selected === item.id ? "bg-muted" : ""}`}
                 onClick={() => {
                   setParams({ conversation: item.id });
                   if (embedded) setHistory(false);
                 }}
               >
-                <span className="flex items-center gap-2"><ProviderIcon provider={item.provider} className="h-3.5 w-3.5 opacity-60" /><span className="min-w-0 flex-1 truncate font-medium">{item.title}</span>{item.active_message_id && <Loader2 size={12} className="shrink-0 animate-spin text-muted-foreground" aria-label="Conversation working" />}</span>
+                <span className="shrink-0 border-r border-border/20 py-1 pr-2"><ProviderIcon provider={item.provider} className="h-3.5 w-3.5 opacity-60" /></span>
+                <span className="min-w-0 flex-1"><span className="block truncate font-medium">{item.title}</span>
                 <span className="mt-1 block text-xs text-muted-foreground">
                   {({codex: "Codex", claude: "Claude", opencode: "OpenCode"} as Record<string, string>)[item.provider] ?? "Agent"} ·{" "}
                   {item.active_message_id
                     ? stateLabel(item.state)
                     : new Date(item.updated_at * 1000).toLocaleDateString()}
-                </span>
+                </span></span>
+                {item.active_message_id && <Loader2 size={12} className="shrink-0 animate-spin text-muted-foreground" aria-label="Conversation working" />}
               </button>
             ))}
             {loadingHistory && <p role="status" className="flex justify-center py-3 text-muted-foreground"><Loader2 size={14} className="animate-spin" aria-hidden="true" /><span className="sr-only">Loading earlier conversations</span></p>}
