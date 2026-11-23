@@ -248,3 +248,34 @@ the latest six-line catalog paragraph and final visual/live packet still await
 review. Current-image fixtures were updated at d81977777: 63 affected runtime
 tests and13subtests pass. CI rerun and final Codex helper-backed skill acceptance
 are in progress. No merge-readiness or all-skills availability claim.
+
+## Direct Send is approval, November 23
+
+Owner explicitly rejected post-Send approval for exact native commands/skills and
+required a generic mechanism. Production a7fccb77d removes the old Codex-status /
+Claude-usage exception list. The authenticated human route commits action plus
+command message atomically as executing, shares NativeCommands._reserve with
+proposal approval, and schedules through dispatch_reserved after commit. There is
+no committed pending-card window. Model-originated MCP proposals remain pending.
+No caller-controlled approval flag or new persistence schema is introduced.
+
+Eight actual-route/real-storage tests plus three subtests pass: generic model-backed
+skill arguments across three providers, missing quota classification, idempotency,
+active/session/capacity fences, rollback then one retry, and pending model proposals.
+Black checks958files. Full Vite rebuild passes1m22s. Error catalogue tests24+4subtests
+pass; ab7025771 also fixes the single package CI failure for a missing OpenCode skill
+configuration explanation. All required CI is now green on Python3.10/3.13 and both
+provider/Docker control checks.
+
+Real Claude direct Send resumed the existing native thread and completed without
+an approval click, retaining a root skill_expansion event and native terminal result.
+No tools or file changes requested. The shared desktop-dark integrated sidebar was
+visually verified with the latest answer visible. Screenshots stay private/ignored.
+Same reviewer APPROVE d81977777..a7fccb77d, JSON focused recheck APPROVE
+ab7025771; contract/NS-293 design and rendered desktop direct-Send UI APPROVE at
+specd1b49df. No later production changes. Native action receipts still group under
+the preceding response (existing display limitation, not an approval card).
+Codex final skills7 live acceptance remains deferred by explicit owner instruction;
+no quota retry was made. Broader skill acceptance and narrow/light/keyboard/live
+model-proposal UI coverage remain outside this specific correction's acceptance.
+Nothing merged.
