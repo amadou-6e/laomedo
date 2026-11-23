@@ -304,9 +304,12 @@ and attention states retain their existing admission fences. Enter in an open
 command picker selects its first usable match; a subsequent Enter sends after
 selection, while Shift Enter inserts a newline.
 
-Conversation history uses provider mini logos, subtle row separators and loading
+Conversation history replaces its provider text markers with monochrome SVG
+marks in the metadata row, with subtle vertical separators and loading
 on scroll instead of a pagination button. Active conversations have a spinner;
 background work replaces the static switching tip. The assistant sidebar shares
 one arrow rail for drag resizing and click collapse, with drag movement suppressing
 collapse. Model labels omit the OpenCode Go prefix while retaining exact IDs at
 the selection, accessibility and provider boundaries.
+The Claude monochrome mark reuses the pinned upstream vector without its colored
+background tile; provider names remain available to screen readers.

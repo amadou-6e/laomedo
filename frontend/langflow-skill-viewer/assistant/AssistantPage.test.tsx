@@ -20,6 +20,7 @@ jest.mock("./Message", () => ({
   UserMessage: ({ text }: { text: string }) => <p>{text}</p>,
 }));
 jest.mock("./assets/openai-logo.svg", () => "openai-logo.svg");
+jest.mock("./assets/claude-mark.svg", () => "claude-mark.svg");
 jest.mock("@/components/common/genericIconComponent", () => ({ __esModule: true, default: () => null }));
 jest.mock("./assets/opencode-logo-dark.svg", () => "opencode-dark.svg");
 jest.mock("./assets/opencode-logo-light.svg", () => "opencode-light.svg");

@@ -808,14 +808,15 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
                   if (embedded) setHistory(false);
                 }}
               >
-                <span className="shrink-0 border-r border-border/20 py-1 pr-2"><ProviderIcon provider={item.provider} className="h-3.5 w-3.5 opacity-60" /></span>
                 <span className="min-w-0 flex-1"><span className="block truncate font-medium">{item.title}</span>
-                <span className="mt-1 block text-xs text-muted-foreground">
-                  {({codex: "Codex", claude: "Claude", opencode: "OpenCode"} as Record<string, string>)[item.provider] ?? "Agent"} ·{" "}
+                <span className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+                  <span className="sr-only">{({codex: "Codex", claude: "Claude", opencode: "OpenCode"} as Record<string, string>)[item.provider] ?? "Agent"}</span>
+                  <ProviderIcon provider={item.provider} monochrome className="h-3 w-3 opacity-70" />
+                  <span className="border-l border-border/20 pl-2">
                   {item.active_message_id
                     ? stateLabel(item.state)
                     : new Date(item.updated_at * 1000).toLocaleDateString()}
-                </span></span>
+                </span></span></span>
                 {item.active_message_id && <Loader2 size={12} className="shrink-0 animate-spin text-muted-foreground" aria-label="Conversation working" />}
               </button>
             ))}
