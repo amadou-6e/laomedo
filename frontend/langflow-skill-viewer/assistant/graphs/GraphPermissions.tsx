@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { assistantRequest } from "./api";
+import { assistantRequest } from "../api";
 
 export default function GraphPermissions({
   conversation,

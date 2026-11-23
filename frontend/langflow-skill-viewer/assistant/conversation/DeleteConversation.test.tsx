@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import DeleteConversation from "./DeleteConversation";
-import { AssistantFailure, assistantRequest } from "./api";
-jest.mock("./api", () => ({ ...jest.requireActual("./api"), assistantRequest: jest.fn() }));
+import { AssistantFailure, assistantRequest } from "../api";
+jest.mock("../api", () => ({ ...jest.requireActual("../api"), assistantRequest: jest.fn() }));
 
 const props = { conversation: "chat", title: "My conversation", onDeleted: jest.fn(), onFailure: jest.fn() };
 beforeEach(() => { jest.clearAllMocks(); });

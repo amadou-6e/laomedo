@@ -2,10 +2,10 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { MemoryRouter } from "react-router-dom";
 import AssistantPage from "./AssistantPage";
 import { assistantRequest, AssistantFailure } from "./api";
-import { conversationTranscript, downloadTranscript } from "./transcript";
+import { conversationTranscript, downloadTranscript } from "./conversation/transcript";
 import type { Context } from "react";
 
-jest.mock("./transcript", () => ({
+jest.mock("./conversation/transcript", () => ({
   conversationTranscript: jest.fn(),
   downloadTranscript: jest.fn(),
 }));
@@ -14,7 +14,7 @@ jest.mock("./api", () => ({
   ...jest.requireActual("./api"),
   assistantRequest: jest.fn(),
 }));
-jest.mock("./Message", () => ({
+jest.mock("./messages/Message", () => ({
   __esModule: true,
   default: () => null,
   UserMessage: ({ text }: { text: string }) => <p>{text}</p>,
@@ -559,7 +559,7 @@ describe("uncertain assistant submission", () => {
     expect(title.closest("header")).toContainElement(screen.getByRole("link",{name:"Full-window chat"}));
     fireEvent.click(screen.getByRole("button",{name:"Expand conversations"}));
     expect(screen.getByRole("link",{name:"Full-window chat"})).toBeVisible();
-    expect(screen.getByRole("heading",{name:"Conversations"})).toBeVisible();
+    expect(screen.getByRole("heading",{name:"History"})).toBeVisible();
   });
   it("selects saved sidebar conversations without replacing the graph URL", async () => {
     const first = { connection_id: "account", connection_generation: 1, id: "first", title: "First saved chat", provider: "codex", model: "fixture", effort: "low", state: "idle", active_message_id: null };

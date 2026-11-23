@@ -1,8 +1,8 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import NativeActions from "./NativeActions";
-import { assistantRequest } from "./api";
-import type { NativeAction } from "./models";
-jest.mock("./api", () => ({ assistantRequest: jest.fn() }));
+import { assistantRequest } from "../api";
+import type { NativeAction } from "../models";
+jest.mock("../api", () => ({ assistantRequest: jest.fn() }));
 const action: NativeAction = { id: "proposal", message_id: "message", name: "review",
   arguments: "inspect error handling", digest: "a".repeat(64), state: "pending",
   may_use_model: true, can_decide: true, result_message_id: null };

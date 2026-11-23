@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import AccountSelection from "./AccountSelection";
 
-jest.mock("./ProviderIcon", () => ({ __esModule: true, default: () => null }));
+jest.mock("../ProviderIcon", () => ({ __esModule: true, default: () => null }));
 
 const accounts = [
   { connection_id: "personal", generation: 1, provider: "codex", label: "Personal", lifecycle: "connected", auth_state: "ready" },

@@ -5,7 +5,7 @@ import AssistantSidebar from "./AssistantSidebar";
 import { useAssistantSidebarStore } from "./sidebarStore";
 
 jest.mock("@/stores/authStore", () => ({ __esModule: true, default: (select: any) => select({ userData: { id: "owner" } }) }));
-jest.mock("./AssistantPage", () => ({ __esModule: true, default: ({ onSelectConversation, headerActions }: any) => {
+jest.mock("../AssistantPage", () => ({ __esModule: true, default: ({ onSelectConversation, headerActions }: any) => {
   const [draft, setDraft] = useState("");
   return <div>{headerActions}<input aria-label="Draft" value={draft} onChange={(event) => setDraft(event.target.value)} /><button onClick={() => onSelectConversation({ conversation: "saved-chat" })}>Select saved chat</button></div>;
 } }));

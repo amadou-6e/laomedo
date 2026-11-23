@@ -5,19 +5,19 @@ import {
 import type { Lane } from "@/modals/graphAgents/models";
 import ToolCalls from "./ToolCalls";
 import { messageText } from "@/modals/graphAgents/utils";
-import { AssistantFailure, assistantRequest } from "./api";
+import { AssistantFailure, assistantRequest } from "../api";
 import ErrorExplanation from "@/components/laomedoErrors/ErrorExplanation";
 import { describeNodeFailure } from "@/components/laomedoErrors/nodeErrors";
-import type { ActivityPage, DraftReceipt, Message } from "./models";
-import { stateLabel } from "./models";
+import type { ActivityPage, DraftReceipt, Message } from "../models";
+import { stateLabel } from "../models";
 import Thinking from "./Thinking";
 import CopyAnswer from "./CopyAnswer";
 import { responseTranscript, hasNativeCommandOutcome, hasNativeControlResult, nativeResponseText } from "./responseTranscript";
-import GraphActions from "./GraphActions";
-import NativeActions from "./NativeActions";
-import NativeStatus from "./NativeStatus";
-import NativeUsage from "./NativeUsage";
-import type { GraphAction, NativeAction } from "./models";
+import GraphActions from "../graphs/GraphActions";
+import NativeActions from "../commands/NativeActions";
+import NativeStatus from "../commands/NativeStatus";
+import NativeUsage from "../commands/NativeUsage";
+import type { GraphAction, NativeAction } from "../models";
 
 export function UserMessage({
   text,

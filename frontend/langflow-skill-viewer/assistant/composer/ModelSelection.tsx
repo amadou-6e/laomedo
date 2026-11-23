@@ -5,7 +5,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import type { Models } from "./models";
+import type { Models } from "../models";
 
 export default function ModelSelection({
   models,

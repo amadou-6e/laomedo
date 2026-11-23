@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Trash2 } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { AssistantFailure, assistantRequest } from "./api";
+import { AssistantFailure, assistantRequest } from "../api";
 
 export default function DeleteConversation({ conversation, title, onDeleted, onFailure }: {
   conversation: string;

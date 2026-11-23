@@ -1,7 +1,7 @@
 import { messageText } from "@/modals/graphAgents/utils";
-import { assistantRequest } from "./api";
-import type { ActivityPage, ConversationDetail, Message } from "./models";
-import { hasNativeControlResult, nativeResponseText } from "./responseTranscript";
+import { assistantRequest } from "../api";
+import type { ActivityPage, ConversationDetail, Message } from "../models";
+import { hasNativeControlResult, nativeResponseText } from "../messages/responseTranscript";
 
 export async function conversationTranscript(
   conversation: string,

@@ -1,5 +1,36 @@
 # Application assistant
 
+## Frontend modules
+
+`AssistantPage.tsx` coordinates the selected conversation, polling, retained pending
+submissions and dispatch fencing. It composes concern-owned views rather than
+containing their markup or account/model discovery effects.
+
+- `history/ConversationHistory.tsx`: history rows, earlier-page loading, background
+  activity and the draggable/collapsible divider. `useHistoryWidth.ts` bounds the
+  history width to the available page and handles pointer/keyboard resizing.
+- `conversation/ConversationTitle.tsx`: controlled rename form and title affordance.
+  `useConversationExport.ts` owns abortable Markdown export; `transcript.ts` builds
+  the owner-authorized transcript. `Welcome.tsx` renders provider selection.
+- `composer/Composer.tsx`: editable draft, command selection, Enter/Shift Enter,
+  account/model controls and Send/Stop. `useSavedAccounts.ts` and
+  `useModelDiscovery.ts` keep account/profile and model-binding fences at their
+  respective discovery boundaries.
+- `messages/MessageList.tsx` and `Message.tsx`: retained turns and actual responses,
+  pending-submission recovery, streamed tool lanes, copy and thinking indicators.
+- `commands/`: observed native picker, application-command previews, approval and
+  non-success receipts, and native Status/Usage presentation.
+- `graphs/`: graph approval cards and conversation-scoped graph permissions.
+- `sidebar/`: editor attachment, open state, resizing and entry controls.
+- `api.ts` and `models.ts`: shared HTTP boundary and wire types, independent of
+  rendering. `ProviderIcon.tsx` and `assets/` own shared provider artwork.
+
+Tests stay beside their concern. Imports target defining modules directly; there
+are no compatibility forwarding modules or barrel exports. The overlay installer
+copies the full tree, including nested modules/assets. Module moves do not change
+HTTP payloads, provider admission, pending operation identities or recovery rules.
+
+
 Claude `/usage` renders, copies and exports only the native Limits section,
 including its reported percentages, reset times and bars. Missing limits show
 an unavailable message; the full native receipt stays retained by the runner.

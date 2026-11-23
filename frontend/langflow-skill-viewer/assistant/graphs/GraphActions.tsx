@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { ExternalLink } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
-import { assistantRequest } from "./api";
-import type { GraphAction } from "./models";
+import { assistantRequest } from "../api";
+import type { GraphAction } from "../models";
 
 export default function GraphActions({
   conversation,

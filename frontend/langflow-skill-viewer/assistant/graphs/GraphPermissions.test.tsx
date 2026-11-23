@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import GraphPermissions from "./GraphPermissions";
-import { assistantRequest } from "./api";
-jest.mock("./api", () => ({ assistantRequest: jest.fn() }));
+import { assistantRequest } from "../api";
+jest.mock("../api", () => ({ assistantRequest: jest.fn() }));
 it("revokes only the selected conversation category without running anything", async () => {
   jest.mocked(assistantRequest).mockResolvedValue({ state: "revoked" });
   const onChange = jest.fn();

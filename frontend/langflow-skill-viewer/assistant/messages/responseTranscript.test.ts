@@ -1,5 +1,5 @@
 import { responseTranscript, hasNativeControlResult, nativeResponseText } from "./responseTranscript";
-import type { ActivityPage, GraphAction, Message, NativeAction } from "./models";
+import type { ActivityPage, GraphAction, Message, NativeAction } from "../models";
 
 it.each(["usage", "context", "mcp"])("copies Claude %s as native output without model activity or partial warnings", name => {
   const message = {native_action_id: "approved", text: `/${name}`, state: "completed", response: name === "usage" ? "### Limits\nNative status: unavailable" : "Native status: unavailable"} as Message;

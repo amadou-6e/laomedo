@@ -1,6 +1,6 @@
 import { conversationTranscript } from "./transcript";
-import { assistantRequest } from "./api";
-jest.mock("./api", () => ({ assistantRequest: jest.fn() }));
+import { assistantRequest } from "../api";
+jest.mock("../api", () => ({ assistantRequest: jest.fn() }));
 
 const row = (id: string, created_at: number, response: string | null = null) => ({
   id, created_at, attempt_id: id, text: `Prompt ${id}`, response, state: "completed",

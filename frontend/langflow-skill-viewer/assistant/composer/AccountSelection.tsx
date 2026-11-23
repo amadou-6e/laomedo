@@ -1,8 +1,8 @@
 import { useId, useState } from "react";
 import { Check, ChevronDown, ChevronRight } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import ProviderIcon from "./ProviderIcon";
-import type { SavedConnection } from "./models";
+import ProviderIcon from "../ProviderIcon";
+import type { SavedConnection } from "../models";
 
 export default function AccountSelection({ accounts, provider, selected, generation, disabled, loading = false, onSelect, onManageAccounts }: {
   provider: string;

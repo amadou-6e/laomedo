@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { assistantRequest } from "./api";
-import type { NativeAction } from "./models";
+import { assistantRequest } from "../api";
+import type { NativeAction } from "../models";
 import { nativeCommandText } from "./commandPreviews";
 
 export default function NativeActions({ conversation, provider = "codex", actions, onFailure }: {

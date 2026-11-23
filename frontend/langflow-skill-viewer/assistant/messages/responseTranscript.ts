@@ -1,7 +1,7 @@
 import { messageText } from "@/modals/graphAgents/utils";
-import type { ActivityPage, DraftReceipt, GraphAction, Message, NativeAction } from "./models";
+import type { ActivityPage, DraftReceipt, GraphAction, Message, NativeAction } from "../models";
 import { toolCall } from "./toolCall";
-import { nativeCommandText } from "./commandPreviews";
+import { nativeCommandText } from "../commands/commandPreviews";
 
 export function isNativeControlCommand(provider: string, name: string): boolean {
   return (provider === "codex" ? ["status", "mcp", "skills"] : provider === "claude" ? ["usage", "context", "mcp"] : []).includes(name);

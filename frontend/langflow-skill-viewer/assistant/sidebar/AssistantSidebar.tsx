@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { ExternalLink, ChevronRight } from "lucide-react";
 import { Link } from "react-router-dom";
 import useAuthStore from "@/stores/authStore";
-import AssistantPage from "./AssistantPage";
+import AssistantPage from "../AssistantPage";
 import { useAssistantSidebarStore } from "./sidebarStore";
 
 export default function AssistantSidebar() {

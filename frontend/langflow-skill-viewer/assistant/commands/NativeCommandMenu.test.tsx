@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import NativeCommandMenu from "./NativeCommandMenu";
-import { assistantRequest } from "./api";
-jest.mock("./api", () => ({ assistantRequest: jest.fn() }));
+import { assistantRequest } from "../api";
+jest.mock("../api", () => ({ assistantRequest: jest.fn() }));
 beforeEach(() => jest.mocked(assistantRequest).mockReset());
 
 test("selects a discovered Codex system skill using its native dollar syntax", async () => {

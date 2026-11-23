@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useId, useState } from "react";
 import { BookOpen, ChevronRight, SquareTerminal } from "lucide-react";
-import { assistantRequest } from "./api";
-import type { NativeCommandCatalog } from "./models";
+import { assistantRequest } from "../api";
+import type { NativeCommandCatalog } from "../models";
 import { applicationCommands, providerCommandPreviews, nativeCommandText } from "./commandPreviews";
 
 export default function NativeCommandMenu({ conversation, provider = "codex", runId, threadId, active = false, text, onSelect, onClose }: {

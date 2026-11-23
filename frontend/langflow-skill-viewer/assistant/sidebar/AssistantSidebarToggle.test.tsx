@@ -1,11 +1,11 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import AssistantEntry from "./AssistantEntry";
+import AssistantEntry from "../AssistantEntry";
 import AssistantSidebarToggle from "./AssistantSidebarToggle";
 import { useAssistantSidebarStore } from "./sidebarStore";
 jest.mock("@/stores/authStore",()=>({__esModule:true,default:(select:any)=>select({userData:null})}));
 jest.mock("@/components/common/genericIconComponent",()=>({__esModule:true,default:()=> <svg/>}));
-jest.mock("./api",()=>({assistantRequest:jest.fn()}));
+jest.mock("../api",()=>({assistantRequest:jest.fn()}));
 
 beforeEach(()=>useAssistantSidebarStore.setState({open:false}));
 

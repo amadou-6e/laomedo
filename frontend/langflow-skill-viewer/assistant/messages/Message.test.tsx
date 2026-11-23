@@ -2,14 +2,14 @@ import { fireEvent, render as renderUI, screen, waitFor } from "@testing-library
 import { MemoryRouter } from "react-router-dom";
 import type { ReactElement } from "react";
 import MessageRow from "./Message";
-import { assistantRequest } from "./api";
-import type { DraftReceipt, Message } from "./models";
+import { assistantRequest } from "../api";
+import type { DraftReceipt, Message } from "../models";
 jest.unmock("react-markdown");
 jest.unmock("remark-gfm");
 // Message tests exercise shared Markdown, not the separate JSON source viewer.
 jest.mock("@/components/core/codeTabsComponent",()=>({__esModule:true,default:({code}:{code:string})=><pre>{code}</pre>}));
 
-jest.mock("./api", () => ({
+jest.mock("../api", () => ({
   assistantRequest: jest.fn(),
   AssistantFailure: class extends Error {},
 }));

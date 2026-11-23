@@ -2,9 +2,9 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter, Routes, Route } from "react-router-dom";
 import type { ReactElement } from "react";
 import GraphActions from "./GraphActions";
-import { assistantRequest } from "./api";
-import type { GraphAction } from "./models";
-jest.mock("./api", () => ({ assistantRequest: jest.fn() }));
+import { assistantRequest } from "../api";
+import type { GraphAction } from "../models";
+jest.mock("../api", () => ({ assistantRequest: jest.fn() }));
 const action: GraphAction = {
   id: "action",
   message_id: "message",
