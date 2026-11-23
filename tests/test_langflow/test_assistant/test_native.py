@@ -6,7 +6,7 @@ import tempfile
 import time
 import unittest
 from uuid import UUID, uuid4
-from unittest.mock import patch
+from unittest.mock import patch, Mock
 from unittest.mock import AsyncMock
 
 from sqlalchemy.ext.asyncio import create_async_engine
@@ -76,6 +76,10 @@ class NativeApprovalTests(unittest.IsolatedAsyncioTestCase):
             authorize=self.authorize,
             check_session=self.check_session,
             native_catalog=self.catalog,
+            closing=False,
+            jobs={},
+            settings=SimpleNamespace(max_active_turns=5),
+            dispatch_reserved=Mock(),
         )
         self.commands = NativeCommands(self.runtime)
         self.request = NativeCommandRequest(
@@ -128,137 +132,129 @@ class NativeApprovalTests(unittest.IsolatedAsyncioTestCase):
             workspace_hash="sha256:" + "b" * 64,
         )
 
-    async def test_typed_status_uses_existing_reservation_once_without_model_proposal(
+    async def submit(self, request):
+        """Exercise the actual human HTTP-route owner with inert native dispatch."""
+        from laomedo.integrations.langflow.assistant.runtime import AssistantRuntime
+
+        return await AssistantRuntime.submit_native_command(
+            self.runtime, self.owner, self.key, self.conversation, request
+        )
+
+    async def test_direct_send_approves_exact_request_without_name_or_quota_exceptions(
         self,
     ):
-        """Explicit human status reserves once; a duplicate never dispatches again."""
+        """Every admitted direct request reserves once, without a pending-card gap."""
         await self.settle()
+        for provider, name, arguments, quota in (
+            ("codex", "status", "", None),
+            ("claude", "usage", "", False),
+            ("opencode", "$bundled-reference", "Explain the API", True),
+        ):
+            with self.subTest(provider=provider, name=name):
+                async with self.store.transaction() as session:
+                    conversation = await self.store.conversation(
+                        session, self.owner, self.conversation, lock=True
+                    )
+                    conversation.provider = provider
+                    session.add(conversation)
+                catalog = await self.catalog(self.owner, self.conversation)
+                catalog["commands"][0].update(
+                    name=name, accepts_arguments=bool(arguments)
+                )
+                if quota is None:
+                    catalog["commands"][0].pop("may_use_model")
+                else:
+                    catalog["commands"][0]["may_use_model"] = quota
+                self.runtime.native_catalog = AsyncMock(return_value=catalog)
+                self.runtime.dispatch_reserved.reset_mock()
+                request = self.request.model_copy(
+                    update={
+                        "name": name,
+                        "arguments": arguments,
+                        "operation_key": provider + "-direct",
+                    }
+                )
+                result = await self.submit(request)
+                self.assertEqual(result["state"], "executing")
+                self.assertFalse(result["can_decide"])
+                duplicate = await self.submit(request)
+                self.assertEqual(
+                    duplicate["result_message_id"], result["result_message_id"]
+                )
+                self.runtime.dispatch_reserved.assert_called_once()
+                reserved = self.runtime.dispatch_reserved.call_args.args[-1]
+                self.assertEqual(reserved["text"], request.text())
+                self.assertEqual(reserved["native_action_id"], result["id"])
+                await self.store.observe(
+                    self.owner,
+                    self.conversation,
+                    UUID(reserved["id"]),
+                    state="completed",
+                    settled=True,
+                    reconciled=True,
+                    thread_id="thread",
+                    workspace_hash="sha256:" + "b" * 64,
+                )
 
-        async def decide(owner, key, conversation, identifier, decision):
-            result, reserved = await self.commands.decide(
-                owner, key, conversation, identifier, decision
-            )
-            self.assertEqual(reserved["text"], "/status")
-            return result
-
-        self.runtime.decide_native_action = AsyncMock(side_effect=decide)
-        result = await self.commands.submit(
-            self.owner, self.key, self.conversation, self.request
-        )
-        self.assertEqual(result["state"], "executing")
-        duplicate = await self.commands.submit(
-            self.owner, self.key, self.conversation, self.request
-        )
-        self.assertEqual(duplicate["result_message_id"], result["result_message_id"])
-        self.runtime.decide_native_action.assert_awaited_once()
-
-    async def test_typed_status_without_explicit_non_model_classification_needs_approval(
-        self,
-    ):
-        """Absent provider classification cannot grant the status shortcut."""
-        await self.settle()
+    async def test_assistant_proposed_skill_still_waits_for_human_approval(self):
         catalog = await self.catalog(self.owner, self.conversation)
-        catalog["commands"][0].pop("may_use_model")
-        self.runtime.native_catalog = AsyncMock(return_value=catalog)
-        self.runtime.decide_native_action = AsyncMock()
-        result = await self.commands.submit(
-            self.owner, self.key, self.conversation, self.request
+        catalog["commands"][0].update(
+            name="$bundled-reference", accepts_arguments=True, may_use_model=True
         )
-        self.assertEqual(result["state"], "pending")
-        self.runtime.decide_native_action.assert_not_awaited()
-
-    async def test_explicit_claude_usage_reserves_once_without_second_approval(self):
-        await self.settle()
-        async with self.store.transaction() as session:
-            conversation = await self.store.conversation(
-                session, self.owner, self.conversation, lock=True
-            )
-            conversation.provider = "claude"
-            session.add(conversation)
-        catalog = await self.catalog(self.owner, self.conversation)
-        catalog["commands"][0]["name"] = "usage"
         self.runtime.native_catalog = AsyncMock(return_value=catalog)
         request = self.request.model_copy(
-            update={"name": "usage", "operation_key": "usage"}
-        )
-
-        async def decide(owner, key, conversation, identifier, decision):
-            result, reserved = await self.commands.decide(
-                owner, key, conversation, identifier, decision
-            )
-            self.assertEqual(reserved["text"], "/usage")
-            return result
-
-        self.runtime.decide_native_action = AsyncMock(side_effect=decide)
-        result = await self.commands.submit(
-            self.owner, self.key, self.conversation, request
-        )
-        self.assertEqual(result["state"], "executing")
-        duplicate = await self.commands.submit(
-            self.owner, self.key, self.conversation, request
-        )
-        self.assertEqual(duplicate["result_message_id"], result["result_message_id"])
-        self.runtime.decide_native_action.assert_awaited_once()
-
-    async def test_assistant_proposed_usage_still_waits_for_human_approval(self):
-        catalog = await self.catalog(self.owner, self.conversation)
-        catalog["commands"][0]["name"] = "usage"
-        self.runtime.native_catalog = AsyncMock(return_value=catalog)
-        self.runtime.decide_native_action = AsyncMock()
-        request = self.request.model_copy(
-            update={"name": "usage", "operation_key": "usage-proposal"}
+            update={
+                "name": "$bundled-reference",
+                "arguments": "Explain the API",
+                "operation_key": "skill-proposal",
+            }
         )
         result = await self.commands.propose(self.context, request)
         self.assertEqual(result["state"], "pending")
-        self.runtime.decide_native_action.assert_not_awaited()
+        self.runtime.dispatch_reserved.assert_not_called()
 
-    async def test_typed_command_refuses_active_turn_and_revoked_session(self):
-        """Human input does not bypass turn serialization or revoked app authority."""
+    async def test_direct_send_refuses_active_turn_revoked_session_and_capacity(self):
+        """Human input retains serialization, authentication and resource limits."""
         with self.assertRaisesRegex(AssistantError, "assistant_turn_active"):
-            await self.commands.submit(
-                self.owner, self.key, self.conversation, self.request
-            )
+            await self.submit(self.request)
         await self.settle()
         with self.assertRaises(AssistantError):
             await self.commands.submit(
                 self.owner, "another-session", self.conversation, self.request
             )
+        self.runtime.closing = True
+        with self.assertRaisesRegex(AssistantError, "assistant_capacity_busy"):
+            await self.submit(self.request)
+        self.runtime.dispatch_reserved.assert_not_called()
+
+    async def test_direct_send_rolls_back_action_when_reservation_fails(self):
+        """A failed Send cannot commit a pending approval card or partial message."""
+        await self.settle()
+        original = self.store.reserve_message
+
+        async def fail_after_insert(*args, **kwargs):
+            await original(*args, **kwargs)
+            raise RuntimeError("controlled transaction failure")
+
+        with patch.object(self.store, "reserve_message", side_effect=fail_after_insert):
+            with self.assertRaises(RuntimeError):
+                await self.submit(self.request)
+        self.assertEqual(
+            await self.commands.list(
+                self.owner, self.conversation, session_key=self.key
+            ),
+            [],
+        )
+        self.runtime.dispatch_reserved.assert_not_called()
+        result = await self.submit(self.request)
+        duplicate = await self.submit(self.request)
+        self.assertEqual(result["state"], "executing")
+        self.assertEqual(duplicate["result_message_id"], result["result_message_id"])
+        self.runtime.dispatch_reserved.assert_called_once()
 
     def decision(self, proposal, value="approve"):
         """Bind a human decision to the exact server proposal digest."""
         return NativeActionDecision(decision=value, digest=proposal["digest"])
-
-    async def test_typed_status_retries_pending_admission_without_duplicate_reservation(
-        self,
-    ):
-        """A failure after proposal retention does not strand typed status behind approval."""
-        await self.settle()
-        calls = []
-
-        async def decide(owner, key, conversation, identifier, decision):
-            calls.append(identifier)
-            if len(calls) == 1:
-                raise AssistantError("assistant_capacity_busy", 409)
-            result, reserved = await self.commands.decide(
-                owner, key, conversation, identifier, decision
-            )
-            self.assertIsNotNone(reserved)
-            return result
-
-        self.runtime.decide_native_action = AsyncMock(side_effect=decide)
-        with self.assertRaisesRegex(AssistantError, "assistant_capacity_busy"):
-            await self.commands.submit(
-                self.owner, self.key, self.conversation, self.request
-            )
-        result = await self.commands.submit(
-            self.owner, self.key, self.conversation, self.request
-        )
-        self.assertEqual(result["state"], "executing")
-        duplicate = await self.commands.submit(
-            self.owner, self.key, self.conversation, self.request
-        )
-        self.assertEqual(duplicate["result_message_id"], result["result_message_id"])
-        self.assertEqual(calls, [UUID(result["id"])] * 2)
 
     async def test_approval_waits_for_turn_and_duplicate_decisions_do_not_reserve_again(
         self,

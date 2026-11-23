@@ -9,7 +9,6 @@ from laomedo.integrations.langflow.assistant.models import (
     AssistantNativeAction,
     MessageRequest,
     NativeCommandRequest,
-    NativeActionDecision,
 )
 
 
@@ -21,7 +20,7 @@ class NativeCommands:
         self.runtime, self.store = runtime, runtime.store
 
     async def submit(self, owner, key, conversation_id, request):
-        """Retain human commands; explicit Codex status/Claude usage need no second approval."""
+        """Treat authenticated direct submission as approval of the exact native request."""
         await self.runtime.check_session(owner, key)
         catalog = await self.runtime.native_catalog(owner, conversation_id)
         async with self.store.transaction() as session:
@@ -41,7 +40,12 @@ class NativeCommands:
                 if prior.digest != request.digest() or prior.session_key != key:
                     raise AssistantError("assistant_action_conflict", 409)
                 if prior.state != "pending":
-                    return prior.public(session_key=key)
+                    return prior.public(session_key=key), None
+                if prior.expires_at <= time.time():
+                    prior.state = "expired"
+                    session.add(prior)
+                    await session.flush()
+                    return prior.public(session_key=key), None
             if (
                 conversation.active_message_id is not None
                 or conversation.state != "idle"
@@ -92,24 +96,15 @@ class NativeCommands:
                 )
                 session.add(row)
                 await session.flush()
+            if (
+                row.run_id != conversation.run_id
+                or row.thread_id != conversation.thread_id
+            ):
+                raise AssistantError("assistant_native_identity_mismatch", 409)
+            reserved = await self._reserve(session, conversation, row, request)
+            await session.flush()
             result = row.public(session_key=key)
-            immediate = (
-                (conversation.provider, request.name)
-                in {("codex", "status"), ("claude", "usage")}
-                and not request.arguments
-                and selected.get("may_use_model") is False
-            )
-        if immediate:
-            # Reuse the same atomic reservation, identity checks and dispatch owner.
-            # The MCP proposal path never calls this human-only method.
-            return await self.runtime.decide_native_action(
-                owner,
-                key,
-                conversation_id,
-                row.id,
-                NativeActionDecision(decision="approve", digest=request.digest()),
-            )
-        return result
+        return result, reserved
 
     async def propose(self, context, request):
         """Retain an exact built-in proposal without native dispatch or approval."""
@@ -263,17 +258,23 @@ class NativeCommands:
                         request.arguments and not selected["accepts_arguments"]
                     ):
                         raise AssistantError("native_command_not_available", 409)
-                    reserved, created = await self.store.reserve_message(
-                        session,
-                        conversation,
-                        MessageRequest(client_message_id=row.id, text=request.text()),
-                        native_action_id=row.id,
-                    )
-                    if not created:
-                        raise AssistantError("assistant_action_conflict", 409)
-                    row.result_message_id = UUID(reserved["id"])
-                    row.state = "executing"
+                    reserved = await self._reserve(session, conversation, row, request)
             session.add(row)
             await session.flush()
             result = row.public(session_key=key)
         return result, reserved
+
+    async def _reserve(self, session, conversation, row, request):
+        """Commit an exact authorized action and its message in the same transaction."""
+        reserved, created = await self.store.reserve_message(
+            session,
+            conversation,
+            MessageRequest(client_message_id=row.id, text=request.text()),
+            native_action_id=row.id,
+        )
+        if not created:
+            raise AssistantError("assistant_action_conflict", 409)
+        row.result_message_id = UUID(reserved["id"])
+        row.state = "executing"
+        session.add(row)
+        return reserved

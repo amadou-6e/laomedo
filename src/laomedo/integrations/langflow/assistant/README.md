@@ -177,10 +177,13 @@ initialization.
 
 `NativeCommands.submit` accepts commands only through authenticated app routes.
 It binds the observed catalog, owned run/thread and stable operation key, retaining
-a proposal under the conversation transaction. A typed Codex `status` with empty
-arguments and explicit `may_use_model=False` reuses `decide_native_action` to
-reserve and dispatch without a second confirmation. Other commands keep the
-existing human approval. MCP proposals never enter this bypass. Discovery uses
+a durable action under the conversation transaction. Sending an exact native
+command or skill through this human-only route is the user's approval. It shares
+`NativeCommands._reserve` with proposal approval and uses `dispatch_reserved`
+after committing the action and message together, without a second confirmation,
+independently of provider, name, arguments or model-use classification. MCP
+proposals still require a separate human decision and cannot enter this route.
+Discovery uses
 the retained session catalog; no session is created or inferred by the picker.
 
 Conversation provider and saved-account epoch are immutable. `AssistantRuntime`

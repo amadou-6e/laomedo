@@ -855,7 +855,12 @@ class AssistantRuntime:
             and conversation_id not in self.jobs
         ):
             raise AssistantError("assistant_capacity_busy", 409)
-        return await NativeCommands(self).submit(owner, key, conversation_id, request)
+        result, reserved = await NativeCommands(self).submit(
+            owner, key, conversation_id, request
+        )
+        if reserved is not None:
+            self.dispatch_reserved(owner, key, conversation_id, reserved)
+        return result
 
     async def decide_native_action(
         self, owner, key, conversation_id, identifier, decision
