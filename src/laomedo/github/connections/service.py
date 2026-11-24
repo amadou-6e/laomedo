@@ -254,6 +254,11 @@ class GitHubConnectionService:
                     None,
                 )
                 if existing is not None:
+                    if (
+                        existing.mode != attempt.mode
+                        or existing.app_id != attempt.app_id
+                    ):
+                        raise GitHubConnectionChanged()
                     attempt = attempt.model_copy(
                         update={
                             "connection_id": existing.id,

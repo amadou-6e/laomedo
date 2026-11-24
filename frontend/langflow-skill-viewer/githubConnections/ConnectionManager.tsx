@@ -158,6 +158,18 @@ function ConnectionWorkspace() {
         setEnabled(value);
         if (value) {
           const loaded = await run();
+          if (active && query.get("registration") === "duplicate") {
+            const connection = loaded?.index.connections.find(
+              (item) => item.connection.id === query.get("connection") && item.connection.state !== "revoked",
+            );
+            if (connection) {
+              const slug = query.get("app") ?? "";
+              const appName = /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug) && slug.length <= 100 ? ` (${slug})` : "";
+              setTarget(connection.connection.id);
+              setView("detail");
+              setNotice(`This GitHub account is already connected. Its existing setup and repository access were kept. GitHub created an extra App${appName}; you can delete it in GitHub settings.`);
+            }
+          }
           const installationReturn = query.get("state");
           const registeredAttempt = loaded?.index.pending.find(
             (item) =>
@@ -215,7 +227,7 @@ function ConnectionWorkspace() {
       );
       window.dispatchEvent(new Event("laomedo-private-data-invalidated"));
     };
-    if (query.has("outcome") || query.has("setup_action")) {
+    if (query.has("outcome") || query.has("setup_action") || query.get("registration") === "duplicate") {
       window.history.replaceState(null, "", window.location.pathname);
     }
     return () => {

@@ -218,6 +218,10 @@ class GitHubConnectionJournal:
                     current.generation if current is not None else 0
                 ) != expected_generation:
                     raise GitHubConnectionChanged()
+                if current is not None and (
+                    current.mode != record.mode or current.app_id != record.app_id
+                ):
+                    raise GitHubConnectionChanged()
                 if current is None:
                     for row in db.execute(
                         "SELECT id FROM github_connections WHERE owner_id=?",

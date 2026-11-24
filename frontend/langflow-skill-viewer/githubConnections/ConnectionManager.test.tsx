@@ -113,6 +113,15 @@ beforeEach(() => {
   (connectionRequest as jest.Mock).mockResolvedValue({ index: initial });
 });
 
+it("opens the existing account after duplicate app registration", async () => {
+  window.history.replaceState(null, "", "/settings/github?registration=duplicate&connection=saved&app=extra-app");
+  (connectionRequest as jest.Mock).mockResolvedValue({ index: reconnectIndex });
+  render(<ConnectionManager />);
+  expect(await screen.findByText(/This GitHub account is already connected/)).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Sign in again" })).toBeTruthy();
+  expect(window.location.search).toBe("");
+});
+
 it("keeps a rotated connection fenced and offers verification retry", async () => {
   const pending = {
     ...reconnectIndex,

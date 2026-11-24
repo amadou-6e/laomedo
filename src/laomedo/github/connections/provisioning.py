@@ -189,6 +189,25 @@ class GitHubAppProvisioner:
             client_secret=SecretStr(app["client_secret"]),
             callback_uri=self.service.callback_uri,
         )
+        async with self.service.commit_lock:
+            await scope.revalidate()
+            existing = next(
+                (
+                    record
+                    for record in self.service.journal.list(scope.owner_id)
+                    if record.state != "revoked"
+                    and record.principal.id == app["owner"].id
+                ),
+                None,
+            )
+        if existing is not None:
+            return "/settings/github?" + urlencode(
+                {
+                    "registration": "duplicate",
+                    "connection": str(existing.id),
+                    "app": settings.slug,
+                }
+            )
         configured = await self.service.configure_app(
             scope,
             client_id=settings.client_id,

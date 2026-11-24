@@ -78,6 +78,16 @@ class GitHubConnectionJournalTests(unittest.TestCase):
         self.assertIn(stale.secret_reference, cleanup)
         self.assertNotIn(first.secret_reference, cleanup)
 
+    def test_existing_connection_cannot_change_authentication_mode(self):
+        original = self.record()
+        self.journal.commit_connection(original, expected_generation=0)
+        replacement = self.record(generation=2).model_copy(
+            update={"mode": "browser", "app_id": uuid4()}
+        )
+        with self.assertRaises(GitHubConnectionChanged):
+            self.journal.commit_connection(replacement, expected_generation=1)
+        self.assertEqual(self.journal.get(self.owner, self.connection), original)
+
     def test_refresh_crash_stays_fenced_across_restart(self):
         """A lost refresh response cannot cause replay of the consumed credential."""
         self.journal.commit_connection(self.record(), expected_generation=0)

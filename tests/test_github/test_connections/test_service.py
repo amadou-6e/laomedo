@@ -4,8 +4,10 @@ import asyncio
 from importlib.util import find_spec
 from pathlib import Path
 import tempfile
+from types import SimpleNamespace
 from urllib.parse import parse_qs, urlencode, urlsplit
 import unittest
+from unittest.mock import AsyncMock
 from uuid import UUID, uuid4
 
 if find_spec("httpx2") is None or find_spec("authlib") is None:
@@ -33,7 +35,11 @@ from laomedo.github.connections.models import (
     GitHubPrincipal,
 )
 from laomedo.github.connections.service import GitHubConnectionService
-from laomedo.github.connections.settings import GITHUB_CALLBACK_PATH
+from laomedo.github.connections.provisioning import GitHubAppProvisioner
+from laomedo.github.connections.settings import (
+    GITHUB_CALLBACK_PATH,
+    GITHUB_PROVISION_CALLBACK_PATH,
+)
 from laomedo.host.credentials.github.errors import GitHubVaultError
 from test_github.test_connections.fixtures import (
     ConnectionOAuthFactory,
@@ -145,6 +151,68 @@ class GitHubConnectionServiceTests(unittest.IsolatedAsyncioTestCase):
             self.scope, UUID(attempt["request_id"]), (456,)
         )
         return UUID(record["id"])
+
+    async def test_duplicate_browser_account_cannot_replace_existing_app(self):
+        connection_id = await self.ready("browser")
+        original = self.journal.get(self.owner, connection_id)
+        app = await self.service.configure_app(
+            self.scope,
+            client_id="Iv1.other",
+            slug="synthetic-app",
+            secret=SecretStr("other-secret"),
+        )
+        attempt = await self.service.begin(self.scope, app_id=UUID(app["id"]))
+        state = parse_qs(urlsplit(attempt["authorization_url"]).query)["state"][0]
+        callback = SecretStr(
+            self.service.callback_uri
+            + "?"
+            + urlencode({"code": "synthetic", "state": state})
+        )
+        with self.assertRaises(GitHubConnectionChanged):
+            await self.service.complete(self.scope, callback)
+        self.assertEqual(self.journal.get(self.owner, connection_id), original)
+
+    async def test_duplicate_token_cannot_change_browser_connection_mode(self):
+        connection_id = await self.ready("browser")
+        original = self.journal.get(self.owner, connection_id)
+        with self.assertRaises(GitHubConnectionChanged):
+            await self.token_attempt()
+        self.assertEqual(self.journal.get(self.owner, connection_id), original)
+
+    async def test_registration_for_existing_account_keeps_original_app_and_custody(
+        self,
+    ):
+        connection_id = await self.ready("browser")
+        original = self.journal.get(self.owner, connection_id)
+        custody = dict(self.vault.values)
+        client = SimpleNamespace(
+            convert=AsyncMock(
+                return_value={
+                    "client_id": "Iv1.other",
+                    "client_secret": "other-secret",
+                    "slug": "other-app",
+                    "owner": GitHubPrincipal(id=123, login="synthetic"),
+                }
+            )
+        )
+        provisioner = GitHubAppProvisioner(
+            self.service, client_factory=lambda: client, clock=lambda: self.now
+        )
+        manifest = await provisioner.begin(self.scope)
+        state = parse_qs(urlsplit(manifest["action"]).query)["state"][0]
+        callback = SecretStr(
+            "http://127.0.0.1:17867"
+            + GITHUB_PROVISION_CALLBACK_PATH
+            + "?"
+            + urlencode({"code": "synthetic", "state": state})
+        )
+        destination = await provisioner.complete(self.scope, callback)
+        self.assertEqual(
+            parse_qs(urlsplit(destination).query)["connection"], [str(connection_id)]
+        )
+        self.assertEqual(self.journal.get(self.owner, connection_id), original)
+        self.assertEqual(self.vault.values, custody)
+        self.assertEqual(len(self.journal.apps(self.owner)), 1)
 
     async def test_inventory_reinspection_updates_candidates_without_consent_or_custody(
         self,

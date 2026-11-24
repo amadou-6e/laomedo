@@ -10,6 +10,11 @@ ordinary Add remains an explicit Continue action. Verified account identity must
 match the App owner when known. No App is made public or deleted automatically.
 
 This capability owns deliberate GitHub authorization and repository read consent.
+If registration returns an owner already connected to the profile, the provisioner
+returns to that connection without storing the newly created App's credentials or
+replacing the existing binding. GitHub may already have created an extra App; the
+user is told they can remove it there. Staging and journal commits also refuse a
+silent change of authentication mode or App for an existing connection.
 `GitHubConnectionService.inspect_inventory` rechecks a browser consent attempt's
 available repositories after installation. It preserves its exact owner, lease,
 deadline, App version, principal, custody and connection generation; it neither
