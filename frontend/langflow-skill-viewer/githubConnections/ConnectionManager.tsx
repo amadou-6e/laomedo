@@ -110,7 +110,7 @@ function ConnectionWorkspace() {
             failure instanceof ConnectionFailure
               ? failure.code
               : "github_connection_unavailable";
-          if (action === "verify" && code === "github_verification_pending") {
+          if (action === "verify" && ["github_verification_pending", "github_reauthorization_required"].includes(code)) {
             try {
               const status = await connectionRequest();
               if (epoch.current !== current) return;
@@ -119,7 +119,9 @@ function ConnectionWorkspace() {
               if (epoch.current === current) setError("github_connection_unavailable");
               return;
             }
-            setNotice("GitHub access is still unavailable. Try again when GitHub is available.");
+            setNotice(code === "github_verification_pending"
+              ? "GitHub access is still unavailable. Try again when GitHub is available."
+              : "Sign in again to restore access for this account.");
             return;
           }
           setError(code);

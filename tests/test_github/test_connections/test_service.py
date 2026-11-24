@@ -62,6 +62,7 @@ class GitHubConnectionServiceTests(unittest.IsolatedAsyncioTestCase):
         self.requests = []
         self.branch_hook = None
         self.provider_status = None
+        self.repository_status = None
         self.service = self.new_service()
 
     async def admit(self):
@@ -73,6 +74,14 @@ class GitHubConnectionServiceTests(unittest.IsolatedAsyncioTestCase):
         self.requests.append(request.url.path)
         if self.provider_status is not None:
             return Response(self.provider_status)
+        if (
+            self.repository_status is not None
+            and request.url.path == "/repos/synthetic/private"
+        ):
+            return Response(
+                self.repository_status,
+                headers={"location": "https://elsewhere.invalid/repository"},
+            )
         data = {
             "/user": self.user,
             "/user/repos": [self.repo],
@@ -648,6 +657,41 @@ class GitHubConnectionServiceTests(unittest.IsolatedAsyncioTestCase):
         self.user = {"id": 999, "login": "other"}
         with self.assertRaises(GitHubReauthorizationRequired):
             await self.service.refresh(self.scope, connection_id)
+        self.assertEqual(
+            self.journal.get(self.owner, connection_id).state,
+            "reauthorization_required",
+        )
+
+    async def test_moved_repository_retires_rotated_credential_without_following_redirect(
+        self,
+    ):
+        connection_id = await self.ready("browser")
+        self.repository_status = 301
+        with self.assertRaises(GitHubReauthorizationRequired):
+            await self.service.refresh(self.scope, connection_id)
+        record = self.journal.get(self.owner, connection_id)
+        self.assertEqual(record.state, "reauthorization_required")
+        self.assertIsNone(self.vault.load(record.secret_reference))
+        self.assertNotIn("/repository", self.requests)
+
+    async def test_temporary_repository_redirect_remains_retryable(self):
+        connection_id = await self.ready("browser")
+        self.repository_status = 307
+        with self.assertRaises(GitHubVerificationPending):
+            await self.service.refresh(self.scope, connection_id)
+        record = self.journal.get(self.owner, connection_id)
+        self.assertEqual(record.state, "verification_pending")
+        self.assertIsNotNone(self.vault.load(record.secret_reference))
+
+    async def test_missing_pending_credential_requires_sign_in(self):
+        connection_id = await self.ready("browser")
+        self.provider_status = 503
+        with self.assertRaises(GitHubVerificationPending):
+            await self.service.refresh(self.scope, connection_id)
+        record = self.journal.get(self.owner, connection_id)
+        self.vault.remove(record.secret_reference)
+        with self.assertRaises(GitHubReauthorizationRequired):
+            await self.service.verify(self.scope, connection_id, record.generation)
         self.assertEqual(
             self.journal.get(self.owner, connection_id).state,
             "reauthorization_required",

@@ -137,6 +137,30 @@ it("keeps a rotated connection fenced and offers verification retry", async () =
   expect(screen.getByRole("button", { name: "Disconnect" })).toBeTruthy();
 });
 
+it("shows sign-in when a pending credential can no longer be verified", async () => {
+  const pending = {
+    ...reconnectIndex,
+    connections: [{
+      ...reconnectIndex.connections[0],
+      connection: { ...reconnectIndex.connections[0].connection, state: "verification_pending", generation: 3 },
+      availability: "verification_pending",
+    }],
+  };
+  let attempted = false;
+  (connectionRequest as jest.Mock).mockImplementation(async (action) => {
+    if (action === "verify") {
+      attempted = true;
+      throw new ConnectionFailure("github_reauthorization_required");
+    }
+    return { index: attempted ? reconnectIndex : pending };
+  });
+  render(<ConnectionManager />);
+  fireEvent.click(await screen.findByRole("button", { name: "View connection" }));
+  fireEvent.click(screen.getByRole("button", { name: "Check access again" }));
+  expect(await screen.findByRole("button", { name: "Sign in again" })).toBeTruthy();
+  await waitFor(() => expect(screen.queryByRole("button", { name: "Check access again" })).toBeNull());
+});
+
 it("keeps its initiating mutation busy and displays the response despite same-document broadcasts", async () => {
   let complete!: (value: unknown) => void;
   const mutation = new Promise((resolve) => {

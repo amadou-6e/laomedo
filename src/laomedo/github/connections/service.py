@@ -534,7 +534,12 @@ class GitHubConnectionService:
 
     async def _verify_pending(self, scope, record):
         """Verify a stored rotation without repeating the consumed exchange."""
-        reader = self.read_client(self._credential(record))
+        try:
+            credential = self._credential(record)
+        except GitHubReauthorizationRequired:
+            await self._reject_pending(scope, record)
+            raise
+        reader = self.read_client(credential)
         try:
             access = GitHubRepositoryAccess(reader)
             principal = await access.principal()
@@ -544,9 +549,7 @@ class GitHubConnectionService:
                 [await access.verify(principal, repo) for repo in record.repositories]
             )
         except (GitHubRepositoryIdentityChanged, GitHubCredentialRejected):
-            async with self.commit_lock:
-                await scope.revalidate()
-                self.journal.begin_refresh(scope.owner_id, record.id, record.generation)
+            await self._reject_pending(scope, record)
             raise GitHubReauthorizationRequired() from None
         except GitHubRepositoryAccessError:
             raise GitHubVerificationPending() from None
@@ -565,6 +568,13 @@ class GitHubConnectionService:
             self.journal.complete_verification(updated, record.generation)
             return updated
 
+    async def _reject_pending(self, scope, record):
+        """Retire a rejected rotation after fencing it against further reads."""
+        async with self.commit_lock:
+            await scope.revalidate()
+            self.journal.reject_pending(scope.owner_id, record.id, record.generation)
+        self._cleanup(scope.owner_id, resource_id=record.id)
+
     async def verify(
         self, scope: GitHubConnectionScope, connection_id: UUID, generation: int
     ):
@@ -582,6 +592,11 @@ class GitHubConnectionService:
                 record.access_expires_at is not None
                 and record.access_expires_at <= self.clock()
             ):
+                try:
+                    self._credential(record)
+                except GitHubReauthorizationRequired:
+                    await self._reject_pending(scope, record)
+                    raise
                 updated = await self._refresh(scope, record)
             else:
                 updated = await self._verify_pending(scope, record)

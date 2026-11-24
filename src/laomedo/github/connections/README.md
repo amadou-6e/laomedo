@@ -32,6 +32,10 @@ successful rotation in the vault as `verification_pending`. `verify` retries
 online account and repository checks on that exact owner and generation; access
 remains locked until `_verify_pending` commits the verified replacement. The
 journal's `stage_refresh` and `complete_verification` own those transitions.
+`reject_pending` fences a confirmed identity change, rejected token, or missing
+credential and retires the pending secret before offering sign-in again. A
+permanent redirect for a consented repository requires renewed consent; a
+temporary redirect remains retryable and redirects are never followed.
 An ambiguous failure before the new credential is durably staged still requires
 reauthorization. An older application version cannot read a pending record.
 An explicit GitHub 401 or confirmed identity mismatch requires sign-in again;

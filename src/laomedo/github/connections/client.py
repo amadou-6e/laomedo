@@ -88,6 +88,10 @@ class GitHubReadClient:
                 ) as response:
                     if response.status_code == 401:
                         raise GitHubCredentialRejected()
+                    if response.status_code == 301 and re.fullmatch(
+                        r"/repos/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", path
+                    ):
+                        raise GitHubRepositoryIdentityChanged()
                     if response.status_code != 200:
                         raise GitHubRepositoryAccessError()
                     body = bytearray()
@@ -105,7 +109,7 @@ class GitHubReadClient:
                     return GitHubReadPage(
                         payload=value, next_page="next" in response.links
                     )
-        except GitHubCredentialRejected:
+        except (GitHubCredentialRejected, GitHubRepositoryIdentityChanged):
             raise
         except Exception:
             raise GitHubRepositoryAccessError() from None

@@ -305,13 +305,23 @@ class GitHubConnectionJournal:
             and record.generation == generation
         )
 
-    def _fence(self, owner_id, connection_id, expected_generation, state):
+    def _fence(
+        self,
+        owner_id,
+        connection_id,
+        expected_generation,
+        state,
+        *,
+        reject_pending=False,
+    ):
         """Commit a monotonic admission fence before refresh or vault deletion."""
         try:
             with closing(self._connect()) as db, db:
                 db.execute("BEGIN IMMEDIATE")
                 record = self._connection(db, owner_id, connection_id)
                 if record is None or record.generation != expected_generation:
+                    raise GitHubConnectionChanged()
+                if reject_pending and record.state != "verification_pending":
                     raise GitHubConnectionChanged()
                 if state == "reauthorization_required" and record.state not in {
                     "ready",
@@ -337,6 +347,16 @@ class GitHubConnectionJournal:
                         "AND resource_id=? AND purpose='connection' AND state!='removed'",
                         (str(owner_id), str(connection_id)),
                     )
+                elif reject_pending:
+                    db.execute(
+                        "UPDATE github_secrets SET state='obsolete' WHERE owner_id=? "
+                        "AND resource_id=? AND id=? AND state='active'",
+                        (
+                            str(owner_id),
+                            str(connection_id),
+                            str(record.secret_reference),
+                        ),
+                    )
             return fenced
         except sqlite3.Error:
             raise GitHubConnectionError() from None
@@ -347,6 +367,18 @@ class GitHubConnectionJournal:
         """Fence once before exchanging; restart never restores the old ready state."""
         return self._fence(
             owner_id, connection_id, expected_generation, "reauthorization_required"
+        )
+
+    def reject_pending(
+        self, owner_id: UUID, connection_id: UUID, expected_generation: int
+    ):
+        """Fence a rejected rotation and retire its credential atomically."""
+        return self._fence(
+            owner_id,
+            connection_id,
+            expected_generation,
+            "reauthorization_required",
+            reject_pending=True,
         )
 
     def stage_refresh(self, record: GitHubConnectionRecord, expected_generation: int):
