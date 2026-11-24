@@ -678,6 +678,49 @@ class RuntimeTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(detail["messages"][0]["state"], "completed")
         self.assertEqual(detail["messages"][0]["response"], "Done")
 
+    async def test_project_write_conflict_preserves_answer_and_unlocks_send(self):
+        from laomedo.agents.workspaces.models import WorkspaceFiles
+
+        await self.bind()
+        self.runner.project_files = Mock(return_value=WorkspaceFiles())
+        with patch(
+            "laomedo.integrations.langflow.assistant.runtime.ProjectChatWorkspace"
+        ) as project:
+            project.return_value.read.return_value = SimpleNamespace(
+                session_key="fixture"
+            )
+            project.return_value.persist.side_effect = AssistantError(
+                "assistant_storage_workspace_conflict", 409
+            )
+            self.assertTrue(await self.runtime.reconcile(self.owner, self.identifier))
+        detail = await self.store.detail(self.owner, self.identifier)
+        self.assertEqual(detail["messages"][0]["state"], "completed")
+        self.assertEqual(detail["messages"][0]["response"], "Done")
+        self.assertEqual(
+            detail["messages"][0]["error_code"], "assistant_storage_workspace_conflict"
+        )
+        self.assertIsNone(detail["conversation"]["active_message_id"])
+
+    async def test_revoked_browser_session_cannot_export_completed_shell_files(self):
+        await self.bind()
+        self.runner.project_files = Mock()
+        self.runtime.check_session = AsyncMock(
+            side_effect=AssistantError("assistant_tool_authority_revoked", 403)
+        )
+        with patch(
+            "laomedo.integrations.langflow.assistant.runtime.ProjectChatWorkspace"
+        ) as project:
+            project.return_value.read.return_value = SimpleNamespace(
+                session_key="revoked"
+            )
+            self.assertTrue(await self.runtime.reconcile(self.owner, self.identifier))
+            project.return_value.persist.assert_not_called()
+        self.runner.project_files.assert_not_called()
+        detail = await self.store.detail(self.owner, self.identifier)
+        self.assertEqual(detail["messages"][0]["state"], "completed")
+        self.assertEqual(detail["messages"][0]["response"], "Done")
+        self.assertIsNone(detail["conversation"]["active_message_id"])
+
     async def test_completed_zero_turn_control_needs_actual_live_ownership_not_cleanup_claims(
         self,
     ):

@@ -5,6 +5,7 @@ from urllib.error import HTTPError, URLError
 from urllib.request import ProxyHandler, Request, build_opener
 from laomedo.host.http import NoRedirect
 from laomedo.agents.connections.errors import ProviderConnectionError
+from laomedo.agents.errors import RunnerError
 from laomedo.integrations.langflow.assistant.errors import AssistantError
 
 
@@ -71,7 +72,11 @@ class AssistantRunner:
             raise AssistantError(error.code, 409) from None
         request = Request(
             url + path,
-            data=json.dumps(body).encode() if body is not None else None,
+            data=(
+                json.dumps(body, ensure_ascii=False).encode("utf-8")
+                if body is not None
+                else None
+            ),
             method=method,
             headers={
                 "Authorization": "Bearer " + token,
@@ -104,6 +109,23 @@ class AssistantRunner:
 
     def shutdown(self):
         """Leave shared saved-account cleanup and listener ownership with its manager."""
+
+    def project_files(self, run_id, expected_hash):
+        """Read this account's exact completed project snapshot on the trusted host."""
+        try:
+            return self.manager().assistant_project_files(
+                self.owner,
+                self.connection_id,
+                self.connection_generation,
+                run_id,
+                expected_hash,
+            )
+        except RunnerError as error:
+            if error.code == "workspace_files_invalid":
+                raise AssistantError("workspace_files_invalid", 422) from None
+            raise AssistantError("assistant_storage_unavailable", 503) from None
+        except (ProviderConnectionError, ValueError, OSError):
+            raise AssistantError("assistant_storage_unavailable", 503) from None
 
     def has_live_session(self, run_id):
         """Read the native owner's actual in-memory retention, never a record claim."""

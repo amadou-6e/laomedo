@@ -49,7 +49,7 @@ from laomedo.agents.agents.base.utils import _read
 from laomedo.agents.agents.base.utils import failure_observation
 from laomedo.agents.workspaces.errors import GitWorkspaceError
 from laomedo.agents.workspaces.workspace import AgentWorkspace
-from laomedo.agents.workspaces.models import WorkspacePaths
+from laomedo.agents.workspaces.models import WorkspacePaths, WorkspaceFiles
 from laomedo.host.mediation.errors import MediationError
 from laomedo.skills.registry.store import SkillStore
 from laomedo.agents.workspaces.skills.errors import WorkspaceSkillError
@@ -554,6 +554,24 @@ class BaseAgent(ABC):
             raise ArtifactError("artifact_source_changed_during_selection")
         return selections(result)
 
+    def project_files(self, run_id, expected_hash):
+        """Return bounded text from an exact completed snapshot, never live files."""
+        record = self.status(run_id)
+        snapshot = self._run_dir(run_id) / "post-run"
+        if (
+            record.get("status") != "completed"
+            or record.get("post_run_hash") != expected_hash
+            or _hash_tree(snapshot) != expected_hash
+        ):
+            raise RunnerError("artifact_snapshot_mismatch")
+        try:
+            files = WorkspaceFiles.from_workspace(snapshot)
+        except (OSError, ValueError):
+            raise RunnerError("workspace_files_invalid") from None
+        if _hash_tree(snapshot) != expected_hash:
+            raise RunnerError("artifact_snapshot_mismatch")
+        return files
+
     def _mcp_manifest(self, request):
         """Validate paired external admission fields before identity lookup or effects."""
         if ("mcp_manifest" in request) != ("mcp_registration" in request):
@@ -768,6 +786,12 @@ class BaseAgent(ABC):
         """Validate the request and persist its prepared identity/workspace binding before native dispatch."""
         if not isinstance(request, dict):
             raise RunnerError("invalid_request")
+        try:
+            workspace_files = WorkspaceFiles.model_validate(
+                request.get("workspace_files", {})
+            )
+        except ValueError:
+            raise RunnerError("workspace_files_invalid") from None
         self._mcp_manifest(request)
         self._validate_run_timeout(request.get("run_timeout_seconds"))
         initial_command = (
@@ -849,6 +873,10 @@ class BaseAgent(ABC):
             except GitWorkspaceError as error:
                 raise RunnerError(str(error)) from error
             baseline, source_hash = prepared.baseline, prepared.source_hash
+            try:
+                workspace_files.materialize(workspace)
+            except (OSError, ValueError):
+                raise RunnerError("workspace_files_invalid") from None
             store_mount.mkdir()
             (store_mount / "sentinel.txt").write_text(
                 "STORE-ORIGINAL", encoding="utf-8"

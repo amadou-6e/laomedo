@@ -21,6 +21,9 @@ containing their markup or account/model discovery effects.
 - `commands/`: observed native picker, application-command previews, approval and
   non-success receipts, and native Status/Usage presentation.
 - `graphs/`: graph approval cards and conversation-scoped graph permissions.
+- `storage/ProjectStorage.tsx`: checkout registration, general agent-files folder
+  and explicit per-graph save/load. `storage/models.ts` owns storage wire types.
+  All effects use profile-authenticated endpoints; no paths enter browser storage.
 - `sidebar/`: editor attachment, open state, resizing and entry controls.
 - `api.ts` and `models.ts`: shared HTTP boundary and wire types, independent of
   rendering. `ProviderIcon.tsx` and `assets/` own shared provider artwork.

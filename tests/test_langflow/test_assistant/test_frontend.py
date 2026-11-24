@@ -5,6 +5,9 @@ import re
 from runpy import run_path
 import tempfile
 import unittest
+import inspect
+import sys
+from unittest.mock import patch
 
 from support.paths import repository_root
 
@@ -31,7 +34,23 @@ class AssistantFrontendModulesTests(unittest.TestCase):
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_text(value, encoding="utf-8")
             source = root / "frontend/langflow-skill-viewer"
-            apply(checkout, source)
+            from langflow.services.database.models.flow.guards import (
+                ensure_flow_update_allowed,
+            )
+
+            guard = (
+                checkout
+                / "src/backend/base/langflow/services/database/models/flow/guards.py"
+            )
+            guard.parent.mkdir(parents=True)
+            guard.write_text(
+                Path(inspect.getfile(ensure_flow_update_allowed)).read_text(
+                    encoding="utf-8"
+                ),
+                encoding="utf-8",
+            )
+            with patch.object(sys, "path", [str(root / "tools"), *sys.path]):
+                apply(checkout, source)
             destination = frontend / "components/laomedoAssistant"
             for path in (source / "assistant").rglob("*"):
                 if not path.is_file() or path.name == "README.md":

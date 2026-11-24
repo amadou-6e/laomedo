@@ -1,5 +1,21 @@
 # Abstract Agent lifecycle
 
+## Selected project files
+
+Fresh run requests may include `workspace_files`, a canonical `WorkspaceFiles`
+bundle from `agents/workspaces/models.py`. Preparation creates these bounded
+`project/` text files in the normal isolated workspace before baseline/skills;
+resume requests keep the existing native workspace. The local HTTP request bound
+is 512 KiB; the serialized file bundle is limited to 256 files and 256 KiB.
+No caller-supplied host source path or additional container mount is accepted.
+
+`BaseAgent.project_files(run_id, expected_hash)` is a trusted-host observation,
+not an abstract provider requirement or a new public file endpoint. It verifies
+the completed frozen snapshot before and after reading its bounded project files.
+`AssistantRunner.project_files()` reaches it through the saved-account controller,
+which checks exact account/run ownership. Application session authority, selected
+repository locations and compare-before-write persistence stay with the chat owner.
+
 ## Idempotent asynchronous resume
 
 `resume.py` owns `ResumeDispatcher`, a durable admission journal around the

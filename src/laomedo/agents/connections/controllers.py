@@ -264,6 +264,14 @@ class ProviderControllers:
             else None
         )
 
+    def assistant_project_files(
+        self, profile_id, connection_id, generation, run_id, expected_hash
+    ):
+        """Read an exact account-owned frozen workspace through the shared runner."""
+        self.assistant_endpoint(profile_id, connection_id, generation, run_id=run_id)
+        slot = self.slots[(profile_id, connection_id, generation, "assistant")]
+        return slot.runner.project_files(run_id, expected_hash)
+
     def assistant_live_session(self, profile_id, connection_id, generation, run_id):
         """Observe actual retained native ownership in this exact assistant scope."""
         self.assistant_endpoint(profile_id, connection_id, generation, run_id=run_id)

@@ -1,4 +1,5 @@
 {
+  "assistant_storage_editor_fence_missing": {"title": "Graph loading requires the updated editor integration", "description": "This installation cannot yet prevent an older editor from overwriting a loaded graph.", "recovery": "Apply the current Laomedo frontend/backend overlay and restart before loading graph files. Saving files remains available."},
   "provider_account_mismatch": {"title": "Different account selected", "description": "You signed in to a different account. Your saved connection has not changed.", "recovery": "Add this account as a new connection to use it in Laomedo."},
   "provider_session_required": {"title": "Sign in to continue", "description": "Your local session has ended. Your saved provider connections are kept.", "recovery": "Sign in to your local profile again."},
   "provider_connection_limit": {"title": "Connection limit reached", "description": "This profile has reached its saved connection limit.", "recovery": "Remove a connection you no longer use before adding another."},
@@ -2868,5 +2869,105 @@
     "title": "The command outcome is unknown",
     "description": "The required native command completion evidence was not observed. No successful outcome is assumed.",
     "recovery": "Inspect the retained result and request a fresh proposal when the session is settled. Do not blindly replay an uncertain command."
+  },
+  "assistant_storage_agent_files_not_configured": {
+    "title": "Agent-files folder not selected",
+    "description": "The requested project file operation could not be confirmed.",
+    "recovery": "Choose the general agent-files folder in Project storage."
+  },
+  "assistant_storage_file_changed": {
+    "title": "The file changed or already exists",
+    "description": "The requested project file operation could not be confirmed.",
+    "recovery": "Refresh storage and inspect the current file before saving or loading again."
+  },
+  "assistant_storage_file_missing": {
+    "title": "File missing",
+    "description": "The requested project file operation could not be confirmed.",
+    "recovery": "Restore the file or save the graph to its selected location first."
+  },
+  "assistant_storage_file_too_large": {
+    "title": "File exceeds the pilot limit",
+    "description": "The requested project file operation could not be confirmed.",
+    "recovery": "Use a text file of at most 256 KiB."
+  },
+  "assistant_storage_graph_invalid": {
+    "title": "Graph file not supported",
+    "description": "The requested project file operation could not be confirmed.",
+    "recovery": "Use a portable Laomedo graph file matching this graph; existing app data remains available."
+  },
+  "assistant_storage_graph_locked": {
+    "title": "Graph is locked",
+    "description": "The requested project file operation could not be confirmed.",
+    "recovery": "Unlock the graph before loading its file."
+  },
+  "assistant_storage_graph_not_connected": {
+    "title": "Graph file not connected",
+    "description": "The requested project file operation could not be confirmed.",
+    "recovery": "Select this graph and save its file in Project storage."
+  },
+  "assistant_storage_limit_reached": {
+    "title": "Repository limit reached",
+    "description": "The requested project file operation could not be confirmed.",
+    "recovery": "The pilot supports up to 30 connected local checkouts."
+  },
+  "assistant_storage_location_conflict": {
+    "title": "Storage locations overlap",
+    "description": "The requested project file operation could not be confirmed.",
+    "recovery": "Keep graph files outside the agent-files folder and assign each graph its own file."
+  },
+  "assistant_storage_path_invalid": {
+    "title": "Choose a normal project path",
+    "description": "The requested project file operation could not be confirmed.",
+    "recovery": "Use a relative path without traversal, links, environment files, Git metadata or private app directories."
+  },
+  "assistant_storage_repository_missing": {
+    "title": "Checkout not connected",
+    "description": "The requested project file operation could not be confirmed.",
+    "recovery": "Clone a repository in Project storage."
+  },
+  "assistant_storage_repository_unavailable": {
+    "title": "Checkout unavailable",
+    "description": "The requested project file operation could not be confirmed.",
+    "recovery": "Restore the selected checkout, or clone another repository and select its location."
+  },
+  "assistant_storage_text_required": {
+    "title": "Text file required",
+    "description": "The requested project file operation could not be confirmed.",
+    "recovery": "Use a UTF-8 text file."
+  },
+  "assistant_storage_unavailable": {
+    "title": "Project storage unavailable",
+    "description": "The requested project file operation could not be confirmed.",
+    "recovery": "Check the selected checkout and app storage, then refresh before retrying."
+  },
+  "assistant_storage_write_failed": {
+    "title": "File write not confirmed",
+    "description": "The requested project file operation could not be confirmed.",
+    "recovery": "Check directory availability and write permissions, then refresh before retrying."
+  },
+  "assistant_storage_clone_failed": {
+    "title": "Repository clone failed",
+    "description": "Repository clone failed.",
+    "recovery": "Check the repository name and read access, then try again. No checkout was connected."
+  },
+  "assistant_storage_repository_unsupported": {
+    "title": "Repository layout is unsupported",
+    "description": "Repository layout is unsupported.",
+    "recovery": "The pilot accepts regular files only, with at most 10,000 files. Submodules and symbolic links are not supported."
+  },
+  "workspace_files_invalid": {
+    "title": "Project files could not be prepared",
+    "description": "Project files could not be prepared.",
+    "recovery": "For an existing conversation, ask the assistant to remove binary, oversized or linked files from project/ using its shell, then retry in the same conversation. Selected files must be bounded UTF-8 text."
+  },
+  "assistant_storage_workspace_conflict": {
+    "title": "Project files were not saved",
+    "description": "A repository file changed outside this conversation. The native files and response are retained; you can keep chatting.",
+    "recovery": "Ask the assistant to read the current repository versions with read_project_file and restore that exact text in its shell workspace. After that turn succeeds, edits can save normally."
+  },
+  "assistant_storage_workspace_path_invalid": {
+    "title": "Project files were not saved",
+    "description": "The shell created a protected or unselected project path. The native files and response are retained; you can keep chatting.",
+    "recovery": "Ask the assistant to remove unsupported files from its project tree. Use project/agent-files for new files and only the selected project/graphs filenames, then retry in this conversation."
   }
 }

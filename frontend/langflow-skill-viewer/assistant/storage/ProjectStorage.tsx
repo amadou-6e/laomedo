@@ -1,0 +1,153 @@
+import { useEffect, useRef, useState } from "react";
+import { FolderGit2 } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AssistantFailure, assistantRequest } from "../api";
+import type { ProjectStorageState } from "./models";
+import { describeNodeFailure } from "@/components/laomedoErrors/nodeErrors";
+
+export default function ProjectStorage({ activeGraphId, onFailure }: { activeGraphId?: string; onFailure: (error: unknown) => void }) {
+  const [open, setOpen] = useState(false);
+  const [confirmLoad, setConfirmLoad] = useState(false);
+  const [state, setState] = useState<ProjectStorageState>();
+  const [name, setName] = useState("");
+  const [path, setPath] = useState("");
+  const [token, setToken] = useState("");
+  const [agentRepo, setAgentRepo] = useState("");
+  const [agentPath, setAgentPath] = useState("agent-files");
+  const [graph, setGraph] = useState("");
+  const [graphRepo, setGraphRepo] = useState("");
+  const [graphPath, setGraphPath] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState("");
+  const [error, setError] = useState("");
+  const generation = useRef(0);
+  const controller = useRef<AbortController>();
+  const outcome = useRef<HTMLParagraphElement>(null);
+
+  useEffect(() => () => { generation.current++; controller.current?.abort(); }, []);
+  useEffect(() => { outcome.current?.scrollIntoView?.({ block: "nearest" }); }, [error, notice]);
+
+  async function refresh(signal?: AbortSignal) {
+    const result = await assistantRequest<ProjectStorageState>("/storage", undefined, signal);
+    setState(result);
+    setAgentRepo(current => current || result.agent_files?.repository_id || result.repositories[0]?.id || "");
+    setGraphRepo(current => current || result.repositories[0]?.id || "");
+    return result;
+  }
+
+  function failed(failure: unknown) {
+    const code = failure instanceof AssistantFailure ? failure.code : "assistant_storage_unavailable";
+    if (code === "assistant_session_locked") onFailure(failure);
+    const explanation = describeNodeFailure(code, undefined);
+    setError(explanation.title + ". " + explanation.recovery);
+  }
+
+  async function perform(operation: () => Promise<string>) {
+    if (busy) return;
+    const token = ++generation.current;
+    setBusy(true); setNotice(""); setError("");
+    controller.current = new AbortController();
+    try {
+      const message = await operation();
+      if (token !== generation.current) return;
+      await refresh(controller.current.signal);
+      if (token === generation.current) setNotice(message);
+    } catch (failure) {
+      if (token === generation.current) failed(failure);
+    } finally {
+      if (token === generation.current) setBusy(false);
+    }
+  }
+
+  function chooseGraph(id: string, storage = state) {
+    setGraph(id);
+    const binding = storage?.graphs[id];
+    setGraphRepo(binding?.location.repository_id ?? storage?.repositories[0]?.id ?? "");
+    setGraphPath(binding?.location.path ?? `graphs/${id}.json`);
+  }
+
+  const input = "w-full rounded-md border bg-background px-3 py-2 text-sm";
+  const button = "rounded-md border px-3 py-1.5 text-sm hover:bg-muted disabled:opacity-40";
+  const choices = <><option value="">Select repository</option>{state?.repositories.map(repo => <option key={repo.id} value={repo.id}>{repo.name}</option>)}</>;
+  const selectedGraph = state?.workflows.find(row => row.id === graph);
+  const binding = state?.graphs[graph];
+  const sameLocation = binding?.location.repository_id === graphRepo && binding?.location.path === graphPath;
+
+  async function synchronize(operation: "save" | "load") {
+    if (!selectedGraph) return;
+    await perform(async () => {
+      const result = await assistantRequest<{ diagnostics: string[] }>(`/storage/graphs/${graph}/${operation}`, {
+        location: { repository_id: graphRepo, path: graphPath },
+        expected_graph_revision: selectedGraph.revision,
+        expected_file_hash: sameLocation ? binding?.current_sha256 : null,
+      }, controller.current?.signal);
+      return (operation === "save" ? "Graph file saved." : "Graph file loaded. Reload open graph editors before editing again.") + (result.diagnostics.length ? " App-managed or incomplete settings remain in Laomedo; inspect the graph in the editor." : "");
+    });
+  }
+
+  return <Dialog open={open} onOpenChange={value => {
+    if (busy) return;
+    setOpen(value); setError(""); setNotice("");
+    if (!value) setToken("");
+    if (value) void perform(async () => {
+      const result = await refresh();
+      setAgentRepo(result.agent_files?.repository_id ?? result.repositories[0]?.id ?? "");
+      setAgentPath(result.agent_files?.path ?? "agent-files");
+      if (activeGraphId && result.workflows.some(row => row.id === activeGraphId)) chooseGraph(activeGraphId, result);
+      return "";
+    });
+  }}>
+    <DialogTrigger asChild><button type="button" aria-label="Project storage" title="Project storage" className="rounded p-1.5 hover:bg-muted"><FolderGit2 size={16} /></button></DialogTrigger>
+    <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
+      <DialogHeader><DialogTitle>Project storage</DialogTitle><DialogDescription>Clone a selected repository. Graph files save and load explicitly; editor autosave stays in Laomedo. No automatic commits or pushes.</DialogDescription></DialogHeader>
+      <fieldset disabled={busy} className="min-w-0 space-y-5 disabled:opacity-60">
+        <section className="space-y-2">
+          <h3 className="text-sm font-medium">Clone a repository</h3>
+          {state?.repositories.map(repo => <p key={repo.id} className="break-all text-xs text-muted-foreground">{repo.name} · app-owned checkout</p>)}
+          <label className="block text-xs">Repository name<input className={input} value={name} onChange={event => setName(event.target.value)} /></label>
+          <label className="block text-xs">GitHub repository<input className={input} value={path} placeholder="owner/repository" onChange={event => setPath(event.target.value)} /></label>
+          <label className="block text-xs">Read token (optional for private repositories)<input type="password" autoComplete="off" className={input} value={token} onChange={event => setToken(event.target.value)} /></label>
+          <p className="text-xs text-muted-foreground">The token is used for this clone only and is not saved or shared with chat.</p>
+          <button className={button} type="button" disabled={!name.trim() || !path.trim()} onClick={() => void perform(async () => {
+            const credential = token;
+            setToken("");
+            await assistantRequest("/storage/repositories/clone", {name: name.trim(), repository: path.trim(), ...(credential ? { token: credential } : {})}, controller.current?.signal, undefined, 120000);
+            setName(""); setPath(""); return "Repository cloned.";
+          })}>Clone repository</button>
+        </section>
+        <section className="space-y-2 border-t pt-4">
+          <h3 className="text-sm font-medium">Agent files</h3>
+          <p className="text-xs text-muted-foreground">New conversations receive these files in their normal shell workspace. Completed turns save changes back; external changes are protected.</p>
+          {state?.agent_files && <p className="break-all text-xs text-muted-foreground">Current: {state.repositories.find(repo => repo.id === state.agent_files?.repository_id)?.name} / {state.agent_files.path}</p>}
+          <label className="block text-xs">Agent repository<select className={input} value={agentRepo} onChange={event => setAgentRepo(event.target.value)}>{choices}</select></label>
+          <label className="block text-xs">Agent folder (relative to repository)<input className={input} value={agentPath} onChange={event => setAgentPath(event.target.value)} /></label>
+          <button className={button} type="button" disabled={!agentRepo || !agentPath} onClick={() => void perform(async () => {
+            await assistantRequest("/storage/agent-files", {repository_id: agentRepo, path: agentPath}, controller.current?.signal);
+            return "Agent-files folder selected. Chat can access it through project file tools.";
+          })}>Use folder</button>
+        </section>
+        <section className="space-y-2 border-t pt-4">
+          <h3 className="text-sm font-medium">Graph files</h3>
+          {sameLocation && binding?.sha256 !== binding?.current_sha256 && <p className="text-xs text-muted-foreground">The file changed since its last synchronization. Load to use the file, or save to replace it with the app graph.</p>}
+          <label className="block text-xs">Graph<select className={input} value={graph} onChange={event => chooseGraph(event.target.value)}><option value="">Select graph</option>{state?.workflows.map(row => <option key={row.id} value={row.id}>{row.name}</option>)}</select></label>
+          <label className="block text-xs">Graph repository<select className={input} value={graphRepo} onChange={event => setGraphRepo(event.target.value)}>{choices}</select></label>
+          <label className="block text-xs">Graph JSON file<input className={input} value={graphPath} onChange={event => setGraphPath(event.target.value)} /></label>
+          <p className="text-xs text-muted-foreground">Relative to the selected repository</p>
+          <div className="flex gap-2"><button className={button} type="button" disabled={!selectedGraph || !graphRepo || !graphPath} onClick={() => void synchronize("save")}>Save graph file</button>
+            <Dialog open={confirmLoad} onOpenChange={setConfirmLoad}><DialogTrigger asChild><button className={button} type="button" disabled={!selectedGraph || !sameLocation}>Load graph file</button></DialogTrigger>
+              <DialogContent><DialogHeader><DialogTitle>Replace saved graph?</DialogTitle><DialogDescription>Load the selected file into “{selectedGraph?.name}”. This replaces the saved graph. Reload open graph editors afterward.</DialogDescription></DialogHeader>
+                <DialogFooter><button className={button} type="button" onClick={() => setConfirmLoad(false)}>Cancel load</button><button className={button} type="button" onClick={() => { setConfirmLoad(false); void synchronize("load"); }}>Replace saved graph</button></DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
+          <p className="text-xs text-muted-foreground">Portable files omit secrets and component code. Loading preserves existing app-managed settings on matching components.</p>
+          <p className="text-xs text-muted-foreground">Prompts, ordinary field values and agent files become repository files. Review them before committing.</p>
+        </section>
+        <button className={button} type="button" onClick={() => void perform(async () => "Storage refreshed.")}>Refresh storage</button>
+      </fieldset>
+      {busy && <p role="status" className="text-sm text-muted-foreground">Working…</p>}
+      {notice && <p ref={outcome} role="status" className="text-sm text-muted-foreground">{notice}</p>}
+      {error && <p ref={outcome} role="alert" className="text-sm text-destructive">{error}</p>}
+    </DialogContent>
+  </Dialog>;
+}

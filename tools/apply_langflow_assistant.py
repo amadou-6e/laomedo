@@ -80,3 +80,6 @@ def apply_assistant(checkout: Path, source: Path):
     logout.write_text(signout, encoding="utf-8")
     editor.write_text(editor_content, encoding="utf-8")
     rail.write_text(rail_content, encoding="utf-8")
+    from apply_langflow_project_storage import apply_project_storage
+
+    apply_project_storage(checkout)

@@ -27,6 +27,10 @@ from laomedo.integrations.langflow.assistant.models import (
 )
 from laomedo.integrations.langflow.assistant.persistence import AssistantStore
 from laomedo.integrations.langflow.assistant.runner import AssistantRunner
+from laomedo.integrations.langflow.assistant.storage.workspace import (
+    ProjectChatWorkspace,
+)
+from laomedo.integrations.langflow.assistant.storage.files import ProjectStorage
 from laomedo.integrations.langflow.assistant.settings import (
     AUTHORING_SERVER_NAME,
     AUTHORING_TOOL_NAMES,
@@ -44,6 +48,7 @@ class AssistantRuntime:
         """Prepare inactive app composition without Docker, inference or credential reads."""
         self.settings = settings
         self.provider_connections = None
+        self.project_storage = ProjectStorage(settings.storage_root)
         self.idle_tools = {}
         self.claimed_idle_tools = {}
         self.model_catalogs = {}
@@ -66,6 +71,11 @@ class AssistantRuntime:
         from laomedo.integrations.langflow.assistant.boundary import AssistantBoundary
 
         owner = cls(AssistantSettings())
+        from laomedo.integrations.langflow.assistant.storage.routes import (
+            storage_router,
+        )
+
+        app.include_router(storage_router)
         app.state.laomedo_assistant = owner
         app.include_router(router)
         if owner.settings.app_url:
@@ -1078,6 +1088,12 @@ class AssistantRuntime:
                 "mcp_manifest": registration.manifest.model_dump(mode="json"),
                 "mcp_registration": str(registration.registration_id),
             }
+            await asyncio.to_thread(
+                ProjectChatWorkspace(self.project_storage).bind_session,
+                context.owner_id,
+                context.conversation_id,
+                context.session_key,
+            )
             if message.initial_native_command is not None:
                 if (
                     message.initial_native_command != "status"
@@ -1126,6 +1142,14 @@ class AssistantRuntime:
                 path = "/v1/runs/" + conversation.run_id + "/resume/async"
             else:
                 payload["request_id"] = str(message.id)
+                payload["workspace_files"] = (
+                    await asyncio.to_thread(
+                        ProjectChatWorkspace(self.project_storage).prepare,
+                        context.owner_id,
+                        context.conversation_id,
+                        context.session_key,
+                    )
+                ).model_dump()
                 path = "/v1/runs/async"
             dispatched = True
             record = await asyncio.to_thread(runner.request, "POST", path, payload)
@@ -1453,6 +1477,22 @@ class AssistantRuntime:
             or checkpoint.get("thread_id") != record.get("thread_id")
         ):
             digest = None
+        storage_error = None
+        if status == "completed" and digest:
+            try:
+                project = ProjectChatWorkspace(self.project_storage)
+                binding = project.read(owner, identifier)
+                if binding is not None:
+                    if binding.session_key is None:
+                        raise AssistantError("assistant_tool_authority_revoked", 403)
+                    await self.check_session(owner, binding.session_key)
+                    files = await asyncio.to_thread(
+                        runner.project_files, record["run_id"], digest
+                    )
+                    await self.check_session(owner, binding.session_key)
+                    await asyncio.to_thread(project.persist, owner, identifier, files)
+            except AssistantError as error:
+                storage_error = error.code
         await self.store.observe(
             owner,
             identifier,
@@ -1462,9 +1502,9 @@ class AssistantRuntime:
                 record.get("answer") if isinstance(record.get("answer"), str) else None
             ),
             error=(
-                self.safe_error(record.get("error_category"))
+                storage_error or self.safe_error(record.get("error_category"))
                 if record.get("error_category")
-                else None
+                else storage_error
             ),
             thread_id=record.get("thread_id"),
             workspace_hash=digest,
