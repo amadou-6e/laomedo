@@ -5,6 +5,7 @@ from laomedo.agents.activity.models import ActivityPage
 from laomedo.agents.agents.base.models import ReadinessObservation
 from laomedo.agents.agents.claude.catalog import ClaudeModelCatalog
 from laomedo.agents.agents.claude.credentials import ClaudeCredentialProvider
+from laomedo.agents.agents.claude.quota import ClaudeSubscriptionQuota
 
 from copy import deepcopy
 from pathlib import Path
@@ -104,6 +105,10 @@ class ClaudeAgent(BaseAgent):
     def editor_model_catalog(self):
         """Perform the provider-specific explicit refresh without submitting a model turn."""
         return self.model_catalog(refresh=True)
+
+    def subscription_limits(self):
+        """Observe this saved native account's plan without a model prompt."""
+        return ClaudeSubscriptionQuota(self).read()
 
     def prepare_resume(self, run_id, body):
         """Validate provider resume extensions and credential admission before reusing native identity."""

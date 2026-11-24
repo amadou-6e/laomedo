@@ -59,4 +59,12 @@ end-to-end native GitHub mediation readiness.
 
 ## Saved account connections
 
+`quota.py` owns `ClaudeSubscriptionQuota.read()`: validate the selected saved
+account, send only native initialize and `get_usage` with `skip_behaviors`, and
+project subscription windows after exact controller cleanup. It never submits a
+user message, scans transcripts, exports credentials or substitutes API costs.
+The pinned CLI's experimental response is bounded and fails closed on unsupported
+structure. Five-hour/week windows and scoped weekly buckets retain their native
+percentages and reset times; extra-usage billing is not subscription allowance.
+
 `connection.py` is the provider boundary. ClaudeConnection owns official-client begin/details/submit/cancel, native identity verification, exact labelled profile custody, orphan reconciliation and cleanup. ClaudeNativeProfile, ClaudeAccountIdentity and ClaudeLoginAttempt belong to models.py; its native cleanup budget belongs to settings.py. The shared Agent connection service owns admission/index fencing; host storage and profile authorization remain separate.

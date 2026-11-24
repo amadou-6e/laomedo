@@ -151,6 +151,29 @@ test("unsupported providers never request quota or expose an enabled refresh", (
   expect(screen.queryByRole("button")).not.toBeInTheDocument();
 });
 
+test("Claude uses the same explicit-refresh allowance panel", async () => {
+  const claude = {
+    ...account,
+    provider: "claude" as const,
+    method: "claude_native" as const,
+    label: "Personal Claude",
+  };
+  (readSubscriptionLimits as jest.Mock)
+    .mockResolvedValueOnce(empty)
+    .mockResolvedValueOnce({
+      ...ready,
+      snapshot: {
+        ...ready.snapshot,
+        buckets: [{ ...ready.snapshot!.buckets[0], limit_id: "claude", label: "Claude", credits: null }],
+      },
+    });
+  render(<SubscriptionLimits flowId="graph-one" accounts={[claude]} />);
+  await waitFor(() => expect(readSubscriptionLimits).toHaveBeenCalledTimes(1));
+  fireEvent.click(screen.getByRole("button", { name: "Refresh limits for Personal Claude" }));
+  await screen.findByText("75% remaining");
+  expect(screen.getByText("Claude")).toBeInTheDocument();
+});
+
 test("failed refresh keeps only last-known same-account values visibly stale", async () => {
   (readSubscriptionLimits as jest.Mock)
     .mockResolvedValueOnce(ready)

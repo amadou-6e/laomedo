@@ -80,7 +80,7 @@ function AccountLimits({
   const [now, setNow] = useState(Date.now());
   const request = useRef(0);
   const active = useRef<AbortController | null>(null);
-  const supported = account.provider === "codex";
+  const supported = account.provider === "codex" || account.provider === "claude";
   const eligible =
     account.lifecycle === "connected" && account.auth_state === "ready";
 

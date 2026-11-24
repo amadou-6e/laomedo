@@ -59,8 +59,8 @@ class SubscriptionObservations:
             return self._result(
                 binding,
                 lease_hash,
-                unsupported=record.provider != "codex"
-                or record.client_id != "codex-native",
+                unsupported=record.provider != "claude"
+                and (record.provider != "codex" or record.client_id != "codex-native"),
             )
 
     def refresh(self, profile_id, connection_id, generation, lease_hash):
@@ -72,7 +72,9 @@ class SubscriptionObservations:
         with self.service._lock:
             record = self._check(binding, lease_hash)
             self._prune()
-            if record.provider != "codex" or record.client_id != "codex-native":
+            if record.provider != "claude" and (
+                record.provider != "codex" or record.client_id != "codex-native"
+            ):
                 return self._result(binding, lease_hash, unsupported=True)
             entry = self.entries.get(binding)
             now = self.clock()

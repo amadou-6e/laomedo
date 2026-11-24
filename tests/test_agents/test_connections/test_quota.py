@@ -148,6 +148,24 @@ class SubscriptionObservationTests(unittest.TestCase):
         self.assertEqual(self.refresh().reason, "unsupported")
         self.reader.assert_not_called()
 
+    def test_claude_uses_the_same_account_generation_and_lease_cache(self):
+        self.service._save(
+            self.owner,
+            [
+                self.record.model_copy(
+                    update={
+                        "provider": "claude",
+                        "method": "claude_native",
+                        "client_id": "claude-native",
+                    }
+                )
+            ],
+        )
+        self.assertEqual(self.read().state, "not_checked")
+        self.assertEqual(self.refresh().state, "ready")
+        self.assertEqual(self.read("another-lease").state, "not_checked")
+        self.reader.assert_called_once()
+
     def test_stale_after_age_or_reset_never_infers_replenishment(self):
         first = self.refresh()
         self.now += 61
