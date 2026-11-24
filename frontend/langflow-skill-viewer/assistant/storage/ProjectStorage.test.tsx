@@ -51,16 +51,15 @@ it("retains input after a stale write and never retries it automatically", async
 });
 
 it("does not load when the replacement confirmation is cancelled", async () => {
-  const confirmation = jest.spyOn(window, "confirm").mockReturnValue(false);
   render(<ProjectStorage onFailure={jest.fn()} />);
   fireEvent.click(screen.getByRole("button", {name: "Project storage"}));
   await screen.findByText("Current: Project / agent-files");
   await waitFor(() => expect(screen.getByLabelText("Graph")).not.toBeDisabled());
   fireEvent.change(screen.getByLabelText("Graph"), {target: {value: "first"}});
   fireEvent.click(screen.getByRole("button", {name: "Load graph file"}));
-  expect(confirmation).toHaveBeenCalled();
+  expect(await screen.findByRole("dialog", {name: "Replace saved graph?"})).toHaveTextContent("First graph");
+  fireEvent.click(screen.getByRole("button", {name: "Cancel load"}));
   expect(jest.mocked(assistantRequest).mock.calls.some(call => call[0].endsWith("/load"))).toBe(false);
-  confirmation.mockRestore();
 });
 
 it("clones the selected remote and clears the one-use credential", async () => {
@@ -76,6 +75,21 @@ it("clones the selected remote and clears the one-use credential", async () => {
   expect(assistantRequest).toHaveBeenCalledWith("/storage/repositories/clone", {name: "New project", repository: "example/project", token: "one-use-test-token"}, expect.any(AbortSignal), undefined, 120000);
   expect(screen.getByLabelText("Read token (optional for private repositories)")).toHaveValue("");
   expect(screen.getByLabelText("Agent repository")).toHaveValue("repo");
+});
+
+it("loads only after the user confirms the selected graph replacement", async () => {
+  render(<ProjectStorage activeGraphId="first" onFailure={jest.fn()} />);
+  fireEvent.click(screen.getByRole("button", {name: "Project storage"}));
+  await screen.findByText("Current: Project / agent-files");
+  await waitFor(() => expect(screen.getByRole("button", {name: "Load graph file"})).not.toBeDisabled());
+  fireEvent.click(screen.getByRole("button", {name: "Load graph file"}));
+  await screen.findByRole("dialog", {name: "Replace saved graph?"});
+  expect(jest.mocked(assistantRequest).mock.calls.some(call => call[0].endsWith("/load"))).toBe(false);
+  fireEvent.click(screen.getByRole("button", {name: "Replace saved graph"}));
+  await screen.findByText(/Graph file loaded/);
+  expect(assistantRequest).toHaveBeenCalledWith("/storage/graphs/first/load", {
+    location: {repository_id: "repo", path: "graphs/first.json"}, expected_graph_revision: "rev1", expected_file_hash: "current",
+  }, expect.any(AbortSignal));
 });
 
 it("opens on the graph being edited with its own persisted file location", async () => {

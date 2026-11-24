@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { FolderGit2 } from "lucide-react";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AssistantFailure, assistantRequest } from "../api";
 import type { ProjectStorageState } from "./models";
 import { describeNodeFailure } from "@/components/laomedoErrors/nodeErrors";
 
 export default function ProjectStorage({ activeGraphId, onFailure }: { activeGraphId?: string; onFailure: (error: unknown) => void }) {
   const [open, setOpen] = useState(false);
+  const [confirmLoad, setConfirmLoad] = useState(false);
   const [state, setState] = useState<ProjectStorageState>();
   const [name, setName] = useState("");
   const [path, setPath] = useState("");
@@ -130,9 +131,13 @@ export default function ProjectStorage({ activeGraphId, onFailure }: { activeGra
           <label className="block text-xs">Graph repository<select className={input} value={graphRepo} onChange={event => setGraphRepo(event.target.value)}>{choices}</select></label>
           <label className="block text-xs">Graph JSON file<input className={input} value={graphPath} onChange={event => setGraphPath(event.target.value)} /></label>
           <p className="text-xs text-muted-foreground">Relative to the selected repository</p>
-          <div className="flex gap-2"><button className={button} type="button" disabled={!selectedGraph || !graphRepo || !graphPath} onClick={() => void synchronize("save")}>Save graph file</button><button className={button} type="button" disabled={!selectedGraph || !sameLocation} onClick={() => {
-            if (window.confirm("Replace this saved graph with its file contents? Reload open graph editors afterward.")) void synchronize("load");
-          }}>Load graph file</button></div>
+          <div className="flex gap-2"><button className={button} type="button" disabled={!selectedGraph || !graphRepo || !graphPath} onClick={() => void synchronize("save")}>Save graph file</button>
+            <Dialog open={confirmLoad} onOpenChange={setConfirmLoad}><DialogTrigger asChild><button className={button} type="button" disabled={!selectedGraph || !sameLocation}>Load graph file</button></DialogTrigger>
+              <DialogContent><DialogHeader><DialogTitle>Replace saved graph?</DialogTitle><DialogDescription>Load the selected file into “{selectedGraph?.name}”. This replaces the saved graph. Reload open graph editors afterward.</DialogDescription></DialogHeader>
+                <DialogFooter><button className={button} type="button" onClick={() => setConfirmLoad(false)}>Cancel load</button><button className={button} type="button" onClick={() => { setConfirmLoad(false); void synchronize("load"); }}>Replace saved graph</button></DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
           <p className="text-xs text-muted-foreground">Portable files omit secrets and component code. Loading preserves existing app-managed settings on matching components.</p>
           <p className="text-xs text-muted-foreground">Prompts, ordinary field values and agent files become repository files. Review them before committing.</p>
         </section>
