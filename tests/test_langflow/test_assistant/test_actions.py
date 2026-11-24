@@ -125,12 +125,17 @@ class GraphActionTests(unittest.IsolatedAsyncioTestCase):
             "langflow.services.authorization.ensure_flow_permission", new=AsyncMock()
         )
         self.policy = patch("langflow.api.v1.flows._validate_catalog_policy_for_write")
+        self.job_service = patch(
+            "langflow.services.deps.get_job_service", return_value=AsyncMock()
+        )
+        self.job_service.start().return_value.get_job_by_job_id.return_value = None
         self.permissions.start()
         self.policy.start()
 
     async def asyncTearDown(self):
         self.permissions.stop()
         self.policy.stop()
+        self.job_service.stop()
         await self.engine.dispose()
         self.directory.cleanup()
 
@@ -650,6 +655,69 @@ class GraphActionTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(observed["state"], "not_dispatched")
         self.assertEqual(observed["error_code"], "assistant_action_not_dispatched")
+
+    async def test_resource_revocation_after_approval_prevents_dispatch(self):
+        from types import SimpleNamespace
+
+        request = GraphActionRequest(
+            operation_key="resource-fence",
+            kind="run",
+            workflow_id=self.flow_id,
+            expected_revision=self.revision,
+        )
+        proposal = await self.actions.propose(self.context, request)
+        result, snapshot, actor = await self.decide(proposal)
+        self.actions.configuration = SimpleNamespace(
+            check_graph=AsyncMock(
+                side_effect=AssistantError("provider_connection_changed")
+            )
+        )
+        with patch(
+            "langflow.api.v1.endpoints.simple_run_flow", new=AsyncMock()
+        ) as execute:
+            await self.actions.execute(result, snapshot, actor, AsyncMock())
+            execute.assert_not_called()
+        observed = await self.actions.read(
+            self.owner, self.conversation, UUID(result["id"])
+        )
+        self.assertEqual(observed["state"], "not_dispatched")
+
+    async def test_typed_run_inputs_are_digest_bound_and_never_mutate_the_saved_graph(
+        self,
+    ):
+        from laomedo.integrations.langflow.assistant.models import GraphRunInput
+
+        request = GraphActionRequest(
+            operation_key="runtime-input",
+            kind="run",
+            workflow_id=self.flow_id,
+            expected_revision=self.revision,
+            node_inputs=[
+                GraphRunInput(node_id="Text-one", field="text", value="runtime")
+            ],
+            output_component="Text-one",
+        )
+        result = self.actions.run_data(self.original, request)
+        self.assertEqual(
+            result["nodes"][0]["data"]["node"]["template"]["text"]["value"], "runtime"
+        )
+        self.assertEqual(
+            self.original["nodes"][0]["data"]["node"]["template"]["text"]["value"],
+            "old",
+        )
+        self.assertNotEqual(
+            request.digest(),
+            request.model_copy(update={"output_component": "Text-two"}).digest(),
+        )
+        bad = request.model_copy(
+            update={
+                "node_inputs": [
+                    GraphRunInput(node_id="Text-one", field="api_key", value="refused")
+                ]
+            }
+        )
+        with self.assertRaises(AssistantError):
+            self.actions.run_data(self.original, bad)
 
     async def test_concurrent_run_approvals_return_one_dispatch_snapshot(self):
         request = GraphActionRequest(

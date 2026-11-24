@@ -9,6 +9,8 @@ from laomedo.integrations.langflow.assistant.errors import AssistantError
 from laomedo.integrations.langflow.assistant.models import AssistantRunEvidence
 from laomedo.integrations.langflow.assistant.models import WorkflowNodeOutput
 from laomedo.integrations.langflow.assistant.models import WorkflowRunResult
+from laomedo.integrations.langflow.assistant.models import WorkflowNodeStatus
+from laomedo.integrations.langflow.assistant.models import FlowDiagnostic
 from laomedo.integrations.langflow.assistant.settings import RUN_OUTPUT_BYTES
 from laomedo.integrations.langflow.assistant.settings import RUN_OUTPUT_ITEMS
 
@@ -19,6 +21,50 @@ class WorkflowRunEvidence:
     def __init__(self, actions):
         """Reuse graph-action ownership and its original database lifecycle."""
         self.actions = actions
+
+    async def node_status(self, context, action):
+        """Read only status columns after verifying the execution owner's exact job."""
+        from langflow.services.deps import get_job_service
+        from langflow.services.database.models.vertex_builds.model import (
+            VertexBuildTable,
+        )
+        from sqlmodel import select
+
+        try:
+            job = await get_job_service().get_job_by_job_id(
+                UUID(action["run_id"]), user_id=context.owner_id
+            )
+            if (
+                job is None
+                or job.user_id != context.owner_id
+                or str(job.flow_id) != action["workflow_id"]
+            ):
+                return []
+            async with self.actions.store.sessions() as session:
+                rows = (
+                    await session.exec(
+                        select(VertexBuildTable.id, VertexBuildTable.valid)
+                        .where(
+                            VertexBuildTable.job_id == UUID(action["run_id"]),
+                            VertexBuildTable.flow_id == job.flow_id,
+                        )
+                        .order_by(
+                            VertexBuildTable.timestamp.desc(),
+                            VertexBuildTable.build_id.desc(),
+                        )
+                        .limit(RUN_OUTPUT_ITEMS)
+                    )
+                ).all()
+            latest = {}
+            for node_id, valid in rows:
+                if node_id not in latest and len(latest) < 100:
+                    latest[node_id] = WorkflowNodeStatus(
+                        node_id=node_id, state="succeeded" if valid else "failed"
+                    )
+            return list(latest.values())
+        except Exception:
+            # No exact-run observations means unavailable, never a flow-wide or raw-error fallback.
+            return []
 
     @classmethod
     def safe_value(cls, value, depth=0):
@@ -188,5 +234,17 @@ class WorkflowRunEvidence:
             await self.actions.configuration.check_bindings(
                 context, self.actions.catalog, bindings
             )
+        nodes = await self.node_status(context, action)
+        result["nodes"] = [node.model_dump() for node in nodes]
+        result["node_status_available"] = bool(nodes)
+        result["diagnostics"] = [
+            FlowDiagnostic(
+                code="node_execution_failed",
+                node_id=node.node_id,
+                message="This node failed. Inspect its configuration and connected inputs.",
+            ).model_dump()
+            for node in nodes
+            if node.state == "failed"
+        ]
         await self.actions.authorize(context)
         return WorkflowRunResult.model_validate(result).model_dump(mode="json")

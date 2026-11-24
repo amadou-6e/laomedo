@@ -188,6 +188,18 @@ class WorkflowValidationResult(BaseModel):
     )
 
 
+class WorkflowNodeStatus(BaseModel):
+    """Execution-owned node observation, excluding raw errors, inputs and artifacts."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    node_id: str = ModelField(
+        max_length=200, description="Exact observed node identifier."
+    )
+    state: Literal["succeeded", "failed"] = ModelField(
+        description="Latest recorded build outcome."
+    )
+
+
 class WorkflowRunResult(BaseModel):
     """Authoritative run status and independently available bounded explicit outputs."""
 
@@ -210,6 +222,15 @@ class WorkflowRunResult(BaseModel):
     )
     next_cursor: int | None = ModelField(
         default=None, description="Next page offset, if any."
+    )
+    node_status_available: bool = ModelField(
+        default=False, description="Exact owned run has recorded node observations."
+    )
+    nodes: list[WorkflowNodeStatus] = ModelField(
+        default_factory=list, description="Bounded execution-owned node statuses."
+    )
+    diagnostics: list[FlowDiagnostic] = ModelField(
+        default_factory=list, description="Safe failure locations; no raw stack traces."
     )
     truncated: bool = ModelField(
         description="Projection omitted unsupported or oversized values."
