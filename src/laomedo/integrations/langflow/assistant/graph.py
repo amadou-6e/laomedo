@@ -113,7 +113,7 @@ class GraphEditor:
             )
             preview.extend(
                 self.catalog.update_saved_fields(
-                    node, self.identity(node), update.fields
+                    node, self.identity(node), update.fields, resolved=resolved
                 )
             )
             if resolved is not None:

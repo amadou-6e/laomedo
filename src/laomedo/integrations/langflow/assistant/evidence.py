@@ -8,6 +8,7 @@ from uuid import UUID
 from laomedo.integrations.langflow.assistant.errors import AssistantError
 from laomedo.integrations.langflow.assistant.models import AssistantRunEvidence
 from laomedo.integrations.langflow.assistant.models import WorkflowNodeOutput
+from laomedo.integrations.langflow.assistant.models import WorkflowRunResult
 from laomedo.integrations.langflow.assistant.settings import RUN_OUTPUT_BYTES
 from laomedo.integrations.langflow.assistant.settings import RUN_OUTPUT_ITEMS
 
@@ -188,4 +189,4 @@ class WorkflowRunEvidence:
                 context, self.actions.catalog, bindings
             )
         await self.actions.authorize(context)
-        return result
+        return WorkflowRunResult.model_validate(result).model_dump(mode="json")

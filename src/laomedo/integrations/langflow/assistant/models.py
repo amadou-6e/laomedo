@@ -153,6 +153,69 @@ class WorkflowNodeOutput(BaseModel):
     value: JsonValue = ModelField(description="Bounded safe text or data projection.")
 
 
+class ConfigurationResult(BaseModel):
+    """Nonsecret discovered choices and the exact candidate they resolved."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    resolution_id: UUID = ModelField(description="Opaque candidate reference.")
+    component_type: str = ModelField(description="Exact installed identity.")
+    schema_revision: str = ModelField(description="Observed installed schema digest.")
+    fields: dict[str, JsonValue] = ModelField(description="Validated candidate values.")
+    options: dict[str, JsonValue] = ModelField(
+        description="Owner-authorized bounded choices."
+    )
+    provenance: dict[str, Literal["resolved_owner", "requested_static", "omitted"]] = (
+        ModelField(description="Origin of each candidate field.")
+    )
+    expires_at: float = ModelField(
+        description="Candidate expiry, not authority to execute."
+    )
+
+
+class WorkflowValidationResult(BaseModel):
+    """Metadata-only readiness for a candidate or exact saved revision."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    workflow_id: UUID | None = ModelField(
+        default=None, description="Owned saved graph if applicable."
+    )
+    revision: str | None = ModelField(
+        default=None, description="Exact saved revision checked."
+    )
+    ready: bool = ModelField(description="No blocking metadata or binding diagnostic.")
+    diagnostics: list[FlowDiagnostic] = ModelField(
+        description="Bounded safe issues, without running nodes."
+    )
+
+
+class WorkflowRunResult(BaseModel):
+    """Authoritative run status and independently available bounded explicit outputs."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    action_id: UUID = ModelField(description="Exact approved action.")
+    workflow_id: UUID = ModelField(description="Owned executed graph.")
+    revision: str = ModelField(description="Exact executed snapshot revision.")
+    run_id: UUID = ModelField(description="Execution-owner run identifier.")
+    state: str = ModelField(
+        description="Observed action outcome, never inferred from outputs."
+    )
+    error_code: str | None = ModelField(
+        default=None, description="Safe stable outcome category."
+    )
+    output_available: bool = ModelField(
+        description="Whether explicit outputs were durably captured."
+    )
+    outputs: list[WorkflowNodeOutput] = ModelField(
+        description="This bounded output page."
+    )
+    next_cursor: int | None = ModelField(
+        default=None, description="Next page offset, if any."
+    )
+    truncated: bool = ModelField(
+        description="Projection omitted unsupported or oversized values."
+    )
+
+
 class AssistantRunEvidence(SQLModel, table=True):
     """Owned terminal run projection; deletion follows its assistant conversation."""
 

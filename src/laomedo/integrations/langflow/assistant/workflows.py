@@ -18,9 +18,10 @@ from laomedo.integrations.langflow.assistant.models import (
 class WorkflowDrafts:
     """Project owner-visible workflows and conditionally save this conversation's drafts."""
 
-    def __init__(self, store, catalog, authorize):
+    def __init__(self, store, catalog, authorize, *, configuration=None):
         """Use the app database/catalog and an explicit host session-authority check."""
         self.store, self.catalog, self.authorize = store, catalog, authorize
+        self.configuration = configuration
 
     def revision(self, flow):
         """Digest the complete persisted Flow, not a lossy timestamp-only projection."""
@@ -110,6 +111,10 @@ class WorkflowDrafts:
                 "revision": self.revision(flow),
                 "spec": self.catalog.project(flow.data),
             }
+            if self.configuration is not None:
+                result["spec"] = await self.configuration.project(
+                    context, self.catalog, flow.data
+                )
         await self.authorize(context)
         return result
 
@@ -173,7 +178,10 @@ class WorkflowDrafts:
                                 + name
                                 + ": setting was not copied"
                             )
-                if diagnostics and not request.spec.allow_incomplete:
+                if (
+                    any(not text.startswith("warning: ") for text in diagnostics)
+                    and not request.spec.allow_incomplete
+                ):
                     raise AssistantError("assistant_draft_incomplete", 422)
                 if request.draft_id:
                     owned = (

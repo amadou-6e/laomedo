@@ -13,6 +13,24 @@ the private MCP dispatcher composes these services. Existing graph persistence a
 provider/Skill/MCP owners remain authoritative. Discovery and validation never
 submit a model task. Real acceptance and independent review are pending.
 
+Audited adapters are exact-source Codex, Claude, OpenCode, Skill and MCPTools
+components. Other installed components expose static typed fields and compatible
+ports; unsupported dynamic fields remain explicit. Agent model depends on the
+explicit saved account, and effort depends on its selected model. Skill revisions
+are pinned within the existing host-level imported registry (the same registry
+already listed by `list_skills`); this feature introduces no private Skill owner.
+Combining source graphs reconstructs a new candidate through the same resolver;
+it never copies resource authority or unmentioned private selectors. Existing-node
+patches preserve unmentioned bytes, and changed resource fields need a fresh
+resolution. Resolved selectors are made visible in the editor for inspection.
+
+The digest-pinned MCPTools adapter uses the installed `component_as_tool` /
+`to_toolkit` Toolset contract. It saves `tool_mode=True` and removes the single-tool
+selection requirement; discovery does not invoke its refresh hook. Its name-only
+selector is resolved at execution by the installed component's owner-scoped
+`get_server` lookup; embedded configuration and headers are never accepted.
+Portable exports clear machine-local MCP selectors as well as provider accounts.
+
 Explicit human-entered Claude `/usage`, without arguments and advertised as
 non-model work, uses the existing atomic decision/dispatch path immediately.
 Assistant-proposed usage still requires human approval; other commands retain

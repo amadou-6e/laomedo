@@ -17,7 +17,6 @@ class ComponentCatalog:
         """Bind an already authorized installed metadata snapshot, without evaluating code."""
         self.snapshot = snapshot
         self.resolutions = {}
-        self.approved_values = set()
 
     def schema_revision(self, identity):
         """Identify exact installed metadata/source without exposing its contents."""
@@ -61,10 +60,6 @@ class ComponentCatalog:
     def allow_resolution(self, resolved):
         """Admit exact audited values, never arbitrary field names or provider credentials."""
         self.resolutions[resolved.id] = resolved
-        for name, value in resolved.fields.items():
-            self.approved_values.add(
-                (resolved.component_type, name, json.dumps(value, sort_keys=True))
-            )
 
     @classmethod
     async def from_installed(cls, owner):
@@ -222,6 +217,21 @@ class ComponentCatalog:
     def describe(self, identity):
         """Expose names, compatible types and approved field constraints, excluding executable source."""
         component = self.template(identity)
+        family = self.audited_family(identity)
+        dynamic = (
+            {
+                "provider_connection": [],
+                "model": ["provider_connection"],
+                "effort": ["provider_connection", "model"],
+            }
+            if family
+            in {"LaomedoCodexAgent", "LaomedoClaudeAgent", "LaomedoOpenCodeAgent"}
+            else (
+                {"skill_id": [], "revision_id": ["skill_id"]}
+                if family == "LaomedoSkill"
+                else {"mcp_server": []} if family == "MCPTools" else {}
+            )
+        )
         inputs = []
         for name, field in component["template"].items():
             if name.startswith("_") or not isinstance(field, dict) or name == "code":
@@ -235,6 +245,8 @@ class ComponentCatalog:
                     "required": bool(field.get("required")),
                     "list": bool(field.get("list")),
                     "writable": self._writable(name, field),
+                    "resolvable": name in dynamic,
+                    "depends_on": dynamic.get(name, []),
                     "kind": (
                         "static"
                         if self._writable(name, field)
@@ -253,14 +265,7 @@ class ComponentCatalog:
                         if self._writable(name, field)
                         else (
                             "requires_audited_resolution"
-                            if name
-                            in {
-                                "provider_connection",
-                                "model",
-                                "effort",
-                                "skill_id",
-                                "revision_id",
-                            }
+                            if name in dynamic
                             else "field_not_supported"
                         )
                     ),
@@ -280,6 +285,9 @@ class ComponentCatalog:
             )
         return {
             "component_type": identity,
+            "configuration_support": (
+                "audited_adapter" if family else "static_fields_only"
+            ),
             "schema_revision": self.schema_revision(identity),
             "display_name": str(component.get("display_name") or identity)[:200],
             "description": str(component.get("description") or "")[:1500],
@@ -291,9 +299,15 @@ class ComponentCatalog:
             ],
         }
 
-    def _value(self, name, field, value, identity=None):
+    def _value(self, name, field, value, identity=None, *, resolved=None):
         """Check the exact static type without string coercion or executable validation."""
-        if (identity, name, json.dumps(value, sort_keys=True)) in self.approved_values:
+        if (
+            resolved is not None
+            and self.resolutions.get(resolved.id) is resolved
+            and resolved.component_type == identity
+            and name in resolved.fields
+            and resolved.fields[name] == value
+        ):
             return deepcopy(value)
         if not self._writable(name, field):
             raise AssistantError("assistant_field_not_writable", 422)
@@ -316,7 +330,7 @@ class ComponentCatalog:
                 raise AssistantError("assistant_field_type_invalid", 422)
         return deepcopy(value)
 
-    def update_saved_fields(self, node, identity, values):
+    def update_saved_fields(self, node, identity, values, *, resolved=None):
         """Change only explicit writable values, retaining saved code, secrets and schema."""
         metadata = self.template(identity)
         saved = node.get("data", {}).get("node", {}).get("template", {})
@@ -327,14 +341,10 @@ class ComponentCatalog:
             if (
                 not isinstance(field, dict)
                 or not isinstance(original, dict)
-                or (
-                    not self._writable(name, original)
-                    and (identity, name, json.dumps(value, sort_keys=True))
-                    not in self.approved_values
-                )
+                or (not self._writable(name, original) and resolved is None)
             ):
                 raise AssistantError("assistant_field_not_writable", 422)
-            checked = self._value(name, field, value, identity)
+            checked = self._value(name, field, value, identity, resolved=resolved)
             if original.get("type") != field.get("type"):
                 raise AssistantError("assistant_field_type_invalid", 422)
             before = (
@@ -421,7 +431,7 @@ class ComponentCatalog:
                 if not isinstance(field, dict):
                     raise AssistantError("assistant_field_unknown", 422)
                 field["value"] = self._value(
-                    name, field, value, definition.component_type
+                    name, field, value, definition.component_type, resolved=resolved
                 )
                 if resolved is not None and name in resolved.fields:
                     field["show"] = True

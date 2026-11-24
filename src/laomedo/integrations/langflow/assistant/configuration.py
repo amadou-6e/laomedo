@@ -14,6 +14,8 @@ from laomedo.integrations.langflow.assistant.models import ResolvedConfiguration
 from laomedo.integrations.langflow.assistant.models import ResourceBinding
 from laomedo.integrations.langflow.assistant.models import NodeResourceBindings
 from laomedo.integrations.langflow.assistant.models import RunResourceBinding
+from laomedo.integrations.langflow.assistant.models import ConfigurationResult
+from laomedo.integrations.langflow.assistant.models import WorkflowValidationResult
 from laomedo.integrations.langflow.assistant.settings import AUDITED_AGENT_COMPONENTS
 from laomedo.integrations.langflow.assistant.settings import RESOLUTION_LIMIT
 from laomedo.integrations.langflow.assistant.settings import RESOLUTION_SECONDS
@@ -64,6 +66,8 @@ class WorkflowConfiguration:
                 options["model"] = models
                 values["provider_connection"] = str(request.connection_id)
                 chosen = request.fields.get("model")
+                if chosen is None and "effort" in request.fields:
+                    raise AssistantError("assistant_configuration_required", 422)
                 if chosen is not None:
                     selected = next(
                         (model for model in models if model["id"] == chosen), None
@@ -167,14 +171,23 @@ class WorkflowConfiguration:
         while len(self.resolutions) > RESOLUTION_LIMIT:
             self.resolutions.popitem(last=False)
         await self.runtime.authorize(context)
-        return {
-            "resolution_id": str(resolved.id),
-            "component_type": identity,
-            "schema_revision": schema,
-            "fields": values,
-            "options": options,
-            "expires_at": resolved.expires_at,
-        }
+        return ConfigurationResult(
+            resolution_id=resolved.id,
+            component_type=identity,
+            schema_revision=schema,
+            fields=values,
+            options=options,
+            expires_at=resolved.expires_at,
+            provenance={
+                name: (
+                    "resolved_owner"
+                    if name in dynamic and name in values
+                    else "requested_static" if name in values else "omitted"
+                )
+                for name in template
+                if name != "code" and not name.startswith("_")
+            },
+        ).model_dump(mode="json")
 
     async def check(self, context, catalog, resolved, *, active=True):
         """Revalidate exact owner/schema/resource epochs without model/native discovery."""
@@ -275,6 +288,52 @@ class WorkflowConfiguration:
                 if saved != str(selected):
                     raise AssistantError("assistant_configuration_stale", 409)
             await self.check_resources(context, binding.resources)
+            template = node.get("data", {}).get("node", {}).get("template", {})
+            for resource in binding.resources:
+                if resource.kind == "skill":
+                    if (
+                        template.get("skill_id", {}).get("value") != resource.id
+                        or template.get("revision_id", {}).get("value")
+                        != resource.version
+                    ):
+                        raise AssistantError("assistant_configuration_stale", 409)
+                elif resource.kind == "mcp":
+                    from langflow.services.database.models import MCPServer
+
+                    async with self.runtime.store.sessions() as session:
+                        server = await session.get(MCPServer, UUID(resource.id))
+                        if (
+                            server is None
+                            or server.user_id != context.owner_id
+                            or template.get("mcp_server", {}).get("value")
+                            != {"name": server.name}
+                        ):
+                            raise AssistantError("assistant_configuration_stale", 409)
+
+    async def project(self, context, catalog, data):
+        """Expose only the fixed nonsecret adapter fields after checking saved resource fences."""
+        await self.check_graph(context, catalog, data)
+        result = catalog.project(data)
+        saved = {node["id"]: node for node in (data or {}).get("nodes", [])}
+        for node in result["nodes"]:
+            source = saved.get(node["key"], {})
+            if not source.get("data", {}).get("laomedo_authoring_bindings"):
+                continue
+            identity = node.get("component_type")
+            if not identity or catalog.audited_family(identity) is None:
+                continue
+            descriptions = catalog.describe(identity)["inputs"]
+            template = source.get("data", {}).get("node", {}).get("template", {})
+            for field in descriptions:
+                name = field["name"]
+                value = template.get(name, {}).get("value")
+                if field["resolvable"] and isinstance(value, str) and len(value) <= 200:
+                    node["fields"][name] = value
+                    node["unresolved_fields"] = [
+                        item for item in node["unresolved_fields"] if item != name
+                    ]
+        await self.runtime.authorize(context)
+        return result
 
     def graph_bindings(self, catalog, data):
         """Project resource fences without keeping graph inputs, code or configuration."""
@@ -419,9 +478,9 @@ class WorkflowConfiguration:
                         )
                     )
         await self.runtime.authorize(context)
-        return {
-            "workflow_id": str(workflow_id) if workflow_id else None,
-            "revision": revision,
-            "ready": not any(issue.severity == "error" for issue in diagnostics),
-            "diagnostics": [issue.model_dump() for issue in diagnostics],
-        }
+        return WorkflowValidationResult(
+            workflow_id=workflow_id,
+            revision=revision,
+            ready=not any(issue.severity == "error" for issue in diagnostics),
+            diagnostics=diagnostics,
+        ).model_dump(mode="json")

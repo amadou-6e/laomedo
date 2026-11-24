@@ -241,3 +241,31 @@ class ConfigurationTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(self.catalog.audited_family(self.identity))
         with self.assertRaises(AssistantError):
             await self.resolved()
+
+    async def test_resolution_values_cannot_be_borrowed_by_an_unbound_second_node(self):
+        result = await self.resolved()
+        bound = DraftNode(
+            key="bound",
+            component_type=self.identity,
+            fields=result["fields"],
+            resolution_id=UUID(result["resolution_id"]),
+        )
+        unbound = DraftNode(
+            key="unbound", component_type=self.identity, fields=result["fields"]
+        )
+        await self.configuration.prepare(self.context, self.catalog, [bound, unbound])
+        with self.assertRaisesRegex(AssistantError, "assistant_field_not_writable"):
+            self.catalog.compile(DraftGraph(nodes=[bound, unbound]))
+
+    async def test_effort_requires_an_observed_selected_model(self):
+        with self.assertRaisesRegex(AssistantError, "assistant_configuration_required"):
+            await self.configuration.resolve(
+                self.context,
+                self.catalog,
+                ConfigurationRequest(
+                    component_type=self.identity,
+                    connection_id=self.connection,
+                    connection_generation=1,
+                    fields={"effort": "unobserved"},
+                ),
+            )

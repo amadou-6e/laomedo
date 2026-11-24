@@ -558,7 +558,9 @@ class AssistantRuntime:
         """Compose the existing workflow owner with authorized installed metadata only."""
         await self.authorize(context)
         catalog = await ComponentCatalog.from_installed(context.owner_id)
-        return WorkflowDrafts(self.store, catalog, self.authorize)
+        return WorkflowDrafts(
+            self.store, catalog, self.authorize, configuration=self.configuration
+        )
 
     async def save(self, context, workflows, request):
         """Serialize saves and fence new operation keys after an uncertain acknowledgement."""
