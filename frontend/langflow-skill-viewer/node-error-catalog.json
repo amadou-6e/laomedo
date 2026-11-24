@@ -2928,7 +2928,7 @@
   "assistant_storage_repository_unavailable": {
     "title": "Checkout unavailable",
     "description": "The requested project file operation could not be confirmed.",
-    "recovery": "Restore the selected local Git checkout, or connect another checkout and select its location."
+    "recovery": "Restore the selected checkout, or clone another repository and select its location."
   },
   "assistant_storage_text_required": {
     "title": "Text file required",

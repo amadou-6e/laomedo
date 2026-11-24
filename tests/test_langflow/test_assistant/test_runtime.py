@@ -690,12 +690,15 @@ class RuntimeTests(unittest.IsolatedAsyncioTestCase):
                 session_key="fixture"
             )
             project.return_value.persist.side_effect = AssistantError(
-                "assistant_storage_file_changed", 409
+                "assistant_storage_workspace_conflict", 409
             )
             self.assertTrue(await self.runtime.reconcile(self.owner, self.identifier))
         detail = await self.store.detail(self.owner, self.identifier)
         self.assertEqual(detail["messages"][0]["state"], "completed")
         self.assertEqual(detail["messages"][0]["response"], "Done")
+        self.assertEqual(
+            detail["messages"][0]["error_code"], "assistant_storage_workspace_conflict"
+        )
         self.assertIsNone(detail["conversation"]["active_message_id"])
 
     async def test_revoked_browser_session_cannot_export_completed_shell_files(self):
