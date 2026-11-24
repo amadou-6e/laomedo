@@ -4,10 +4,16 @@ import type { PrivateSelection } from "./models";
 
 async function read(path: string, options: RequestInit, signal?: AbortSignal) {
   let response: Response;
+  const controller = new AbortController();
+  const cancel = () => controller.abort();
+  if (signal?.aborted) cancel();
+  else signal?.addEventListener("abort", cancel, { once: true });
+  const timeout = setTimeout(cancel, 120000);
   try {
     response = await fetch(`/api/v1/laomedo/${path}`, { ...options, credentials: "same-origin", cache: "no-store",
-      signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(120000)]) : AbortSignal.timeout(120000) });
+      signal: controller.signal });
   } catch { throw new ConnectionFailure("github_connection_unavailable"); }
+  finally { clearTimeout(timeout); signal?.removeEventListener("abort", cancel); }
   let body: any;
   try { body = await response.json(); } catch { throw new ConnectionFailure("github_connection_unavailable"); }
   if (!response.ok) throw new ConnectionFailure(typeof body?.code === "string" && Object.hasOwn(catalogue, body.code)
