@@ -10,7 +10,8 @@ not store PINs, mint tokens or introduce another authentication protocol.
 
 For local debugging only, build with `VITE_LAOMEDO_DEBUG_PIN_INPUT=true` to make
 the visually masked PIN fields selectable and copyable by browser automation.
-The screen announces this mode. Normal builds use password fields. Do not use a
+This requires a browser supporting `-webkit-text-security`; other browsers keep
+password fields. The screen announces this mode. Normal builds use password fields. Do not use a
 debug build where a browser extension or another observer should not read PINs.
 
 The pinned upstream auth-guard adapter preserves the full same-site path, query
