@@ -8,6 +8,11 @@ checks the authenticated identity before restoring the cookie session in a fresh
 document. This discards old query/mutation/store callbacks on profile entry. It does
 not store PINs, mint tokens or introduce another authentication protocol.
 
+For local debugging only, build with `VITE_LAOMEDO_DEBUG_PIN_INPUT=true` to make
+the visually masked PIN fields selectable and copyable by browser automation.
+The screen announces this mode. Normal builds use password fields. Do not use a
+debug build where a browser extension or another observer should not read PINs.
+
 The pinned upstream auth-guard adapter preserves the full same-site path, query
 and fragment in its encoded login return URL. Revalidating a cookie on reload
 must not drop the assistant conversation identity or other route parameters.

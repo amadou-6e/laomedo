@@ -13,6 +13,7 @@ import {
 } from "./api";
 
 import { announceProfileChange } from "./ProfileSessionSync";
+import { debugPinInput } from "./debug";
 
 type ProfileField = "name" | "pin" | "confirmation";
 
@@ -315,7 +316,8 @@ export default function ProfileEntry({
 							PIN (6 digits)
 							<Input
 								className="mt-1"
-								type="password"
+								type={debugPinInput ? "text" : "password"}
+								style={debugPinInput ? { WebkitTextSecurity: "disc" } : undefined}
 								inputMode="numeric"
 								autoComplete="off"
 								maxLength={6}
@@ -332,13 +334,15 @@ export default function ProfileEntry({
 								aria-describedby={fieldErrors.pin ? "profile-pin-error" : undefined}
 							/>
 							{fieldErrors.pin && <p id="profile-pin-error" role="alert" className="mt-2 text-sm text-red-600 dark:text-red-400">{describeNodeFailure(fieldErrors.pin).title}</p>}
+							{debugPinInput && <p className="mt-1 text-xs text-muted-foreground">Debug mode: PIN text can be selected and copied.</p>}
 						</label>
 						{screen === "create" && (
 							<label className="block text-sm">
 								Confirm PIN
 								<Input
 									className="mt-1"
-									type="password"
+									type={debugPinInput ? "text" : "password"}
+									style={debugPinInput ? { WebkitTextSecurity: "disc" } : undefined}
 									inputMode="numeric"
 									autoComplete="off"
 									maxLength={6}
