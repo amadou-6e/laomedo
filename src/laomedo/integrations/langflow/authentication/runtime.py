@@ -11,7 +11,10 @@ from laomedo.integrations.langflow.authentication.adapter import PrivateSessionA
 from laomedo.integrations.langflow.authentication.boundary import (
     PrivateResponseBoundary,
 )
-from laomedo.integrations.langflow.authentication.errors import PrivateSessionError
+from laomedo.integrations.langflow.authentication.errors import (
+    PrivateRuntimeUnsupported,
+    PrivateSessionError,
+)
 from laomedo.integrations.langflow.authentication.models import PrivateRuntimeMarker
 from laomedo.integrations.langflow.authentication.policy import (
     PrivateAccessPolicy,
@@ -70,6 +73,8 @@ class PrivateBrowserRuntime:
 
     def configure(self, app):
         """Install after explicit profile setup; default public previews stay unchanged."""
+        if sys.version_info < (3, 11):
+            raise PrivateRuntimeUnsupported()
         if (
             self._upstream_lifespan is not None
             or not getattr(app.state, "local_profiles_enabled", False)

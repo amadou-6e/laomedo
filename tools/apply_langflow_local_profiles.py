@@ -139,7 +139,11 @@ def apply_profiles(checkout: Path, source: Path):
             "    if (await profileMode().catch(() => true)) return;",
         )
     )
+    text, settings, settings_text, connection_target = prepare_connections(
+        checkout, source, text
+    )
     shutil.copytree(source / "profiles", target)
+    shutil.copytree(source / "githubConnections", connection_target)
     for path, contents in (
         (routes, text),
         (menu, menu_text),
@@ -149,19 +153,21 @@ def apply_profiles(checkout: Path, source: Path):
         (password_gate, gate_text),
         (general, general_text),
         (empty_page, empty_text),
+        (settings, settings_text),
     ):
         path.write_text(contents, encoding="utf-8")
-    apply_connections(checkout, source)
 
 
-def apply_connections(checkout: Path, source: Path):
-    """Bind private Settings controls to exact native routes, gated by capability."""
+def prepare_connections(checkout: Path, source: Path, text: str):
+    """Validate and prepare GitHub routes before writing any profile overlay files."""
     frontend = checkout / "src/frontend/src"
     target = frontend / "components/laomedoGitHubConnections"
-    routes = frontend / "routes.tsx"
-    text = routes.read_text(encoding="utf-8")
     anchor = '<Route path="shortcuts" element={<ShortcutsPage />} />'
-    if target.exists() or text.count(anchor) != 1:
+    if (
+        target.exists()
+        or not (source / "githubConnections").is_dir()
+        or text.count(anchor) != 1
+    ):
         raise SystemExit("connection_route_anchor_missing")
     text = (
         'import ConnectionManager from "@/components/laomedoGitHubConnections/ConnectionManager";\n'
@@ -187,6 +193,4 @@ def apply_connections(checkout: Path, source: Path):
         '  if (privateConnections) sidebarNavItems.push({ title: "GitHub connections", href: "/settings/github", icon: <span className="inline-flex size-4 shrink-0 items-center justify-center [&>span]:!size-4 [&_svg]:size-4 [&_path]:fill-current"><ForwardedIconComponent name="Github" className="w-4" /></span> });\n'
         + nav_anchor,
     )
-    shutil.copytree(source / "githubConnections", target)
-    routes.write_text(text, encoding="utf-8")
-    settings.write_text(settings_text, encoding="utf-8")
+    return text, settings, settings_text, target

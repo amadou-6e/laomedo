@@ -2,6 +2,8 @@
 
 from importlib.util import find_spec
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import patch
 import sys
 import tempfile
 import unittest
@@ -9,7 +11,10 @@ import unittest
 if find_spec("starlette") is None:
     raise unittest.SkipTest("Optional ASGI runtime is not installed")
 
-from laomedo.integrations.langflow.authentication.errors import PrivateSessionError
+from laomedo.integrations.langflow.authentication.errors import (
+    PrivateRuntimeUnsupported,
+    PrivateSessionError,
+)
 from laomedo.integrations.langflow.authentication.runtime import PrivateBrowserRuntime
 from laomedo.integrations.langflow.authentication.settings import PrivateBrowserSettings
 
@@ -43,6 +48,21 @@ class PrivateRuntimeAdmissionTests(unittest.TestCase):
         with self.assertRaises(PrivateSessionError):
             self.runtime(origin="http://127.0.0.1:17868")._admit_directory()
         self.assertEqual(marker.read_bytes(), original)
+
+    def test_python_310_refused_before_directory_or_optional_import(self):
+        runtime = self.runtime()
+        app = SimpleNamespace(
+            state=SimpleNamespace(local_profiles_enabled=True), debug=False
+        )
+        with patch(
+            "laomedo.integrations.langflow.authentication.runtime.sys.version_info",
+            (3, 10),
+        ):
+            with self.assertRaisesRegex(
+                PrivateRuntimeUnsupported, "private_runtime_python_unsupported"
+            ):
+                runtime.configure(app)
+        self.assertFalse(runtime.root.exists())
 
     def test_public_source_or_agent_ancestor_is_refused_before_creation(self):
         for values in ({"public_roots": (self.root,)}, {"agent_mounts": (self.root,)}):

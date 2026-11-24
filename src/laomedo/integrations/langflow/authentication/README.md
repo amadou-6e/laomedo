@@ -1,5 +1,9 @@
 # Private browser session admission
 
+The opt-in GitHub connections runtime requires Python 3.11 or later and the
+`private-sources` dependencies. Python 3.10 is refused before private state is opened;
+the rest of the application retains its existing Python support.
+
 This package supplements upstream authentication with the revocable private
 browser lease required by SC01 of the GitHub account-connection contract. It
 does not authenticate passwords or validate upstream JWTs. The opt-in native

@@ -19,6 +19,12 @@ class PrivateSessionError(RuntimeError):
         return type(self), ()
 
 
+class PrivateRuntimeUnsupported(PrivateSessionError):
+    """GitHub connection runtime needs Python 3.11 or later; startup is refused."""
+
+    code = "private_runtime_python_unsupported"
+
+
 class PrivateSessionRequired(PrivateSessionError):
     """Private admission lacks a matching live explicit-login lease.
 
