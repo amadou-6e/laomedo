@@ -59,6 +59,7 @@ class ConnectionOAuthFixture:
 
     async def refresh(self, credential):
         self.factory.refreshes += 1
+        self.factory.refresh_tokens.append(credential.refresh_token.get_secret_value())
         if self.factory.fail_refresh:
             raise GitHubOAuthError()
         return self.factory.credential()
@@ -71,6 +72,8 @@ class ConnectionOAuthFactory:
         self.exchanges = 0
         self.refreshes = 0
         self.fail_refresh = False
+        self.refresh_tokens = []
+        self.now = 1000.0
 
     def __call__(self, settings):
         return ConnectionOAuthFixture(self, settings)
@@ -84,5 +87,5 @@ class ConnectionOAuthFactory:
                 "expires_in": 3600,
                 "refresh_token_expires_in": 7200,
             },
-            1000.0,
+            self.now,
         )

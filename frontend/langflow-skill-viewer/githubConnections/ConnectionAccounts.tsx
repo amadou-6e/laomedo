@@ -13,6 +13,7 @@ export default function ConnectionAccounts({
   back,
   edit,
   reconnect,
+  verify,
   disconnect,
   token,
   refresh,
@@ -24,6 +25,7 @@ export default function ConnectionAccounts({
   back: () => void;
   edit: (id: string) => void;
   reconnect: (id: string) => void;
+  verify: (entry: Entry) => void;
   disconnect: (entry: Entry) => void;
   token: (id: string) => void;
   refresh?: () => void;
@@ -32,6 +34,7 @@ export default function ConnectionAccounts({
   if (entry) {
     const { connection, availability } = entry;
     const ready = availability === "ready";
+    const pending = availability === "verification_pending";
     return (
       <div className="gc-screen gc-detail">
         <section className="gc-panel gc-detail-card">
@@ -43,14 +46,21 @@ export default function ConnectionAccounts({
             <span
               className={`gc-status ${ready ? "gc-ready" : "gc-attention"}`}
             >
-              {ready ? "Connected" : "Sign-in required"}
+              {ready ? "Connected" : pending ? "Check access" : "Sign-in required"}
             </span>
           </div>
           <p className="gc-muted">
             {ready
               ? "Access is maintained automatically when supported."
-              : "Sign in again to restore access for this account."}
+              : pending
+                ? "GitHub access could not be verified. Your previous selections are retained."
+                : "Sign in again to restore access for this account."}
           </p>
+          {pending && (
+            <Button ignoreTitleCase disabled={busy} onClick={() => verify(entry)}>
+              Check access again
+            </Button>
+          )}
           {!ready && (
             <Button
               ignoreTitleCase
@@ -152,7 +162,7 @@ export default function ConnectionAccounts({
                 <span
                   className={`gc-status ${ready ? "gc-ready" : "gc-attention"}`}
                 >
-                  {ready ? "Connected" : "Sign-in required"}
+                  {ready ? "Connected" : availability === "verification_pending" ? "Check access" : "Sign-in required"}
                 </span>
                 <Button
                   ignoreTitleCase

@@ -9,7 +9,10 @@ from time import monotonic
 from httpx2 import AsyncClient, AsyncHTTPTransport
 from truststore import SSLContext
 
-from laomedo.github.connections.errors import GitHubRepositoryAccessError
+from laomedo.github.connections.errors import (
+    GitHubRepositoryAccessError,
+    GitHubRepositoryIdentityChanged,
+)
 from laomedo.github.connections.models import (
     GitHubPrincipal,
     GitHubRepositoryIdentity,
@@ -207,14 +210,14 @@ class GitHubRepositoryAccess:
         """Recheck account, immutable repo identity and actual Contents-read access."""
         current = await self.principal()
         if current.id != principal.id:
-            raise GitHubRepositoryAccessError()
+            raise GitHubRepositoryIdentityChanged()
         data = await self.client.get("/repos/" + repository.full_name)
         selected = self._repository(data)
         if (
             selected.id != repository.id
             or selected.full_name.lower() != repository.full_name.lower()
         ):
-            raise GitHubRepositoryAccessError()
+            raise GitHubRepositoryIdentityChanged()
         # Branch listing requires Contents read; metadata alone proves less.
         branches = await self.client.get(
             "/repos/" + selected.full_name + "/branches", params={"per_page": 1}

@@ -87,6 +87,22 @@ class PrivateConnectionHttpTests(unittest.IsolatedAsyncioTestCase):
         self.service.inspect_inventory.assert_awaited_once_with(self.scope, request_id)
         self.policy.mutation.assert_called_once()
 
+    async def test_verify_uses_owner_and_exact_generation(self):
+        connection_id = uuid4()
+        self.service.verify = AsyncMock(return_value={"state": "ready"})
+        response = await connection_action(
+            "verify",
+            self.request(
+                json.dumps(
+                    {"connection_id": str(connection_id), "generation": 3}
+                ).encode()
+            ),
+            object(),
+        )
+        self.assertEqual(response.status_code, 200)
+        self.service.verify.assert_awaited_once_with(self.scope, connection_id, 3)
+        self.policy.mutation.assert_called_once()
+
     async def test_browser_begin_uses_explicit_owned_app_selection(self):
         app_id = uuid4()
         self.service.begin = AsyncMock(return_value={"phase": "authorize"})

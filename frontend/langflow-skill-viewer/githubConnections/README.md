@@ -6,6 +6,10 @@ repository consent, private App registration, advanced token entry or cleanup re
 Users never copy GitHub App configuration. Each account owns a private App,
 registered through GitHub with a prefilled manifest.
 
+After token rotation, temporary verification failure keeps the new credential
+fenced. The details view offers Check access again, Sign in again and Disconnect;
+retry checks the stored credential without replaying the prior refresh token.
+
 `ConnectionRegistration.tsx` owns Add connection's private per-account App setup.
 It requests a CSRF-admitted, prefilled manifest only after Continue, and POSTs it
 only to GitHub's fixed personal registration endpoint. Each account owns its own

@@ -110,6 +110,18 @@ function ConnectionWorkspace() {
             failure instanceof ConnectionFailure
               ? failure.code
               : "github_connection_unavailable";
+          if (action === "verify" && code === "github_verification_pending") {
+            try {
+              const status = await connectionRequest();
+              if (epoch.current !== current) return;
+              setIndex(status.index);
+            } catch {
+              if (epoch.current === current) setError("github_connection_unavailable");
+              return;
+            }
+            setNotice("GitHub access is still unavailable. Try again when GitHub is available.");
+            return;
+          }
           setError(code);
           if (
             action &&
@@ -533,6 +545,13 @@ function ConnectionWorkspace() {
                   setView("list");
                 }}
                 reconnect={(id) => void begin(id)}
+                verify={async ({ connection }) => {
+                  const result = await run("verify", {
+                    connection_id: connection.id,
+                    generation: connection.generation,
+                  });
+                  if (result) setNotice("GitHub access verified.");
+                }}
                 token={(id) => {
                   setTarget(id);
                   setView("token");

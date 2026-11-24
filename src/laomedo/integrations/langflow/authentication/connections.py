@@ -17,6 +17,7 @@ from laomedo.github.connections.errors import (
     GitHubOAuthError,
     GitHubReauthorizationRequired,
     GitHubRepositoryAccessError,
+    GitHubVerificationPending,
     GitHubTokenUnsupported,
 )
 from laomedo.github.connections.models import (
@@ -73,6 +74,7 @@ def _failure(error):
         (
             GitHubConnectionChanged,
             GitHubReauthorizationRequired,
+            GitHubVerificationPending,
             GitHubRepositoryAccessError,
             PrivateSessionRequired,
             PrivateRequestRefused,
@@ -167,6 +169,7 @@ async def connection_action(
         "confirm",
         "cancel",
         "refresh",
+        "verify",
         "disconnect",
         "cleanup",
     ],
@@ -208,6 +211,9 @@ async def connection_action(
         elif action == "refresh":
             data = _parse(GitHubConnectionRequest, payload)
             outcome = await service.refresh(scope, data.connection_id)
+        elif action == "verify":
+            data = _parse(GitHubDisconnectRequest, payload)
+            outcome = await service.verify(scope, data.connection_id, data.generation)
         elif action == "disconnect":
             data = _parse(GitHubDisconnectRequest, payload)
             outcome = await service.disconnect(

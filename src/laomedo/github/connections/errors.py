@@ -77,6 +77,24 @@ class GitHubReauthorizationRequired(GitHubConnectionError):
     code = "github_reauthorization_required"
 
 
+class GitHubVerificationPending(GitHubConnectionError):
+    """A rotated credential is stored but its current access remains unverified.
+
+    Private reads remain fenced. Retry verification without replaying the consumed
+    refresh token, or explicitly reconnect or disconnect the account.
+    """
+
+    code = "github_verification_pending"
+
+
+class GitHubRepositoryIdentityChanged(GitHubRepositoryAccessError):
+    """An authenticated account or repository no longer matches saved consent.
+
+    Existing private access remains fenced until the owner reconnects and
+    confirms the intended identity and repository location again.
+    """
+
+
 class GitHubTokenUnsupported(GitHubConnectionError):
     """Deliberate token entry is outside the supported fine-grained format.
 

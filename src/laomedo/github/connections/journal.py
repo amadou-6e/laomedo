@@ -313,7 +313,10 @@ class GitHubConnectionJournal:
                 record = self._connection(db, owner_id, connection_id)
                 if record is None or record.generation != expected_generation:
                     raise GitHubConnectionChanged()
-                if state == "reauthorization_required" and record.state != "ready":
+                if state == "reauthorization_required" and record.state not in {
+                    "ready",
+                    "verification_pending",
+                }:
                     raise GitHubConnectionChanged()
                 fenced = record.model_copy(
                     update={"generation": expected_generation + 1, "state": state}
@@ -345,6 +348,98 @@ class GitHubConnectionJournal:
         return self._fence(
             owner_id, connection_id, expected_generation, "reauthorization_required"
         )
+
+    def stage_refresh(self, record: GitHubConnectionRecord, expected_generation: int):
+        """Commit a rotated credential while keeping all private reads fenced."""
+        if (
+            record.state != "verification_pending"
+            or record.generation != expected_generation + 1
+        ):
+            raise GitHubConnectionChanged()
+        try:
+            with closing(self._connect()) as db, db:
+                db.execute("BEGIN IMMEDIATE")
+                current = self._connection(db, record.owner_id, record.id)
+                if (
+                    current is None
+                    or current.state != "reauthorization_required"
+                    or current.generation != expected_generation
+                ):
+                    raise GitHubConnectionChanged()
+                if any(
+                    getattr(current, field) != getattr(record, field)
+                    for field in ("principal", "repositories", "mode", "app_id")
+                ):
+                    raise GitHubConnectionChanged()
+                self._activate(
+                    db,
+                    record.owner_id,
+                    record.id,
+                    "connection",
+                    record.secret_reference,
+                )
+                db.execute(
+                    "UPDATE github_secrets SET state='obsolete' WHERE id=? AND state='active'",
+                    (str(current.secret_reference),),
+                )
+                db.execute(
+                    "UPDATE github_connections SET generation=?,payload=? WHERE id=? AND owner_id=?",
+                    (
+                        record.generation,
+                        self._payload(record),
+                        str(record.id),
+                        str(record.owner_id),
+                    ),
+                )
+                self._advance(db, record.owner_id)
+        except sqlite3.Error:
+            raise GitHubConnectionError() from None
+
+    def complete_verification(
+        self, record: GitHubConnectionRecord, expected_generation: int
+    ):
+        """Release a pending generation only after the service revalidates consent."""
+        if record.state != "ready" or record.generation != expected_generation + 1:
+            raise GitHubConnectionChanged()
+        try:
+            with closing(self._connect()) as db, db:
+                db.execute("BEGIN IMMEDIATE")
+                current = self._connection(db, record.owner_id, record.id)
+                if (
+                    current is None
+                    or current.state != "verification_pending"
+                    or current.generation != expected_generation
+                    or current.secret_reference != record.secret_reference
+                ):
+                    raise GitHubConnectionChanged()
+                if any(
+                    getattr(current, field) != getattr(record, field)
+                    for field in (
+                        "mode",
+                        "app_id",
+                        "access_expires_at",
+                        "refresh_expires_at",
+                    )
+                ):
+                    raise GitHubConnectionChanged()
+                if current.principal.id != record.principal.id or tuple(
+                    (item.id, item.full_name.lower()) for item in current.repositories
+                ) != tuple(
+                    (item.id, item.full_name.lower()) for item in record.repositories
+                ):
+                    raise GitHubConnectionChanged()
+                db.execute(
+                    "UPDATE github_connections SET generation=?,payload=? WHERE id=? AND owner_id=?",
+                    (
+                        record.generation,
+                        self._payload(record),
+                        str(record.id),
+                        str(record.owner_id),
+                    ),
+                )
+                self._advance(db, record.owner_id)
+        except sqlite3.Error:
+            raise GitHubConnectionError() from None
 
     def disconnect(self, owner_id: UUID, connection_id: UUID, expected_generation: int):
         """Revoke before deleting; failure to delete cannot reopen this generation."""

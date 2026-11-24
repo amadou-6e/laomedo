@@ -27,6 +27,14 @@ After Save, `confirm` removes retired credentials for that connection through
 the existing cleanup fence. Active and live pending custody are excluded; a
 deletion failure leaves the saved connection ready and cleanup retryable.
 
+`_refresh` fences the old generation before exchanging its token, then stores a
+successful rotation in the vault as `verification_pending`. `verify` retries
+online account and repository checks on that exact owner and generation; access
+remains locked until `_verify_pending` commits the verified replacement. The
+journal's `stage_refresh` and `complete_verification` own those transitions.
+An ambiguous failure before the new credential is durably staged still requires
+reauthorization. An older application version cannot read a pending record.
+
 `provisioning.py` owns private App manifest registration for each GitHub account.
 `GitHubAppProvisioner.begin` creates a bounded profile/lease-bound registration;
 `complete` consumes its state before exchanging the one-use code and delegates

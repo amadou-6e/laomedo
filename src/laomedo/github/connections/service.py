@@ -15,6 +15,8 @@ from laomedo.github.connections.errors import (
     GitHubOAuthError,
     GitHubReauthorizationRequired,
     GitHubRepositoryAccessError,
+    GitHubRepositoryIdentityChanged,
+    GitHubVerificationPending,
     GitHubTokenUnsupported,
 )
 from laomedo.github.connections.models import (
@@ -491,56 +493,106 @@ class GitHubConnectionService:
             }
 
     async def _refresh(self, scope, record):
-        """Fence uncertainty before exchange and retain reauthorization on any failure."""
+        """Fence exchange uncertainty and preserve a successful rotation for verification."""
         credential = self._credential(record)
         if record.mode != "browser":
             raise GitHubReauthorizationRequired()
+        if (
+            credential.refresh_expires_at is not None
+            and credential.refresh_expires_at <= self.clock()
+        ):
+            async with self.commit_lock:
+                await scope.revalidate()
+                self.journal.begin_refresh(scope.owner_id, record.id, record.generation)
+            raise GitHubReauthorizationRequired()
         _, settings = self._app_settings(scope.owner_id, record.app_id)
-        async with self.commit_lock:
-            await scope.revalidate()
-            fenced = self.journal.begin_refresh(
-                scope.owner_id, record.id, record.generation
-            )
-        # Anything after this durable fence may consume the old refresh token.
-        replacement = await self.oauth_client(settings).refresh(credential)
-        reader = self.read_client(replacement)
-        try:
-            access = GitHubRepositoryAccess(reader)
-            principal = await access.principal()
-            if principal.id != record.principal.id:
-                raise GitHubRepositoryAccessError()
-            repositories = tuple(
-                [await access.verify(principal, repo) for repo in record.repositories]
-            )
-        finally:
-            await reader.close()
         async with self.commit_lock:
             await scope.revalidate()
             reference = self.journal.reserve_secret(
                 scope.owner_id, "connection", record.id
             )
+            fenced = self.journal.begin_refresh(
+                scope.owner_id, record.id, record.generation
+            )
+        # Anything after this durable fence may consume the old refresh token.
+        replacement = await self.oauth_client(settings).refresh(credential)
+        async with self.commit_lock:
+            await scope.revalidate()
             self.vault.store(reference.id, replacement.to_vault_value())
-            updated = GitHubConnectionRecord(
-                **{
-                    **record.model_dump(),
-                    "principal": principal,
-                    "repositories": repositories,
+            pending = fenced.model_copy(
+                update={
+                    "state": "verification_pending",
                     "generation": fenced.generation + 1,
                     "secret_reference": reference.id,
                     "access_expires_at": replacement.access_expires_at,
                     "refresh_expires_at": replacement.refresh_expires_at,
-                },
+                }
             )
-            self.journal.commit_connection(
-                updated, expected_generation=fenced.generation
+            self.journal.stage_refresh(pending, fenced.generation)
+        return await self._verify_pending(scope, pending)
+
+    async def _verify_pending(self, scope, record):
+        """Verify a stored rotation without repeating the consumed exchange."""
+        reader = self.read_client(self._credential(record))
+        try:
+            access = GitHubRepositoryAccess(reader)
+            principal = await access.principal()
+            if principal.id != record.principal.id:
+                raise GitHubRepositoryIdentityChanged()
+            repositories = tuple(
+                [await access.verify(principal, repo) for repo in record.repositories]
             )
+        except GitHubRepositoryIdentityChanged:
+            async with self.commit_lock:
+                await scope.revalidate()
+                self.journal.begin_refresh(scope.owner_id, record.id, record.generation)
+            raise GitHubReauthorizationRequired() from None
+        except GitHubRepositoryAccessError:
+            raise GitHubVerificationPending() from None
+        finally:
+            await reader.close()
+        async with self.commit_lock:
+            await scope.revalidate()
+            updated = record.model_copy(
+                update={
+                    "state": "ready",
+                    "principal": principal,
+                    "repositories": repositories,
+                    "generation": record.generation + 1,
+                }
+            )
+            self.journal.complete_verification(updated, record.generation)
             return updated
+
+    async def verify(
+        self, scope: GitHubConnectionScope, connection_id: UUID, generation: int
+    ):
+        """Retry a fenced rotation's access checks without replaying its old token."""
+        async with self.lock:
+            await scope.revalidate()
+            record = self.journal.get(scope.owner_id, connection_id)
+            if (
+                record is None
+                or record.generation != generation
+                or record.state != "verification_pending"
+            ):
+                raise GitHubConnectionChanged()
+            if (
+                record.access_expires_at is not None
+                and record.access_expires_at <= self.clock()
+            ):
+                updated = await self._refresh(scope, record)
+            else:
+                updated = await self._verify_pending(scope, record)
+            return updated.model_dump(mode="json")
 
     async def refresh(self, scope: GitHubConnectionScope, connection_id: UUID):
         """Perform a deliberate serialized renewal of a currently ready browser connection."""
         async with self.lock:
             await scope.revalidate()
             record = self.journal.get(scope.owner_id, connection_id)
+            if record is not None and record.state == "verification_pending":
+                raise GitHubVerificationPending()
             if record is None or record.state != "ready":
                 raise GitHubReauthorizationRequired()
             updated = await self._refresh(scope, record)
@@ -604,6 +656,8 @@ class GitHubConnectionService:
         async with self.lock:
             await scope.revalidate()
             record = self.journal.get(scope.owner_id, connection_id)
+            if record is not None and record.state == "verification_pending":
+                raise GitHubVerificationPending()
             if record is None or record.state != "ready":
                 raise GitHubReauthorizationRequired()
             if (

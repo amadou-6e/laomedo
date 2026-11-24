@@ -17,7 +17,7 @@ export type Connection = {
   mode: "browser" | "token";
   principal: Principal;
   repositories: Repository[];
-  state: "ready" | "reauthorization_required" | "revoked";
+  state: "ready" | "verification_pending" | "reauthorization_required" | "revoked";
 };
 export type ConnectionIndex = {
   revision: number;
@@ -42,5 +42,6 @@ export type ConnectionAction =
   | "confirm"
   | "cancel"
   | "refresh"
+  | "verify"
   | "disconnect"
   | "cleanup";

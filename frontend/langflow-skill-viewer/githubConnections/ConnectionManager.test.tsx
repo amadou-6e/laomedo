@@ -113,6 +113,29 @@ beforeEach(() => {
   (connectionRequest as jest.Mock).mockResolvedValue({ index: initial });
 });
 
+it("keeps a rotated connection fenced and offers verification retry", async () => {
+  const pending = {
+    ...reconnectIndex,
+    connections: [{
+      ...reconnectIndex.connections[0],
+      connection: { ...reconnectIndex.connections[0].connection, state: "verification_pending", generation: 3 },
+      availability: "verification_pending",
+    }],
+  };
+  (connectionRequest as jest.Mock).mockImplementation(async (action) => {
+    if (action === "verify") throw new ConnectionFailure("github_verification_pending");
+    return { index: pending };
+  });
+  render(<ConnectionManager />);
+  fireEvent.click(await screen.findByRole("button", { name: "View connection" }));
+  fireEvent.click(screen.getByRole("button", { name: "Check access again" }));
+  await waitFor(() => expect(connectionRequest).toHaveBeenCalledWith("verify", { connection_id: "saved", generation: 3 }));
+  expect(await screen.findByText("GitHub access is still unavailable. Try again when GitHub is available.")).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Check access again" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Sign in again" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Disconnect" })).toBeTruthy();
+});
+
 it("keeps its initiating mutation busy and displays the response despite same-document broadcasts", async () => {
   let complete!: (value: unknown) => void;
   const mutation = new Promise((resolve) => {

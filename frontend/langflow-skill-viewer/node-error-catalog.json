@@ -2344,6 +2344,11 @@
     "description": "The selected connection's credential is missing, expired or could not be renewed safely.",
     "recovery": "Open the connection manager and reconnect the selected account. Keep the same account and confirm repository reads again; the app will not replay an uncertain renewal or choose another login."
   },
+  "github_verification_pending": {
+    "title": "GitHub access needs checking",
+    "description": "The connection was renewed, but GitHub access could not be verified. Private access stays paused.",
+    "recovery": "Open the connection and select Check access again. You can also sign in again or disconnect."
+  },
   "github_token_unsupported": {
     "title": "Use a supported fine-grained GitHub token",
     "description": "This entry is not a supported fine-grained personal access token. No connection was replaced.",

@@ -226,7 +226,9 @@ class GitHubConnectionRecord(BaseModel):
     repositories: tuple[GitHubRepositoryIdentity, ...] = Field(
         description="Explicitly consented repository identities, not all visible repos."
     )
-    state: Literal["ready", "reauthorization_required", "revoked"] = Field(
+    state: Literal[
+        "ready", "verification_pending", "reauthorization_required", "revoked"
+    ] = Field(
         description="Durable local admission state; not proof of remote revocation."
     )
     app_id: UUID | None = Field(
@@ -457,7 +459,12 @@ class GitHubConnectionStatus(BaseModel):
         description="Persisted non-secret connection identity and consent."
     )
     availability: Literal[
-        "ready", "expired", "reauthorization_required", "revoked", "unavailable"
+        "ready",
+        "expired",
+        "verification_pending",
+        "reauthorization_required",
+        "revoked",
+        "unavailable",
     ] = Field(
         description="Current local custody/lifetime availability, not online permission."
     )

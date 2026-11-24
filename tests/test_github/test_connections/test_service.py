@@ -23,6 +23,7 @@ from laomedo.github.connections.errors import (
     GitHubOAuthError,
     GitHubReauthorizationRequired,
     GitHubRepositoryAccessError,
+    GitHubVerificationPending,
     GitHubTokenUnsupported,
 )
 from laomedo.github.connections.journal import GitHubConnectionJournal
@@ -541,9 +542,126 @@ class GitHubConnectionServiceTests(unittest.IsolatedAsyncioTestCase):
             self.scope, connection_id, 456
         )
         record = await self.service.refresh(self.scope, connection_id)
-        self.assertEqual(record["generation"], 3)
+        self.assertGreater(record["generation"], authorization.generation)
         self.assertEqual(record["repositories"][0]["id"], 456)
         self.assertFalse(self.service.current(authorization))
+
+    async def test_rotated_credential_survives_unavailable_verification_and_restart(
+        self,
+    ):
+        connection_id = await self.ready("browser")
+        previous = self.journal.get(self.owner, connection_id)
+        authorization = await self.service.authorize_read(
+            self.scope, connection_id, 456
+        )
+
+        def unavailable():
+            raise OSError("synthetic outage")
+
+        self.branch_hook = unavailable
+        with self.assertRaises(GitHubVerificationPending):
+            await self.service.refresh(self.scope, connection_id)
+        pending = self.journal.get(self.owner, connection_id)
+        self.assertEqual(pending.state, "verification_pending")
+        self.assertNotEqual(pending.secret_reference, previous.secret_reference)
+        self.assertIsNotNone(self.vault.load(pending.secret_reference))
+        await self.service.cleanup(self.scope)
+        self.assertIsNotNone(self.vault.load(pending.secret_reference))
+        self.assertFalse(self.service.current(authorization))
+        self.assertEqual(self.oauth.refreshes, 1)
+        restored = self.new_service()
+        with self.assertRaises(GitHubVerificationPending):
+            await restored.authorize_read(self.scope, connection_id, 456)
+        with self.assertRaises(GitHubVerificationPending):
+            await restored.verify(self.scope, connection_id, pending.generation)
+        self.assertEqual(self.oauth.refreshes, 1)
+        self.branch_hook = None
+        result = await restored.verify(self.scope, connection_id, pending.generation)
+        self.assertEqual(result["state"], "ready")
+        self.assertEqual(self.oauth.refreshes, 1)
+        await restored.authorize_read(self.scope, connection_id, 456)
+
+    async def test_pending_verification_remains_owner_and_generation_bound_and_disconnects(
+        self,
+    ):
+        connection_id = await self.ready("browser")
+        self.branch_hook = lambda: (_ for _ in ()).throw(OSError("synthetic outage"))
+        with self.assertRaises(GitHubVerificationPending):
+            await self.service.refresh(self.scope, connection_id)
+        pending = self.journal.get(self.owner, connection_id)
+        with self.assertRaises(GitHubConnectionChanged):
+            await self.service.verify(self.scope, connection_id, pending.generation - 1)
+        other = GitHubConnectionScope(
+            owner_id=uuid4(), lease_binding=SecretStr("other"), check=self.admit
+        )
+        with self.assertRaises(GitHubConnectionChanged):
+            await self.service.verify(other, connection_id, pending.generation)
+        await self.service.disconnect(self.scope, connection_id, pending.generation)
+        self.assertIsNone(self.vault.load(pending.secret_reference))
+        with self.assertRaises(GitHubConnectionChanged):
+            await self.service.verify(self.scope, connection_id, pending.generation)
+
+    async def test_pending_expired_refresh_requires_sign_in_without_an_exchange(self):
+        connection_id = await self.ready("browser")
+        self.branch_hook = lambda: (_ for _ in ()).throw(OSError("synthetic outage"))
+        with self.assertRaises(GitHubVerificationPending):
+            await self.service.refresh(self.scope, connection_id)
+        pending = self.journal.get(self.owner, connection_id)
+        self.now = pending.refresh_expires_at + 1
+        with self.assertRaises(GitHubReauthorizationRequired):
+            await self.service.verify(self.scope, connection_id, pending.generation)
+        self.assertEqual(self.oauth.refreshes, 1)
+        self.assertEqual(
+            self.journal.get(self.owner, connection_id).state,
+            "reauthorization_required",
+        )
+
+    async def test_pending_expired_access_refreshes_new_token_once(self):
+        connection_id = await self.ready("browser")
+        self.branch_hook = lambda: (_ for _ in ()).throw(OSError("synthetic outage"))
+        with self.assertRaises(GitHubVerificationPending):
+            await self.service.refresh(self.scope, connection_id)
+        pending = self.journal.get(self.owner, connection_id)
+        rotated = GitHubConnectionCredential.from_vault_value(
+            self.vault.load(pending.secret_reference)
+        )
+        self.now = pending.access_expires_at + 1
+        self.oauth.now = self.now
+        self.branch_hook = None
+        result = await self.service.verify(
+            self.scope, connection_id, pending.generation
+        )
+        self.assertEqual(result["state"], "ready")
+        self.assertEqual(self.oauth.refreshes, 2)
+        self.assertEqual(
+            self.oauth.refresh_tokens[1], rotated.refresh_token.get_secret_value()
+        )
+        self.assertNotEqual(self.oauth.refresh_tokens[0], self.oauth.refresh_tokens[1])
+
+    async def test_confirmed_account_change_after_rotation_requires_reauthorization(
+        self,
+    ):
+        connection_id = await self.ready("browser")
+        self.user = {"id": 999, "login": "other"}
+        with self.assertRaises(GitHubReauthorizationRequired):
+            await self.service.refresh(self.scope, connection_id)
+        self.assertEqual(
+            self.journal.get(self.owner, connection_id).state,
+            "reauthorization_required",
+        )
+
+    async def test_vault_failure_after_exchange_is_fenced_and_not_replayed(self):
+        connection_id = await self.ready("browser")
+        self.vault.fail_store = True
+        with self.assertRaises(GitHubVaultError):
+            await self.service.refresh(self.scope, connection_id)
+        self.assertEqual(
+            self.journal.get(self.owner, connection_id).state,
+            "reauthorization_required",
+        )
+        with self.assertRaises(GitHubReauthorizationRequired):
+            await self.new_service().refresh(self.scope, connection_id)
+        self.assertEqual(self.oauth.refreshes, 1)
 
     async def test_missing_ready_custody_is_not_reported_available_or_replaced(self):
         connection_id = await self.ready()
