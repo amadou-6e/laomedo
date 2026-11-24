@@ -176,7 +176,7 @@ class SavedNativeCodexConnection(SavedConnectionCredential):
                     docker,
                     ContainerJob(
                         spec=self.service.codex.spec(descriptor, "identity"),
-                        limits=StreamLimits(seconds=70, max_bytes=16384),
+                        limits=StreamLimits(seconds=100, max_bytes=16384),
                         receipt_path=receipt,
                         wait_timeout_seconds=5,
                     ),

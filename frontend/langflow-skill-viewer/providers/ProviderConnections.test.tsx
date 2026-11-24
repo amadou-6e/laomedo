@@ -1,7 +1,7 @@
 import { StrictMode } from "react";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import ProviderConnections from "./ProviderConnections";
-import { saveGoConnection, beginLogin, cancelLogin, listConnections, readProgress, readClaudeAttempt, inspectDisconnect, disconnect, retryCleanup, ProviderFailure } from "./api";
+import { readCodexAttempt, confirmCodexReplacement, saveGoConnection, beginLogin, cancelLogin, listConnections, readProgress, readClaudeAttempt, inspectDisconnect, disconnect, retryCleanup, ProviderFailure } from "./api";
 
 jest.mock("@/components/common/genericIconComponent", () => ({ __esModule: true, default: () => <span /> }));
 jest.mock("@/assets/LangflowLogo.svg?react", () => ({ __esModule: true, default: (props) => <svg {...props} /> }));
@@ -9,7 +9,7 @@ jest.mock("@/assets/LangflowLogo.svg?react", () => ({ __esModule: true, default:
 jest.mock("@/components/ui/button", () => ({
   Button: ({ ignoreTitleCase, variant, asChild, children, ...props }) => asChild ? children : <button {...props}>{children}</button>,
 }));
-jest.mock("./api", () => ({ ...jest.requireActual("./api"), saveGoConnection: jest.fn(), beginLogin: jest.fn(), cancelLogin: jest.fn(), listConnections: jest.fn(), readProgress: jest.fn(), readClaudeAttempt: jest.fn(), inspectDisconnect: jest.fn(), disconnect: jest.fn(), retryCleanup: jest.fn() }));
+jest.mock("./api", () => ({ ...jest.requireActual("./api"), readCodexAttempt: jest.fn(), confirmCodexReplacement: jest.fn(), saveGoConnection: jest.fn(), beginLogin: jest.fn(), cancelLogin: jest.fn(), listConnections: jest.fn(), readProgress: jest.fn(), readClaudeAttempt: jest.fn(), inspectDisconnect: jest.fn(), disconnect: jest.fn(), retryCleanup: jest.fn() }));
 
 jest.mock("./assets/openai-logo.svg", () => "openai-logo.svg");
 
@@ -114,6 +114,36 @@ describe("saved provider Settings", () => {
     fireEvent.click(screen.getByRole("button", { name: "Retry cleanup" }));
     await screen.findByRole("heading", { name: "Disconnected" });
     expect(retryCleanup).toHaveBeenCalledWith(account.connection_id);
+  });
+
+  it("shows the Codex device code and waits for an explicit provider-page click", async () => {
+    const progress = { attempt_id: "fixture", provider: "codex", status: "connecting", connection_id: null, code: null };
+    const authorization_url = "https://auth.openai.com/codex/device";
+    (beginLogin as jest.Mock).mockResolvedValue({ progress, authorization_url, user_code: "ABCD-1234" });
+    (readProgress as jest.Mock).mockResolvedValue(progress);
+    (readCodexAttempt as jest.Mock).mockResolvedValue({ progress, authorization_url, user_code: "ABCD-1234", replacement_account: null });
+    render(<ProviderConnections />);
+    await screen.findByText("No providers connected");
+    fireEvent.click(screen.getByRole("button", { name: "Add provider" }));
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    expect(await screen.findByLabelText("ChatGPT sign-in code")).toHaveTextContent("ABCD-1234");
+    expect(screen.getByRole("link", { name: "Continue to ChatGPT" })).toHaveAttribute("href", authorization_url);
+    expect(window.open).not.toHaveBeenCalled();
+  });
+
+  it("does not replace an existing login until the verified candidate is confirmed", async () => {
+    const progress = { attempt_id: "fixture", provider: "codex", status: "awaiting_confirmation", connection_id: null, code: null };
+    sessionStorage.setItem("laomedo.provider-attempt", "fixture");
+    (listConnections as jest.Mock).mockResolvedValue([account]);
+    (readProgress as jest.Mock).mockResolvedValue(progress);
+    (readCodexAttempt as jest.Mock).mockResolvedValue({ progress, authorization_url: null, user_code: null, replacement_account: { email: "new@example.invalid", account_id: "workspace_1", plan_type: "plus" } });
+    (confirmCodexReplacement as jest.Mock).mockResolvedValue({ ...progress, status: "verifying" });
+    render(<ProviderConnections />);
+    expect(await screen.findByRole("heading", { name: "Use this ChatGPT account?" })).toBeTruthy();
+    expect(screen.getByText("new@example.invalid")).toBeTruthy();
+    expect(confirmCodexReplacement).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Replace connection" }));
+    await waitFor(() => expect(confirmCodexReplacement).toHaveBeenCalledWith("fixture"));
   });
 
   it("starts the selected browser provider directly from Continue", async () => {

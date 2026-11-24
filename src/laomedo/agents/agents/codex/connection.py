@@ -530,8 +530,9 @@ class CodexConnection(BaseProviderConnection):
                 try:
                     custody.erase()
                 except Exception:
-                    item.progress.status = "failed"
-                    item.progress.code = "provider_cleanup_unconfirmed"
+                    with self.service._lock:
+                        item.progress.status = "failed"
+                        item.progress.code = "provider_cleanup_unconfirmed"
             with self.service._lock:
                 item.session = None
                 item.authorization_url = item.user_code = None

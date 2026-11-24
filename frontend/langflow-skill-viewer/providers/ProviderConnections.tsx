@@ -327,7 +327,7 @@ export default function ProviderConnections() {
           {screen === "complete" && <p className="gc-muted">{attempt?.status === "duplicate" ? "You signed in to an account that is already connected. Your existing connection is unchanged." : reconnecting.current ? "You signed in to the same account again." : "Your account is ready to use."}</p>}
         </div>}
         {screen === "list" && <>
-          {rows === undefined ? <p role="status">{error ? "Could not load providers." : "Loading providersâ€¦"}</p> : rows.length === 0 ? <div className="gc-empty"><h2>No providers connected</h2><p className="gc-muted">Add a provider account to use it in your flows.</p></div> : <>
+          {rows === undefined ? <p role="status">{error ? "Could not load providers." : "Loading providers…"}</p> : rows.length === 0 ? <div className="gc-empty"><h2>No providers connected</h2><p className="gc-muted">Add a provider account to use it in your flows.</p></div> : <>
             <h2 className="gc-eyebrow">Accounts</h2>
             {rows.map(row => <div className="gc-account-row" key={row.connection_id}>
               <span className="gc-avatar" aria-hidden="true">{logo(row.provider)}</span>
@@ -389,7 +389,7 @@ export default function ProviderConnections() {
           <div className="gc-footer"><Button ignoreTitleCase variant="outline" disabled={busy} onClick={() => setScreen("details")}>Cancel</Button><Button ignoreTitleCase disabled={busy} onClick={() => void removeConnection()}>Disconnect</Button></div>
         </>}
         {screen === "removing" && <>
-          <p role="status">{selected?.lifecycle === "cleanup_required" ? "We couldnâ€™t finish removing this connection. New runs are blocked." : selected?.lifecycle === "connected" ? "Disconnect wasnâ€™t confirmed. Refresh to check this connection." : "Stopping active work and removing this connectionâ€¦"}</p>
+          <p role="status">{selected?.lifecycle === "cleanup_required" ? "We couldn’t finish removing this connection. New runs are blocked." : selected?.lifecycle === "connected" ? "Disconnect wasn’t confirmed. Refresh to check this connection." : "Stopping active work and removing this connection…"}</p>
           <p className="gc-muted">Your work and activity are kept.</p>
           {selected?.lifecycle === "cleanup_required" && <Button ignoreTitleCase disabled={busy} onClick={() => void removeConnection(true)}>Retry cleanup</Button>}
         </>}
@@ -399,11 +399,11 @@ export default function ProviderConnections() {
           <Button ignoreTitleCase onClick={() => { setSelected(undefined); setScreen("list"); }}>Back to providers</Button>
         </>}
         {screen === "failure" && <>
-          {mismatch ? <p className="gc-muted">{describeNodeFailure("provider_account_mismatch", undefined).description}</p> : unconfirmed ? <ErrorExplanation failure={describeNodeFailure("provider_save_unconfirmed", undefined)} /> : <p className="gc-muted">{attempt?.status === "expired" ? "Your sign-in expired. Try again." : <>We couldnâ€™t finish signing you in.<br />Your saved connection hasnâ€™t changed.</>}</p>}
+          {mismatch ? <p className="gc-muted">{describeNodeFailure("provider_account_mismatch", undefined).description}</p> : unconfirmed ? <ErrorExplanation failure={describeNodeFailure("provider_save_unconfirmed", undefined)} /> : <p className="gc-muted">{attempt?.status === "expired" ? "Your sign-in expired. Try again." : <>We couldn’t finish signing you in.<br />Your saved connection hasn’t changed.</>}</p>}
           {mismatch ? <Button ignoreTitleCase disabled={busy} onClick={() => { setProvider(selected?.provider ?? attempt?.provider ?? provider); setSelected(undefined); setAttempt(undefined); sessionStorage.removeItem(pendingKey); sessionStorage.removeItem(reconnectKey); reconnecting.current = false; window.history.replaceState(null, "", "/settings/providers"); setScreen("method"); }}>Add as new connection</Button> : <Button ignoreTitleCase disabled={busy || unconfirmed} onClick={() => { setAttempt(undefined); sessionStorage.removeItem(pendingKey); window.history.replaceState(null, "", "/settings/providers"); setScreen("method"); }}>Try again</Button>}
         </>}
         {screen === "duplicate" && <>
-          <p className="gc-muted">{selected?.provider === "opencode" ? "This key is already saved." : "This account is already connected."}<br />Your existing connection hasnâ€™t changed.</p>
+          <p className="gc-muted">{selected?.provider === "opencode" ? "This key is already saved." : "This account is already connected."}<br />Your existing connection hasn’t changed.</p>
           <Button ignoreTitleCase onClick={() => setScreen("details")}>View connection</Button>
         </>}
       </section>
