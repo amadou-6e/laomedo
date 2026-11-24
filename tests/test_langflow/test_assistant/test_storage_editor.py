@@ -9,6 +9,8 @@ import unittest
 
 from langflow.services.database.models.flow.guards import ensure_flow_update_allowed
 from tools.apply_langflow_project_storage import apply_project_storage
+from laomedo.integrations.langflow.assistant.graph import GraphEditor
+from laomedo.integrations.langflow.assistant.models import GraphChanges
 
 
 class StorageEditorTests(unittest.TestCase):
@@ -46,3 +48,12 @@ class StorageEditorTests(unittest.TestCase):
             )
             guard(flow, {"name": "Metadata-only update"})
             guard(SimpleNamespace(locked=False, data={}), {"data": {"nodes": []}})
+            # The approved graph-edit path uses this same private-copy projection.
+            # Editing a file-loaded graph must not erase its fence for old tabs.
+            flow.data["nodes"] = [{"id": "one"}]
+            edited, _ = GraphEditor(None).apply(flow.data, GraphChanges(name="Renamed"))
+            guard(flow, {"data": edited})
+            flow.data = edited
+            self.assertEqual(flow.data["laomedo_storage_revision"], "loaded-version")
+            with self.assertRaisesRegex(failure, "Reload the editor"):
+                guard(flow, {"data": {"nodes": [], "edges": []}})

@@ -2923,7 +2923,7 @@
   "assistant_storage_repository_missing": {
     "title": "Checkout not connected",
     "description": "The requested project file operation could not be confirmed.",
-    "recovery": "Connect an existing local Git checkout in Project storage."
+    "recovery": "Clone a repository in Project storage."
   },
   "assistant_storage_repository_unavailable": {
     "title": "Checkout unavailable",

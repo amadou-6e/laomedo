@@ -22,8 +22,10 @@ export default function ProjectStorage({ activeGraphId, onFailure }: { activeGra
   const [error, setError] = useState("");
   const generation = useRef(0);
   const controller = useRef<AbortController>();
+  const outcome = useRef<HTMLParagraphElement>(null);
 
   useEffect(() => () => { generation.current++; controller.current?.abort(); }, []);
+  useEffect(() => { outcome.current?.scrollIntoView?.({ block: "nearest" }); }, [error, notice]);
 
   async function refresh(signal?: AbortSignal) {
     const result = await assistantRequest<ProjectStorageState>("/storage", undefined, signal);
@@ -144,8 +146,8 @@ export default function ProjectStorage({ activeGraphId, onFailure }: { activeGra
         <button className={button} type="button" onClick={() => void perform(async () => "Storage refreshed.")}>Refresh storage</button>
       </fieldset>
       {busy && <p role="status" className="text-sm text-muted-foreground">Working…</p>}
-      {notice && <p role="status" className="text-sm text-muted-foreground">{notice}</p>}
-      {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+      {notice && <p ref={outcome} role="status" className="text-sm text-muted-foreground">{notice}</p>}
+      {error && <p ref={outcome} role="alert" className="text-sm text-destructive">{error}</p>}
     </DialogContent>
   </Dialog>;
 }
