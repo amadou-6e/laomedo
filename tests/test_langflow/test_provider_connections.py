@@ -64,7 +64,7 @@ class ProviderRouteTests(unittest.TestCase):
 
     def test_read_never_launches_login_and_foreign_writes_are_refused(self):
         """Listing is inert; cross-origin pages cannot initiate authentication."""
-        with patch.object(self.service, "begin") as begin:
+        with patch.object(self.service.codex, "begin") as begin:
             self.assertEqual(
                 self.client.get("/api/v1/laomedo/provider-connections").json(),
                 {"connections": []},

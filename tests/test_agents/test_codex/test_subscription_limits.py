@@ -128,6 +128,8 @@ class SubscriptionDiscoveryTests(unittest.TestCase):
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
         self.agent = CodexAgent.__new__(CodexAgent)
+        self.agent.native_auth = None
+        self.agent.docker_environment = None
         self.agent.state = Path(temporary.name)
         self.agent.auth = None
         self.agent._pending_receipts = Mock(return_value=False)

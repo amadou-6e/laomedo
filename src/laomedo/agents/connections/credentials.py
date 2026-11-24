@@ -161,6 +161,15 @@ class SavedNativeCodexConnection(SavedConnectionCredential):
 
     @contextmanager
     def lease(self):
+        """Preserve stable runner failure codes when native custody refuses use."""
+        try:
+            with self._lease() as descriptor:
+                yield descriptor
+        except ProviderConnectionError as error:
+            raise RunnerError(error.code) from None
+
+    @contextmanager
+    def _lease(self):
         """Hold one native writer through identity verification and caller teardown."""
         from laomedo.agents.agents.codex.models import CodexAccountIdentity
         from laomedo.docker import DockerRuntime

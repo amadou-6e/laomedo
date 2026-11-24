@@ -220,10 +220,10 @@ class ProviderConnectionsTests(unittest.TestCase):
         with self.assertRaisesRegex(
             ProviderConnectionError, "provider_connection_disconnecting"
         ):
-            self.service.begin(
+            self.service.codex.begin(
                 self.profile,
-                "http://127.0.0.1:17867/auth/callback",
-                existing.connection_id,
+                connection_id=existing.connection_id,
+                lease_hash="browser",
             )
         controller.stop.return_value = True
         with patch.object(

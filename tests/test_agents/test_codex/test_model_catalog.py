@@ -116,6 +116,8 @@ class CatalogTests(unittest.TestCase):
     def test_two_reported_default_models_are_rejected_before_caching(self):
         with TemporaryDirectory() as directory:
             runner = LocalRunner.__new__(LocalRunner)
+            runner.native_auth = None
+            runner.docker_environment = None
             runner.state = Path(directory)
             runner.auth = None
             runner.split_executor = False
@@ -146,6 +148,8 @@ class CatalogTests(unittest.TestCase):
     def test_concurrent_discovery_is_cached_and_temporary_state_removed(self):
         with TemporaryDirectory() as directory:
             runner = LocalRunner.__new__(LocalRunner)
+            runner.native_auth = None
+            runner.docker_environment = None
             runner.state = Path(directory)
             runner.auth = None
             runner.split_executor = False
