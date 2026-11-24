@@ -12,6 +12,7 @@ from truststore import SSLContext
 from laomedo.github.connections.errors import (
     GitHubRepositoryAccessError,
     GitHubRepositoryIdentityChanged,
+    GitHubCredentialRejected,
 )
 from laomedo.github.connections.models import (
     GitHubPrincipal,
@@ -85,6 +86,8 @@ class GitHubReadClient:
                 async with self.client.stream(
                     "GET", GITHUB_API_ORIGIN + path, params=params
                 ) as response:
+                    if response.status_code == 401:
+                        raise GitHubCredentialRejected()
                     if response.status_code != 200:
                         raise GitHubRepositoryAccessError()
                     body = bytearray()
@@ -102,6 +105,8 @@ class GitHubReadClient:
                     return GitHubReadPage(
                         payload=value, next_page="next" in response.links
                     )
+        except GitHubCredentialRejected:
+            raise
         except Exception:
             raise GitHubRepositoryAccessError() from None
 
@@ -126,6 +131,8 @@ class GitHubRepositoryAccess:
         try:
             data = await self.client.get("/user")
             return GitHubPrincipal(id=data["id"], login=data["login"])
+        except GitHubCredentialRejected:
+            raise
         except Exception:
             raise GitHubRepositoryAccessError() from None
 

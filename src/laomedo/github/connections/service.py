@@ -9,6 +9,7 @@ from uuid import UUID, uuid4
 from laomedo.github.connections.client import GitHubReadClient, GitHubRepositoryAccess
 from laomedo.github.connections.errors import (
     GitHubConnectionChanged,
+    GitHubCredentialRejected,
     GitHubConnectionAttemptExpired,
     GitHubConnectionError,
     GitHubConnectionInputError,
@@ -542,7 +543,7 @@ class GitHubConnectionService:
             repositories = tuple(
                 [await access.verify(principal, repo) for repo in record.repositories]
             )
-        except GitHubRepositoryIdentityChanged:
+        except (GitHubRepositoryIdentityChanged, GitHubCredentialRejected):
             async with self.commit_lock:
                 await scope.revalidate()
                 self.journal.begin_refresh(scope.owner_id, record.id, record.generation)

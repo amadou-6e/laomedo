@@ -34,6 +34,8 @@ remains locked until `_verify_pending` commits the verified replacement. The
 journal's `stage_refresh` and `complete_verification` own those transitions.
 An ambiguous failure before the new credential is durably staged still requires
 reauthorization. An older application version cannot read a pending record.
+An explicit GitHub 401 or confirmed identity mismatch requires sign-in again;
+ambiguous 403/404 and transport failures remain fenced and retryable.
 
 `provisioning.py` owns private App manifest registration for each GitHub account.
 `GitHubAppProvisioner.begin` creates a bounded profile/lease-bound registration;

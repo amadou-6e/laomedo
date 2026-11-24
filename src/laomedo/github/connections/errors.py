@@ -95,6 +95,14 @@ class GitHubRepositoryIdentityChanged(GitHubRepositoryAccessError):
     """
 
 
+class GitHubCredentialRejected(GitHubRepositoryAccessError):
+    """GitHub explicitly rejected the selected credential as unauthenticated.
+
+    This does not reveal repository existence. A fenced rotation requires a new
+    sign-in; the inherited public code preserves the existing read-error contract.
+    """
+
+
 class GitHubTokenUnsupported(GitHubConnectionError):
     """Deliberate token entry is outside the supported fine-grained format.
 

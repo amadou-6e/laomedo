@@ -61,6 +61,7 @@ class GitHubConnectionServiceTests(unittest.IsolatedAsyncioTestCase):
         self.repo = {"id": 456, "full_name": "synthetic/private", "private": True}
         self.requests = []
         self.branch_hook = None
+        self.provider_status = None
         self.service = self.new_service()
 
     async def admit(self):
@@ -70,6 +71,8 @@ class GitHubConnectionServiceTests(unittest.IsolatedAsyncioTestCase):
 
     def provider(self, request):
         self.requests.append(request.url.path)
+        if self.provider_status is not None:
+            return Response(self.provider_status)
         data = {
             "/user": self.user,
             "/user/repos": [self.repo],
@@ -649,6 +652,29 @@ class GitHubConnectionServiceTests(unittest.IsolatedAsyncioTestCase):
             self.journal.get(self.owner, connection_id).state,
             "reauthorization_required",
         )
+
+    async def test_unauthenticated_rotation_requires_sign_in_but_forbidden_stays_retryable(
+        self,
+    ):
+        for status, error, state in (
+            (401, GitHubReauthorizationRequired, "reauthorization_required"),
+            (403, GitHubVerificationPending, "verification_pending"),
+            (404, GitHubVerificationPending, "verification_pending"),
+        ):
+            with self.subTest(status=status):
+                self.provider_status = None
+                connection_id = await self.ready("browser")
+                self.provider_status = status
+                with self.assertRaises(error):
+                    await self.service.refresh(self.scope, connection_id)
+                self.assertEqual(
+                    self.journal.get(self.owner, connection_id).state, state
+                )
+                self.provider_status = None
+                record = self.journal.get(self.owner, connection_id)
+                await self.service.disconnect(
+                    self.scope, connection_id, record.generation
+                )
 
     async def test_vault_failure_after_exchange_is_fenced_and_not_replayed(self):
         connection_id = await self.ready("browser")
