@@ -55,13 +55,17 @@ class SubscriptionObservations:
             self.service.controllers is not None and self.service.controllers.closed
         ):
             raise ProviderConnectionError("provider_runner_unavailable")
-        if lease_hash is not None and (
-            not lease_hash or lease_hash in self.service.revoked_leases
-        ):
-            raise ProviderConnectionError("provider_session_required")
+        if lease_hash is not None:
+            if not lease_hash:
+                raise ProviderConnectionError("provider_session_required")
+            self.service.check_lease(lease_hash)
         record = self.service.admitted(
             binding.profile_id, binding.connection_id, binding.generation
         )
+        if record.provider == "codex" and record.client_id == "codex-native":
+            self.service.codex.profile(binding.profile_id, record)
+            self.service.codex.saved_identity(binding.profile_id, record)
+            return record
         if record.provider == "codex":
             auth = SavedConnectionCredential(
                 self.service,

@@ -395,3 +395,5 @@
 .gc-setup-steps {
   list-style-type: decimal;
 }
+
+.pc-device-code { padding: 14px 20px; border: 1px solid var(--border); border-radius: 6px; text-align: center; font-size: 24px; font-weight: 600; letter-spacing: .12em; user-select: all; }

@@ -13,7 +13,7 @@ from pathlib import Path
 from uuid import uuid4
 import hashlib
 import asyncio
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, nullcontext
 import logging
 import sys
 import json
@@ -167,7 +167,12 @@ class CodexAgent(BaseAgent):
             self.auth = auth_connection
             if auth_connection is not None:
                 self.auth_client_id = auth_connection.client_id
-        if self.auth:
+        self.native_auth = (
+            auth_connection
+            if getattr(auth_connection, "register_runtime", None) is not None
+            else None
+        )
+        if self.auth and not self.native_auth:
             self.split_provider_config = (
                 'model_provider="openai_chatgpt_plan"',
                 'model_providers.openai_chatgpt_plan.name="ChatGPT plan"',
@@ -178,6 +183,16 @@ class CodexAgent(BaseAgent):
                 "model_providers.openai_chatgpt_plan.supports_websockets=false",
             )
         self.profile = _split_profile(self.state) if split_executor else VOLUME
+        if self.native_auth:
+            native_profile = self.native_auth.profile()
+            self.profile = native_profile.name
+            self.image_id = native_profile.image_id
+            self._managed_image = False
+            self.split_provider_config = (
+                'model_provider="openai"',
+                'cli_auth_credentials_store="file"',
+                'forced_login_method="chatgpt"',
+            )
         if split_executor and transport is not CodexAgentRuntime:
             raise RunnerError("split_executor_requires_native_transport")
         if (
@@ -191,14 +206,18 @@ class CodexAgent(BaseAgent):
             CONFIG_LF_SHA256,
         }:
             raise RunnerError("permission_config_changed")
-        self.docker_environment = None
+        self.docker_environment = (
+            {"DOCKER_HOST": native_profile.docker_endpoint}
+            if self.native_auth
+            else None
+        )
         if check_docker:
             self.docker_environment = self._check_container()
-            if split_executor:
+            if split_executor and not self.native_auth:
                 _ensure_split_profile(
                     self.profile, state=self.state, env=self.docker_environment
                 )
-            else:
+            elif not split_executor:
                 with DockerRuntime(
                     environment=self.docker_environment
                 ).connect() as docker:
@@ -420,7 +439,7 @@ class CodexAgent(BaseAgent):
                 "(python -m pip install -e '.[runner]')."
             )
             raise RunnerError("runner_docker_check_unconfirmed") from None
-        snapshot = ConnectionSettings.environment_snapshot(None)
+        snapshot = ConnectionSettings.environment_snapshot(self.docker_environment)
         try:
             with DockerRuntime(
                 settings=ConnectionSettings(
@@ -586,6 +605,8 @@ class CodexAgent(BaseAgent):
                 if self.split_executor
                 else None
             )
+            if self.native_auth:
+                self.native_auth.register_runtime(self._receipt_path(root))
             return self.transport(
                 launch,
                 root,
@@ -603,6 +624,13 @@ class CodexAgent(BaseAgent):
 
     @asynccontextmanager
     async def _discovery(self, purpose):
+        """Serialize native credentials through discovery and confirmed cleanup."""
+        with self.native_auth.lease() if self.native_auth else nullcontext():
+            async with self._discovery_native(purpose) as server:
+                yield server
+
+    @asynccontextmanager
+    async def _discovery_native(self, purpose):
         """Own the existing temporary zero-turn native lifecycle through exact cleanup."""
         root = self.state / purpose / str(uuid4())
         server = None
@@ -647,6 +675,11 @@ class CodexAgent(BaseAgent):
             return await server.subscription_limits()
 
     async def _preflight(self) -> dict:
+        """Hold native custody across the existing permission-check lifecycle."""
+        with self.native_auth.lease() if self.native_auth else nullcontext():
+            return await self._preflight_native()
+
+    async def _preflight_native(self) -> dict:
         """Launch native handshake, model and permission probes without a model turn.
 
         This active check starts a controller and uses a disposable workspace.
@@ -733,6 +766,20 @@ class CodexAgent(BaseAgent):
         )
 
     async def _execute_acp(
+        self, run_id, task, *, resume, activity_attempt_id=None, model=None, effort=None
+    ):
+        """Admit only one native writer and retain custody through exact ACP cleanup."""
+        with self.native_auth.lease() if self.native_auth else nullcontext():
+            return await self._execute_acp_native(
+                run_id,
+                task,
+                resume=resume,
+                activity_attempt_id=activity_attempt_id,
+                model=model,
+                effort=effort,
+            )
+
+    async def _execute_acp_native(
         self,
         run_id: str,
         task: str,

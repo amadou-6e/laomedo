@@ -191,6 +191,7 @@ class LoginProgress(BaseModel):
     status: Literal[
         "connecting",
         "verifying",
+        "awaiting_confirmation",
         "connected",
         "cancelled",
         "expired",

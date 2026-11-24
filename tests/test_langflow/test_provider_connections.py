@@ -35,6 +35,9 @@ class ProviderRouteTests(unittest.TestCase):
         self.addCleanup(temporary.cleanup)
         self.profile = uuid4()
         self.service = ProviderConnections(Path(temporary.name) / "providers")
+        native_worker = patch.object(self.service.codex, "_run")
+        native_worker.start()
+        self.addCleanup(native_worker.stop)
         self.addCleanup(self.service.close)
         app = FastAPI()
         self.app = app
@@ -157,36 +160,6 @@ class ProviderRouteTests(unittest.TestCase):
         self.assertEqual(
             self.service.progress(self.profile, UUID(attempt_id)).status, "cancelled"
         )
-
-    def test_native_return_is_bound_to_cookie_and_redirects_without_oauth_query(self):
-        """Provider query data never appears in the returned Settings URL."""
-        receipt = LoginProgress(
-            attempt_id=uuid4(), status="connected", connection_id=uuid4()
-        )
-        with patch.object(self.service, "complete", return_value=receipt) as complete:
-            response = self.client.get(
-                "/auth/callback?code=fixture-code&state=fixture-state&client_id=oaiapp_test",
-                headers={"Sec-Fetch-Site": "cross-site"},
-            )
-            self.assertEqual(response.status_code, 303)
-            self.assertEqual(
-                response.headers["location"],
-                "/settings/providers?attempt=" + str(receipt.attempt_id),
-            )
-            self.assertEqual(response.headers["referrer-policy"], "no-referrer")
-            self.assertEqual(
-                complete.call_args.kwargs["lease_hash"],
-                hashlib.sha256(b"fixture-session").hexdigest(),
-            )
-
-    def test_duplicate_callback_fields_are_refused_before_exchange(self):
-        """Ambiguous native parameters cannot select or consume an attempt."""
-        with patch.object(self.service, "complete") as complete:
-            response = self.client.get("/auth/callback?state=a&state=b&code=fixture")
-            self.assertEqual(
-                response.headers["location"], "/settings/providers?login=failed"
-            )
-            complete.assert_not_called()
 
     def test_refresh_inspection_failure_preserves_the_upstream_response(self):
         """A renewal DB outage must not replace a successful upstream refresh."""
@@ -324,7 +297,7 @@ class ProviderRouteTests(unittest.TestCase):
         import threading
         import time
         from pydantic import SecretStr
-        from laomedo.agents.agents.codex.models import PendingLogin
+        from laomedo.agents.agents.codex.models import CodexLoginAttempt
         from laomedo.agents.agents.claude.models import ClaudeLoginAttempt
         from laomedo.agents.connections.models import LoginProgress
 
@@ -343,10 +316,12 @@ class ProviderRouteTests(unittest.TestCase):
                     progress=progress,
                 )
                 if provider == "codex":
-                    item = PendingLogin(
+                    item = CodexLoginAttempt(
                         **shared,
-                        oauth=SecretStr(json.dumps({"state": "fixture-state"})),
-                        stage=self.service.root / "fixture-stage",
+                        credential_id=uuid4(),
+                        cancelled=threading.Event(),
+                        ready=threading.Event(),
+                        confirmation=threading.Event(),
                     )
                 else:
                     item = ClaudeLoginAttempt(

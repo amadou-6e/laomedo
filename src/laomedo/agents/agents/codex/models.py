@@ -139,52 +139,104 @@ class CodexRateLimits(BaseModel):
         return SubscriptionSnapshot(buckets=buckets)
 
 
-class PendingLogin(BaseModel):
-    """Process-local attempt secret, never serialized to Settings or persisted."""
+class CodexNativeProfile(BaseModel):
+    """Host-owned native volume, pinned to its original daemon and immutable image."""
 
-    model_config = ConfigDict(extra="forbid")
-    exchanging: bool = Field(
-        default=False,
-        exclude=True,
-        description="Native exchange/cleanup is in flight even if its receipt was fenced.",
+    model_config = ConfigDict(extra="forbid", frozen=True, hide_input_in_errors=True)
+    name: str = Field(pattern=r"^laomedo-codex-connection-[0-9a-f]{32}$")
+    labels: dict[str, str] = Field(
+        repr=False, description="Exact SDK ownership labels."
     )
+    docker_endpoint: str = Field(min_length=1, repr=False)
+    image_id: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
+
+
+class CodexAccountIdentity(BaseModel):
+    """Public native observations; email changes require explicit replacement."""
+
+    model_config = ConfigDict(
+        extra="forbid", frozen=True, strict=True, hide_input_in_errors=True
+    )
+    email: str = Field(min_length=1, max_length=100)
+    account_id: str = Field(pattern=r"^[A-Za-z0-9_-]{1,200}$")
+    plan_type: str = Field(min_length=1, max_length=64)
+
+    def subject_hash(self) -> str:
+        """Bind observed native account/workspace and email, without token claims."""
+        import hashlib
+        import json
+
+        return hashlib.sha256(
+            json.dumps(
+                {"email": self.email.casefold(), "account_id": self.account_id},
+                sort_keys=True,
+            ).encode()
+        ).hexdigest()
+
+
+class CodexLoginAttempt(BaseModel):
+    """Process-local native login; every live handle and URL is excluded."""
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
     profile_id: UUID = Field(
-        exclude=True, description="Authenticated profile owning the attempt."
+        exclude=True, description="Authenticated local profile owning the attempt."
     )
     lease_hash: str = Field(
         exclude=True,
         repr=False,
-        description="Digest of the originating browser session, fenced on logout.",
+        description="Originating browser lease, fenced on logout.",
     )
     candidate_id: UUID = Field(
-        exclude=True, description="Proposed or reconnecting connection."
+        exclude=True, description="New or reconnecting saved connection."
     )
-    oauth: SecretStr = Field(
-        exclude=True, description="Serialized private PKCE and nonce state."
-    )
-    stage: Path = Field(
-        exclude=True,
-        repr=False,
-        description="Private unadmitted token staging directory.",
-    )
-    expires_at: float = Field(
-        exclude=True, description="Monotonic expiry for this process only."
+    credential_id: UUID = Field(
+        exclude=True, description="Fresh immutable native volume revision."
     )
     previous: ConnectionRecord | None = Field(
         default=None,
         exclude=True,
-        description="Exact prior generation for reconnect admission.",
+        description="Committed connection preserved until successful replacement.",
     )
-    publication: ConnectionRecord | None = Field(
+    expires_at: float = Field(
+        exclude=True, description="Monotonic native attempt expiry."
+    )
+    progress: LoginProgress = Field(description="Safe observable attempt state.")
+    authorization_url: SecretStr | None = Field(
         default=None,
         exclude=True,
-        description="Proposed admission pointer retained for uncertain-write reconciliation.",
+        repr=False,
+        description="Official-client URL, only relayed to the owning browser.",
     )
-    superseded_scrubbed: bool = Field(
+    session: Any = Field(
+        default=None,
+        exclude=True,
+        repr=False,
+        description="Live creator-owned native stdin session.",
+    )
+    cancelled: Any = Field(
+        exclude=True,
+        repr=False,
+        description="Cancellation event observed by the native lifecycle.",
+    )
+    ready: Any = Field(
+        exclude=True,
+        repr=False,
+        description="Event announcing a URL or a terminal failure.",
+    )
+    worker: Any = Field(
+        default=None,
+        exclude=True,
+        repr=False,
+        description="Owning worker; joined before final store closure.",
+    )
+    settled: bool = Field(
         default=False,
         exclude=True,
-        description="Whether this attempt's prior local token copy has been removed.",
+        description="Whether native session cleanup and publication have settled.",
     )
-    progress: LoginProgress = Field(
-        description="Safe observation of the attempt lifecycle."
+
+    user_code: SecretStr | None = Field(default=None, exclude=True, repr=False)
+    identity: CodexAccountIdentity | None = Field(default=None, exclude=True)
+    confirmation: Any = Field(
+        exclude=True, repr=False, description="Explicit replacement confirmation event."
     )

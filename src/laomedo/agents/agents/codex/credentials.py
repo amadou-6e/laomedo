@@ -28,7 +28,7 @@ class CodexCredentialProvider(BaseCredentialProvider):
             )
         token, identity = self.agent.auth.access_token(self.agent.auth_client_id)
         return CredentialMaterial(
-            token=SecretStr(token),
+            token=SecretStr(token) if token is not None else None,
             identity=identity,
             binding=CredentialBinding(
                 credential_mode="chatgpt_plan_oauth",

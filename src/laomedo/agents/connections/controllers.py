@@ -8,7 +8,10 @@ from pathlib import Path
 from uuid import UUID
 from urllib.parse import urlsplit
 
-from laomedo.agents.connections.credentials import SavedConnectionCredential
+from laomedo.agents.connections.credentials import (
+    SavedConnectionCredential,
+    SavedNativeCodexConnection,
+)
 from laomedo.agents.connections.credentials import SavedClaudeConnection
 from laomedo.docker import DockerRuntime
 from laomedo.agents.connections.errors import ProviderConnectionError
@@ -498,9 +501,12 @@ class ProviderControllers:
             else:
                 if record.provider != "codex":
                     raise ProviderConnectionError("provider_method_unavailable")
-                auth = SavedConnectionCredential(
-                    self.service, profile_id, connection_id, generation
+                auth_type = (
+                    SavedNativeCodexConnection
+                    if record.client_id == "codex-native"
+                    else SavedConnectionCredential
                 )
+                auth = auth_type(self.service, profile_id, connection_id, generation)
                 factory = self.factory or partial(
                     AgentProviderRegistry.create_agent, "codex"
                 )

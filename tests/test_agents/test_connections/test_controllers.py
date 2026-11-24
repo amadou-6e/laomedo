@@ -410,7 +410,7 @@ class ProviderControllerTests(unittest.TestCase):
                 self.records[1],
             ],
         )
-        with unittest.mock.patch.object(self.service.codex, "_scrub") as scrub:
+        with unittest.mock.patch.object(self.service.codex.retained, "_scrub") as scrub:
             result = self.service.retry_cleanup(self.profile, self.one)
             self.assertEqual(result.status, "cleanup_required")
             self.assertEqual(

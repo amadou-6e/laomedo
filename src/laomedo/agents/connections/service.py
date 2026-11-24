@@ -343,13 +343,7 @@ class ProviderConnections:
     def begin(self, profile_id, redirect_uri, connection_id=None, *, lease_hash=""):
         """Dispatch explicit Codex sign-in to its provider owner."""
         return self.codex.begin(
-            profile_id, redirect_uri, connection_id, lease_hash=lease_hash
-        )
-
-    def complete(self, profile_id, callback, *, lease_hash="", **verification):
-        """Dispatch a Codex callback without interpreting provider credentials."""
-        return self.codex.complete(
-            profile_id, callback, lease_hash=lease_hash, **verification
+            profile_id, connection_id=connection_id, lease_hash=lease_hash
         )
 
     def borrow(self, profile_id, connection_id, generation):

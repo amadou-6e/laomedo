@@ -1,5 +1,9 @@
 """Exact saved-connection credential facade for the isolated native controller."""
 
+from contextlib import contextmanager
+from pathlib import Path
+import json
+
 from laomedo.host.credentials.siwc.connection import ChatGPTConnection
 from laomedo.host.credentials.siwc.errors import AuthError
 from laomedo.agents.connections.errors import ProviderConnectionError
@@ -105,3 +109,94 @@ class SavedClaudeConnection:
                 self.service.adapter("claude").validate_identity(record, auth)
         except (ValueError, TypeError, AttributeError):
             raise RunnerError("provider_connection_changed") from None
+
+
+class SavedNativeCodexConnection(SavedConnectionCredential):
+    """Fence native custody and public identity without borrowing a bearer token."""
+
+    def __init__(self, service, profile_id, connection_id, generation):
+        """Bind the exact admitted native revision and its writer custody."""
+        super().__init__(service, profile_id, connection_id, generation)
+        record = service.admitted(profile_id, connection_id, generation)
+        self.custody = service.codex.native(profile_id, record)
+
+    def account(self, client_id):
+        """Check generation and local verified metadata without starting a native writer."""
+        if client_id != self.client_id:
+            raise AuthError("auth_account_mismatch")
+        try:
+            with self.service._lock:
+                if (
+                    self.service.controllers is not None
+                    and self.service.controllers.closed
+                ):
+                    raise ProviderConnectionError("provider_connection_unavailable")
+                record = self.service.admitted(
+                    self.profile_id, self.connection_id, self.generation
+                )
+                identity = self.service.codex.saved_identity(self.profile_id, record)
+                return {
+                    "state": "active",
+                    "credential_ref": str(record.connection_id),
+                    "provider_subject_hash": identity.subject_hash(),
+                    "connection_generation": record.generation,
+                    "credential_mode": "chatgpt_plan_oauth",
+                    "auth_outcome": "verified",
+                }
+        except ProviderConnectionError:
+            raise AuthError("auth_revoked") from None
+
+    def summary(self, account):
+        """Project the native binding, never a SIWC token or issuer claim."""
+        return {key: value for key, value in account.items() if key != "state"}
+
+    def access_token(self, client_id):
+        """Return a no-token native binding; the official client owns its auth file."""
+        return None, self.summary(self.account(client_id))
+
+    def profile(self):
+        """Validate exact admitted volume ownership on its original daemon."""
+        self.account(self.client_id)
+        return self.custody.profile()
+
+    @contextmanager
+    def lease(self):
+        """Hold one native writer through identity verification and caller teardown."""
+        from laomedo.agents.agents.codex.models import CodexAccountIdentity
+        from laomedo.docker import DockerRuntime
+        from py_docker.jobs.models import ContainerJob
+        from py_docker.streams.models import StreamLimits
+
+        self.account(self.client_id)
+        with self.custody.lease() as descriptor:
+            receipt = self.custody.root / "native-identity-job.json"
+            self.custody.register(receipt, kind="job")
+            with self.custody._client(descriptor) as docker:
+                result = DockerRuntime.execute_job(
+                    docker,
+                    ContainerJob(
+                        spec=self.service.codex.spec(descriptor, "identity"),
+                        limits=StreamLimits(seconds=70, max_bytes=16384),
+                        receipt_path=receipt,
+                        wait_timeout_seconds=5,
+                    ),
+                )
+            try:
+                value = json.loads(result.stdout)
+                if result.exit_code or value.pop("type", None) != "identity":
+                    raise ValueError()
+                observed = CodexAccountIdentity.model_validate(value)
+                with self.service._lock:
+                    record = self.service.admitted(
+                        self.profile_id, self.connection_id, self.generation
+                    )
+                    if observed.subject_hash() != record.subject_hash:
+                        raise ValueError()
+            except (ValueError, TypeError, AttributeError):
+                raise RunnerError("provider_connection_changed") from None
+            self.account(self.client_id)
+            yield descriptor
+
+    def register_runtime(self, receipt):
+        """Record exact ACP custody before a native launch under the active lease."""
+        self.custody.register(Path(receipt))

@@ -23,6 +23,7 @@ const progressSchema = z.object({
   status: z.enum([
     "connecting",
     "verifying",
+    "awaiting_confirmation",
     "connected",
     "cancelled",
     "expired",
@@ -92,6 +93,7 @@ export async function beginLogin(
     .object({
       progress: progressSchema,
       authorization_url: z.string().url().nullable(),
+      user_code: z.string().min(4).max(32).nullable().optional(),
     })
     .parse(
       await request("/attempts", "POST", {
@@ -103,15 +105,7 @@ export async function beginLogin(
     if (result.authorization_url) validateClaudeUrl(result.authorization_url);
     return result;
   }
-  if (!result.authorization_url)
-    throw new Error("provider_connections_unavailable");
-  const url = new URL(result.authorization_url);
-  if (
-    url.origin !== "https://auth.openai.com" ||
-    url.pathname !== "/api/accounts/authorize" ||
-    url.username ||
-    url.password
-  )
+  if (result.authorization_url && result.authorization_url !== "https://auth.openai.com/codex/device")
     throw new Error("provider_connections_unavailable");
   return result;
 }
@@ -281,4 +275,19 @@ export async function readSubscriptionLimits(
   if (result.connection_id !== connectionId || result.generation !== generation)
     throw new ProviderFailure("provider_connection_changed");
   return result;
+}
+
+
+export async function readCodexAttempt(attemptId: string) {
+  const result = z.object({
+    progress: progressSchema,
+    authorization_url: z.literal("https://auth.openai.com/codex/device").nullable(),
+    user_code: z.string().min(4).max(32).nullable(),
+    replacement_account: z.object({email: z.string(), account_id: z.string(), plan_type: z.string()}).nullable(),
+  }).parse(await request(`/codex/attempts/${encodeURIComponent(attemptId)}`));
+  return result;
+}
+
+export async function confirmCodexReplacement(attemptId: string) {
+  return progressSchema.parse(await request(`/codex/attempts/${encodeURIComponent(attemptId)}/confirm`, "POST", {}));
 }

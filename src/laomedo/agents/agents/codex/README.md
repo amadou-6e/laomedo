@@ -80,7 +80,7 @@ projects native wire fields into canonical `SubscriptionSnapshot` models in
 fail. No model turn, native thread, generic RPC forwarding or ambient login is added.
 ## Saved account connections
 
-`connection.py` is the provider boundary. CodexConnection owns pending broker login attempts, begin/complete/progress/cancel, staged publication and readback, duplicate identity checks, exact token borrowing and local revision cleanup. PendingLogin belongs to models.py; login failure categories belong to settings.py. The shared Agent connection service owns admission/index fencing; host storage and profile authorization remain separate.
+`connection.py` is the provider boundary. CodexConnection owns native device login, lease-bound details, explicit replacement confirmation, publication/readback, cancellation and native cleanup. CodexLoginAttempt belongs to models.py; native expiry and cleanup bounds belong to settings.py. `retained.py` supports only operational borrowing and erasure of already-saved token-sharing revisions until they are replaced or disconnected; it has no sign-in entry point. The shared Agent connection service owns admission/index fencing; host storage and profile authorization remain separate.
 
 
 ## Unified native connection (#300, implementation in progress)
@@ -94,9 +94,23 @@ conflicting observations and unsupported routing fail closed. No token file is
 read or decoded. Auth-file existence is checked only after the client stops.
 The native child has an explicit environment and pinned issuer/file-store mode.
 Its public device handoff is intended only for the originating browser lease.
-This helper is not installed into a runtime image or wired into Settings yet.
+The managed image installs and tests this helper. Settings uses a lease-bound
+device handoff, with explicit confirmation before any saved-login replacement.
 Native account/workspace plus email is an observed binding, not an immutable
-per-user ID: email changes require confirmed replacement. Runtime admission,
-single-writer custody, cancellation/cleanup, the legacy-row transition and UI
-geometry remain required before enabling this connection. Existing connections
-have not been changed by this implementation checkpoint.
+per-user ID: email changes require confirmed replacement. Runtime admission and Agent launches use the same owned native profile and writer
+lease as quota reads. Live acceptance, UI verification and full integration review
+remain pending. Existing saved connections are untouched until confirmed replacement.
+
+### Native credential custody
+
+`native.py` owns CodexNativeCredentials. create records exact daemon/image/volume
+ownership before creation; profile admits only that existing owned volume; lease
+serializes one native writer across host processes and reconciles exact registered
+session receipts before granting it; register records a creator receipt before
+launch; erase recovers those receipts before removing only the labelled volume.
+The lock spans client startup through confirmed cleanup. Docker outages preserve
+custody and refuse new use. No method reads or exports the native auth file.
+CodexNativeProfile and CodexAccountIdentity live in models.py. Identity is an
+observed email/account binding; subject_hash is not a claim of immutable user ID.
+These boundaries must be wired into login, discovery and every Agent launch before
+native saved connections can be exposed.

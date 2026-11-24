@@ -15,7 +15,7 @@
     "verify_output": "2.1.310 (Claude Code)"
   },
   "codex": {
-    "image": "laomedo-codex-acp:0.159.2-2.1.1-quota1",
+    "image": "laomedo-codex-acp:0.159.2-2.1.1-unified300",
     "context": "codex-acp",
     "files": [
       "Dockerfile",
@@ -25,7 +25,9 @@
       "LaomedoExtension.ts",
       "LaomedoExtension.test.ts",
       "LaomedoLaunch.ts",
-      "LaomedoLaunch.test.ts"
+      "LaomedoLaunch.test.ts",
+      "native-login.mjs",
+      "native-login.test.mjs"
     ],
     "verify_command": [
       "codex",
@@ -48,7 +50,7 @@
     "verify_output": "1.18.33"
   },
   "opencode-worker": {
-    "image": "laomedo-opencode-worker:codex-0.159.2-2.1.1-quota1",
+    "image": "laomedo-opencode-worker:codex-0.159.2-2.1.1-unified300",
     "context": "codex-acp",
     "files": [
       "Dockerfile",
@@ -58,7 +60,9 @@
       "LaomedoExtension.ts",
       "LaomedoExtension.test.ts",
       "LaomedoLaunch.ts",
-      "LaomedoLaunch.test.ts"
+      "LaomedoLaunch.test.ts",
+      "native-login.mjs",
+      "native-login.test.mjs"
     ],
     "verify_command": [
       "codex",

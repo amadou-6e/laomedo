@@ -19,11 +19,13 @@ FROM node:22-bookworm-slim@sha256:de170b39439eb0e5a3444ad7d60b015614a381e10fecae
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates git python3 ripgrep \
     && rm -rf /var/lib/apt/lists/* \
     && groupadd --gid 10001 runner && useradd --uid 10001 --gid 10001 --create-home runner \
-    && mkdir /draft /opt/acp && chown runner:runner /draft
+    && mkdir /draft /opt/acp /home/runner/.codex && chown runner:runner /draft /home/runner/.codex
 COPY package.json package-lock.json /opt/codex/
 RUN npm ci --prefix /opt/codex --omit=dev --ignore-scripts --no-audit --no-fund \
     && ln -s /opt/codex/node_modules/.bin/codex /usr/local/bin/codex \
     && test "$(codex --version)" = "codex-cli 0.159.2"
+COPY native-login.mjs native-login.test.mjs /opt/acp/
+RUN node --test /opt/acp/native-login.test.mjs && rm /opt/acp/native-login.test.mjs
 COPY --from=adapter /source/dist/index.js /opt/acp/index.mjs
 COPY --from=adapter /source/LICENSE /opt/acp/LICENSE
 COPY --from=adapter /tmp/adapter-checksums.txt /opt/acp/adapter-checksums.txt
