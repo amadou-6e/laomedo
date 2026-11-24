@@ -132,6 +132,7 @@ it("keeps a rotated connection fenced and offers verification retry", async () =
   await waitFor(() => expect(connectionRequest).toHaveBeenCalledWith("verify", { connection_id: "saved", generation: 3 }));
   expect(await screen.findByText("GitHub access is still unavailable. Try again when GitHub is available.")).toBeTruthy();
   expect(screen.getByRole("button", { name: "Check access again" })).toBeTruthy();
+  expect(screen.getByText("Repository access is paused")).toBeTruthy();
   expect(screen.getByRole("button", { name: "Sign in again" })).toBeTruthy();
   expect(screen.getByRole("button", { name: "Disconnect" })).toBeTruthy();
 });

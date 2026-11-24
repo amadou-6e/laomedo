@@ -72,7 +72,7 @@ export default function ConnectionAccounts({
           )}
           <div className="gc-section">
             <div className="gc-section-heading">
-              <h3>Repository access</h3>
+              <h3>{pending ? "Repository access is paused" : "Repository access"}</h3>
               {ready && (
                 <Button
                   ignoreTitleCase
@@ -87,11 +87,15 @@ export default function ConnectionAccounts({
                 </Button>
               )}
             </div>
-            <ul className="gc-repositories">
-              {connection.repositories.map((repo) => (
-                <li key={repo.id}>{repo.full_name}</li>
-              ))}
-            </ul>
+            {pending ? (
+              <p className="gc-muted">Try the check again when GitHub is available. Your previous selections are retained.</p>
+            ) : (
+              <ul className="gc-repositories">
+                {connection.repositories.map((repo) => (
+                  <li key={repo.id}>{repo.full_name}</li>
+                ))}
+              </ul>
+            )}
           </div>
           {connection.mode === "token" && (
             <details className="gc-advanced">
