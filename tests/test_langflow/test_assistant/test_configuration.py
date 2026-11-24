@@ -269,3 +269,29 @@ class ConfigurationTests(unittest.IsolatedAsyncioTestCase):
                     fields={"effort": "unobserved"},
                 ),
             )
+
+    async def test_empty_native_effort_dropdown_does_not_admit_unresolved_extra_values(
+        self,
+    ):
+        self.catalog.snapshot["laomedo"]["LaomedoCodexAgent"]["template"][
+            "effort"
+        ].update(show=True, real_time_refresh=False, dynamic=False, options=[])
+        result = await self.configuration.resolve(
+            self.context,
+            self.catalog,
+            ConfigurationRequest(
+                component_type=self.identity,
+                connection_id=self.connection,
+                connection_generation=1,
+                fields={"model": "observed-model"},
+            ),
+        )
+        node = DraftNode(
+            key="agent",
+            component_type=self.identity,
+            fields={**result["fields"], "effort": "invented"},
+            resolution_id=UUID(result["resolution_id"]),
+        )
+        await self.configuration.prepare(self.context, self.catalog, [node])
+        with self.assertRaisesRegex(AssistantError, "assistant_field_not_writable"):
+            self.catalog.compile(DraftGraph(nodes=[node]))

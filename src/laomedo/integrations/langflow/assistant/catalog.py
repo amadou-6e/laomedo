@@ -214,11 +214,10 @@ class ComponentCatalog:
         """
         return not self._protected_field(name, field)
 
-    def describe(self, identity):
-        """Expose names, compatible types and approved field constraints, excluding executable source."""
-        component = self.template(identity)
+    def resolution_fields(self, identity):
+        """Own audited dependency roles even when installed dropdown metadata is empty."""
         family = self.audited_family(identity)
-        dynamic = (
+        return (
             {
                 "provider_connection": [],
                 "model": ["provider_connection"],
@@ -232,6 +231,12 @@ class ComponentCatalog:
                 else {"mcp_server": []} if family == "MCPTools" else {}
             )
         )
+
+    def describe(self, identity):
+        """Expose installed constraints without private defaults or executable source."""
+        component = self.template(identity)
+        family = self.audited_family(identity)
+        dynamic = self.resolution_fields(identity)
         inputs = []
         for name, field in component["template"].items():
             if name.startswith("_") or not isinstance(field, dict) or name == "code":
@@ -244,12 +249,12 @@ class ComponentCatalog:
                     "input_types": field.get("input_types") or [],
                     "required": bool(field.get("required")),
                     "list": bool(field.get("list")),
-                    "writable": self._writable(name, field),
+                    "writable": self._writable(name, field) and name not in dynamic,
                     "resolvable": name in dynamic,
                     "depends_on": dynamic.get(name, []),
                     "kind": (
                         "static"
-                        if self._writable(name, field)
+                        if self._writable(name, field) and name not in dynamic
                         else (
                             "dynamic"
                             if field.get("dynamic") or field.get("real_time_refresh")
@@ -262,7 +267,7 @@ class ComponentCatalog:
                     ),
                     "blocked_reason": (
                         None
-                        if self._writable(name, field)
+                        if self._writable(name, field) and name not in dynamic
                         else (
                             "requires_audited_resolution"
                             if name in dynamic
@@ -271,13 +276,13 @@ class ComponentCatalog:
                     ),
                     "default_provenance": (
                         "installed_static"
-                        if self._writable(name, field)
+                        if self._writable(name, field) and name not in dynamic
                         else "not_copied"
                     ),
                     "connectable": self._connectable(name, field),
                     "options": (
                         field.get("options", [])[:100]
-                        if self._writable(name, field)
+                        if self._writable(name, field) and name not in dynamic
                         else []
                     ),
                     "description": str(field.get("info") or "")[:1000],
@@ -309,7 +314,9 @@ class ComponentCatalog:
             and resolved.fields[name] == value
         ):
             return deepcopy(value)
-        if not self._writable(name, field):
+        if (
+            identity is not None and name in self.resolution_fields(identity)
+        ) or not self._writable(name, field):
             raise AssistantError("assistant_field_not_writable", 422)
         values = value if field.get("list") else [value]
         if field.get("list") and (not isinstance(value, list) or len(value) > 100):
@@ -349,7 +356,9 @@ class ComponentCatalog:
                 raise AssistantError("assistant_field_type_invalid", 422)
             before = (
                 self._value(name, field, original.get("value"), identity)
-                if original.get("value") is not None and self._writable(name, original)
+                if original.get("value") is not None
+                and self._writable(name, original)
+                and name not in self.resolution_fields(identity)
                 else None
             )
             preview.append(
@@ -397,7 +406,9 @@ class ComponentCatalog:
             for name, field in template["template"].items():
                 if not isinstance(field, dict) or name == "code":
                     continue
-                if not self._writable(name, field):
+                if not self._writable(name, field) or name in self.resolution_fields(
+                    definition.component_type
+                ):
                     if field.get("value") is not None and field.get("value") not in (
                         "",
                         [],
