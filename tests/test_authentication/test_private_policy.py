@@ -8,6 +8,7 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import AsyncMock, patch
 from uuid import uuid4
+from contextlib import asynccontextmanager
 
 if find_spec("langflow") is None:
     raise unittest.SkipTest("Optional Langflow runtime is not installed")
@@ -21,6 +22,7 @@ from langflow.services.auth.context import (
 )
 
 from laomedo.integrations.langflow.authentication.errors import (
+    PrivateSessionError,
     PrivateSessionRequired,
     PrivateRequestRefused,
 )
@@ -28,6 +30,116 @@ from laomedo.github.connections.settings import GITHUB_CALLBACK_PATH
 from laomedo.integrations.langflow.authentication.policy import PrivateAccessPolicy
 from laomedo.integrations.langflow.authentication.settings import PrivateBrowserSettings
 from laomedo.integrations.langflow.authentication.store import PrivateSessionStore
+from laomedo.integrations.langflow.local_profiles.auth import LocalProfileAuthService
+
+
+class PrivateRuntimePolicyTests(unittest.IsolatedAsyncioTestCase):
+    def setUp(self):
+        self.policy = PrivateAccessPolicy(
+            None,
+            PrivateBrowserSettings(
+                origin="http://127.0.0.1:17866", runtime_root=Path.cwd()
+            ),
+        )
+        self.auth_settings = SimpleNamespace(
+            AUTO_LOGIN=False,
+            skip_auth_auto_login=False,
+            EXTERNAL_AUTH_ENABLED=False,
+            ENABLE_SIGNUP=False,
+            NEW_USER_IS_ACTIVE=True,
+            API_KEY_SOURCE="db",
+            ACCESS_SAME_SITE="lax",
+            REFRESH_SAME_SITE="lax",
+            ACCESS_SECURE=False,
+            REFRESH_SECURE=False,
+            COOKIE_DOMAIN=None,
+        )
+        self.auth = object.__new__(LocalProfileAuthService)
+
+    def test_runtime_refuses_each_unsupported_auth_setting(self):
+        with (
+            patch(
+                "langflow.services.deps.get_settings_service",
+                return_value=SimpleNamespace(auth_settings=self.auth_settings),
+            ),
+            patch("langflow.services.deps.get_auth_service", return_value=self.auth),
+            patch(
+                "laomedo.integrations.langflow.authentication.policy.sys.platform",
+                "win32",
+            ),
+        ):
+            self.policy.verify_runtime()
+            changes = {
+                "AUTO_LOGIN": True,
+                "skip_auth_auto_login": True,
+                "EXTERNAL_AUTH_ENABLED": True,
+                "ENABLE_SIGNUP": True,
+                "NEW_USER_IS_ACTIVE": False,
+                "API_KEY_SOURCE": "env",
+                "ACCESS_SAME_SITE": "none",
+                "REFRESH_SAME_SITE": "none",
+                "ACCESS_SECURE": True,
+                "REFRESH_SECURE": True,
+                "COOKIE_DOMAIN": "example.test",
+            }
+            for name, value in changes.items():
+                with (
+                    self.subTest(setting=name),
+                    patch.object(self.auth_settings, name, value),
+                ):
+                    with self.assertRaises(PrivateSessionError):
+                        self.policy.verify_runtime()
+            with patch(
+                "langflow.services.deps.get_auth_service", return_value=object()
+            ):
+                with self.assertRaises(PrivateSessionError):
+                    self.policy.verify_runtime()
+            with patch(
+                "langflow.services.deps.get_settings_service", return_value=None
+            ):
+                with self.assertRaises(PrivateSessionError):
+                    self.policy.verify_runtime()
+
+    async def test_token_owner_requires_jwt_and_active_ordinary_profile(self):
+        owner = uuid4()
+        user = SimpleNamespace(
+            id=owner, username="local", is_active=True, is_superuser=False
+        )
+        auth = SimpleNamespace(
+            get_current_user_from_access_token=AsyncMock(return_value=user)
+        )
+
+        @asynccontextmanager
+        async def session_scope():
+            yield object()
+
+        with (
+            patch.object(self.policy, "verify_runtime"),
+            patch("langflow.services.deps.get_auth_service", return_value=auth),
+            patch("langflow.services.deps.session_scope", session_scope),
+            patch(
+                "langflow.services.auth.context.get_current_auth_context",
+                return_value=SimpleNamespace(method="jwt"),
+            ) as context,
+        ):
+            self.assertEqual(await self.policy.owner_from_token("synthetic"), owner)
+            context.return_value = SimpleNamespace(method="api_key")
+            self.assertIsNone(await self.policy.owner_from_token("synthetic"))
+            context.return_value = SimpleNamespace(method="jwt")
+            for values in (
+                {"is_active": False},
+                {"is_superuser": True},
+                {"username": "__laomedo_system__"},
+            ):
+                with self.subTest(values=values):
+                    auth.get_current_user_from_access_token.return_value = (
+                        SimpleNamespace(**(vars(user) | values))
+                    )
+                    self.assertIsNone(await self.policy.owner_from_token("synthetic"))
+            auth.get_current_user_from_access_token.side_effect = RuntimeError(
+                "private detail"
+            )
+            self.assertIsNone(await self.policy.owner_from_token("synthetic"))
 
 
 class PrivateAccessPolicyTests(unittest.IsolatedAsyncioTestCase):
