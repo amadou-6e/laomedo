@@ -1,0 +1,49 @@
+{
+  "revision": "13b2bdbb4",
+  "files": [
+    {
+      "path": "src/laomedo/agents/agents/codex/connection.py",
+      "sha256": "0c722eeaec12c8ee1c0d214139dc72e224748c6c93c126d45103c98ba57a198b"
+    },
+    {
+      "path": "src/laomedo/agents/agents/codex/models.py",
+      "sha256": "10ccd618d28b04d39a1393c3e30e01ddb1c775796b4f1275e66526378cb615ba"
+    },
+    {
+      "path": "src/laomedo/agents/connections/credentials.py",
+      "sha256": "b6d4f2d81b025b92cb591878ba2ca8d03232c7f67d96c7676b8d064307f586c9"
+    },
+    {
+      "path": "frontend/langflow-skill-viewer/providers/ProviderConnections.tsx",
+      "sha256": "8963f939fc27cdfe56cc6fadc96a8df14f5eaebfbd24baa8e2c28a69bd6d2456"
+    },
+    {
+      "path": "src/laomedo/integrations/langflow/provider_connections/routes.py",
+      "sha256": "0ed9369bcbdf446c1aeebfefec8f48c70aed5d91ecc2778b2c7602221912759c"
+    },
+    {
+      "path": "tests/test_agents/test_connections/__init__.py",
+      "sha256": "a0c03c11075de51ef8dcd57108a379154deb59cae3a3fd92973289cc715e81cc"
+    },
+    {
+      "path": "tests/test_agents/test_connections/test_claude.py",
+      "sha256": "d79c3d8f1a389bfed5ab9829dd136bb92831fc77996d60e66bae5e137f0933fe"
+    },
+    {
+      "path": "tests/test_agents/test_connections/test_controllers.py",
+      "sha256": "e81682614e43e46011bd9f265e01d1f6a79a2acc6bb7d4929d276b72c71847c2"
+    },
+    {
+      "path": "tests/test_agents/test_connections/test_go.py",
+      "sha256": "b1c8ad63f85e7dd41040b5654e04159509adf7ba38472c53ee658eb093fbf903"
+    },
+    {
+      "path": "tests/test_agents/test_connections/test_quota.py",
+      "sha256": "c1df35938116d0debd4aa759368d895b52a10669aac82abb5025768f7c3c27a7"
+    },
+    {
+      "path": "tests/test_agents/test_connections/test_service.py",
+      "sha256": "9f3c9328aa8cd81dadc34f707b9eadb8b94dd07d329c0e34e73ee8f4f77d3253"
+    }
+  ]
+}
