@@ -36,7 +36,8 @@ def apply_assistant(checkout: Path, source: Path):
     )
     logout = frontend / "controllers/API/queries/auth/use-post-logout.ts"
     signout = logout.read_text(encoding="utf-8")
-    anchor = "    if (autoLogin) {"
+    # The profile overlay installs this guard before the assistant overlay.
+    anchor = "    if (autoLogin && !(await profileMode().catch(() => true))) {"
     if signout.count(anchor) != 1:
         raise SystemExit("assistant_logout_anchor_missing")
     signout = (
