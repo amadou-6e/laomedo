@@ -46,3 +46,25 @@ test("private requests remain bounded when no caller signal is provided", async 
   await rejection;
   expect(request).toHaveBeenCalledTimes(1);
 });
+
+test("the deadline and caller cancellation remain active while the response body is read", async () => {
+  for (const cancelByCaller of [false, true]) {
+    jest.useFakeTimers();
+    const caller = new AbortController();
+    const request = jest.spyOn(globalThis, "fetch").mockImplementation(async (_url, options) => {
+      const signal = options?.signal as AbortSignal;
+      return { json: () => new Promise((_resolve, reject) => {
+        signal.addEventListener("abort", () => reject(new Error("aborted")));
+      }) } as Response;
+    });
+    const pending = privateSkillRequest("discover", selection, {}, caller.signal);
+    const rejection = expect(pending).rejects.toMatchObject({ code: "github_connection_unavailable" });
+    await Promise.resolve();
+    if (cancelByCaller) caller.abort();
+    else await jest.advanceTimersByTimeAsync(120000);
+    await rejection;
+    expect(request).toHaveBeenCalledTimes(1);
+    request.mockRestore();
+    jest.useRealTimers();
+  }
+});

@@ -1,6 +1,7 @@
 # Implementation sequence: local sign-in and private GitHub Skills
 
-Status: IMPLEMENTATION IN PROGRESS; the connection feature is not available yet.
+Status: the connection pilot is implemented in draft PR #257; review and live
+acceptance of the full private Skill workflow are incomplete.
 Scope: [#251](https://github.com/amadou-6e/laomedo/issues/251),
 [canonical spec PR #411](https://github.com/amadou-6e/specs/pull/411).
 This plan follows the approved draft design, not runtime acceptance. Owner asked
@@ -9,9 +10,10 @@ for detailed steps/methods and a Claude approach review before runtime changes.
 ## Decisions and evidence
 
 The owner selected single-user local Windows, normal Laomedo sign-in for private
-access, and no changes to the public auto-login preview. No GitHub App exists.
-GitHub setup therefore includes a deliberate first registration and installation;
-credentials are entered only through a secure local control, never chat or Git.
+access, and no changes to the public auto-login preview. GitHub setup includes a
+deliberate account-owned App registration and installation; credentials are kept
+in the host vault, never chat or Git. The investigation below records earlier
+planning evidence and does not represent current acceptance.
 
 Reuse the existing Langflow login page, password verification, user database,
 access/refresh cookies and active-user authentication. Do not build a second
@@ -170,9 +172,9 @@ a fake vault is not acceptance.
 
 ### 4. Implement reviewed setup and connection UI
 
-Follow the approved Draw.io C01-C12/E01-E05/H01 states. Show exact callback from
-trusted origin, not a guessed port. Configure client ID/app slug locally, store
-app secret in the vault, and provide an app-specific installation link. Use
+Follow the approved Draw.io C01-C12/E01-E05/H01 states. Use the exact callback from
+the trusted origin. Register an account-owned App through GitHub's manifest flow,
+store its returned client secret in the vault, and provide its installation link. Use
 Contents read-only, required Metadata read-only, no extra account permissions or
 webhooks. No GitHub settings change is automatic or implied by reviewer approval.
 
