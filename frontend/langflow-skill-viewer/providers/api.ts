@@ -82,7 +82,7 @@ async function request(
 export async function listConnections(): Promise<ProviderConnection[]> {
   return z
     .object({ connections: z.array(connectionSchema) })
-    .parse(await request()).connections;
+    .parse(await request("", "GET", undefined, { timeoutMs: 90000 })).connections;
 }
 
 export async function beginLogin(
