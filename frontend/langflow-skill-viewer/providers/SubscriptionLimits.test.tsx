@@ -164,7 +164,7 @@ test("Claude uses the same explicit-refresh allowance panel", async () => {
       ...ready,
       snapshot: {
         ...ready.snapshot,
-        buckets: [{ ...ready.snapshot!.buckets[0], limit_id: "claude", label: "Claude", credits: null }],
+        buckets: [{ ...ready.snapshot!.buckets[0], limit_id: "model-opaque-identifier", label: "Claude", credits: null }],
       },
     });
   render(<SubscriptionLimits flowId="graph-one" accounts={[claude]} />);
@@ -172,6 +172,7 @@ test("Claude uses the same explicit-refresh allowance panel", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Refresh limits for Personal Claude" }));
   await screen.findByText("75% remaining");
   expect(screen.getByText("Claude")).toBeInTheDocument();
+  expect(screen.queryByText("model-opaque-identifier")).not.toBeInTheDocument();
 });
 
 test("failed refresh keeps only last-known same-account values visibly stale", async () => {

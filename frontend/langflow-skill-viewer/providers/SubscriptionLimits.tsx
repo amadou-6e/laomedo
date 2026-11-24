@@ -210,9 +210,6 @@ function AccountLimits({
                 >
                   <h3>
                     {bucket.label || bucket.limit_id}
-                    {bucket.label && bucket.label !== bucket.limit_id && (
-                      <span>{bucket.limit_id}</span>
-                    )}
                   </h3>
                   {bucket.windows.length === 0 ? (
                     <p>No limits reported.</p>

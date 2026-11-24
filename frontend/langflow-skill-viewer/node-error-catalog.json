@@ -11,6 +11,7 @@
   "provider_connection_disconnecting": {"title": "Connection is disconnecting", "description": "New work is blocked while this connection is removed.", "recovery": "Choose another connection or check cleanup in Settings > Providers."},
   "provider_runner_unavailable": {"title": "Runner unavailable", "description": "The local runtime could not start for this connection.", "recovery": "Check the local runner setup, then refresh. Your account stays connected."},
   "provider_method_unavailable": {"title": "Provider unavailable", "description": "This connection method is not available yet.", "recovery": "Use an available provider connection."},
+  "provider_subscription_limits_unavailable": {"title": "Could not check subscription limits", "description": "Your provider did not return usable subscription limits.", "recovery": "Try refreshing later. Your saved connection has not changed."},
   "provider_confirmation_changed": {"title": "Active work changed", "description": "More work started after this confirmation was opened.", "recovery": "Review the updated run count before disconnecting."},
   "provider_cleanup_unconfirmed": {"title": "Check connection", "description": "We could not confirm that this connection was removed.", "recovery": "Refresh to check its status. Retry cleanup if it is still needed."},
   "provider_save_unconfirmed": {"title": "Check connection", "description": "We could not confirm whether your connection was saved.", "recovery": "Refresh to check before trying again."},

@@ -4,6 +4,7 @@ from datetime import datetime
 import hashlib
 import json
 import math
+import unicodedata
 from uuid import uuid4
 
 from laomedo.agents.agents.base.models import SubscriptionBucket
@@ -140,7 +141,7 @@ class ClaudeSubscriptionQuota:
                 not isinstance(label, str)
                 or not label
                 or len(label) > 128
-                or any(ord(c) < 32 for c in label)
+                or any(unicodedata.category(c) in {"Cc", "Cf"} for c in label)
             ):
                 raise ValueError("invalid_scoped_label")
             if label in seen:

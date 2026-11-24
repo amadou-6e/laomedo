@@ -116,3 +116,12 @@ class ClaudeQuotaTests(TestCase):
         )
         with self.assertRaisesRegex(RunnerError, "container_termination_unverified"):
             self.reader.read()
+
+    def test_scoped_labels_cannot_hide_or_reorder_displayed_text(self):
+        for label in ("Fable\x7f", "Fable\u202e", "Fable\u200b"):
+            with self.subTest(label=repr(label)):
+                self.payload["rate_limits"]["model_scoped"] = [
+                    {"display_name": label, "utilization": 1, "resets_at": None}
+                ]
+                with self.assertRaises(ValueError):
+                    self.reader.project(self.payload)
