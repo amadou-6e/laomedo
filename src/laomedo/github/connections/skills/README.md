@@ -30,3 +30,7 @@ Private editing/materialization is not enabled by this read capability. Retained
 history requires current repository consent, including deliberate reconnection
 after a rename/transfer. A missing scoped origin never probes another owner's or
 connection's registry. Tests are synthetic controls, not real GitHub acceptance.
+
+Disconnecting a GitHub connection revokes access to its retained Skill history,
+but does not delete the retained private files from the configured private root.
+Reading that history again requires current authorization for the same namespace.
