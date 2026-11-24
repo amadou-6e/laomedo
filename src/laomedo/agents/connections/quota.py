@@ -2,11 +2,9 @@
 
 from collections import OrderedDict
 from concurrent.futures import Future, TimeoutError
-import hashlib
 import time
 
 from laomedo.host.credentials.siwc.errors import AuthError
-from laomedo.agents.connections.credentials import SavedConnectionCredential
 from laomedo.agents.connections.errors import ProviderConnectionError
 from laomedo.agents.connections.models import SubscriptionBinding
 from laomedo.agents.connections.models import SubscriptionCacheEntry
@@ -63,29 +61,16 @@ class SubscriptionObservations:
             binding.profile_id, binding.connection_id, binding.generation
         )
         if record.provider == "codex" and record.client_id == "codex-native":
-            self.service.codex.profile(binding.profile_id, record)
-            self.service.codex.saved_identity(binding.profile_id, record)
-            return record
-        if record.provider == "codex":
-            auth = SavedConnectionCredential(
-                self.service,
-                binding.profile_id,
-                binding.connection_id,
-                binding.generation,
-            )
-            account = auth.account(record.client_id)
-            subject = hashlib.sha256(
-                (account["issuer"] + "\0" + account["subject"]).encode()
-            ).hexdigest()
-            if (
-                account["state"] != "active"
-                or account["expires_at"] <= self.clock()
-                or subject != record.subject_hash
-            ):
+            try:
+                self.service.codex.profile(binding.profile_id, record)
+                self.service.codex.saved_identity(binding.profile_id, record)
+            except Exception:
                 self.invalidate(
                     profile_id=binding.profile_id, connection_id=binding.connection_id
                 )
-                raise ProviderConnectionError("provider_connection_unavailable")
+                raise ProviderConnectionError(
+                    "provider_connection_unavailable"
+                ) from None
         return record
 
     def _prune(self):
@@ -142,7 +127,10 @@ class SubscriptionObservations:
             record = self._check(binding, lease_hash)
             self._prune()
             return self._result(
-                binding, lease_hash, unsupported=record.provider != "codex"
+                binding,
+                lease_hash,
+                unsupported=record.provider != "codex"
+                or record.client_id != "codex-native",
             )
 
     def refresh(self, profile_id, connection_id, generation, lease_hash):
@@ -154,7 +142,7 @@ class SubscriptionObservations:
         with self.service._lock:
             record = self._check(binding, lease_hash)
             self._prune()
-            if record.provider != "codex":
+            if record.provider != "codex" or record.client_id != "codex-native":
                 return self._result(binding, lease_hash, unsupported=True)
             entry = self.entries.get(binding)
             now = self.clock()

@@ -34,24 +34,20 @@ class SubscriptionObservationTests(unittest.TestCase):
         self.record = ConnectionRecord(
             connection_id=self.connection,
             credential_id=uuid4(),
-            client_id="test-client",
+            client_id="codex-native",
             subject_hash=hashlib.sha256(b"issuer\0subject").hexdigest(),
             generation=1,
             label="Test account",
         )
         self.service._save(self.owner, [self.record])
-        self.account = {
-            "state": "active",
-            "expires_at": self.now + 3600,
-            "issuer": "issuer",
-            "subject": "subject",
-        }
-        broker = Mock()
-        broker.account.side_effect = lambda client: dict(self.account)
-        self.broker = broker
-        patcher = patch.object(self.service.codex, "_broker", return_value=broker)
-        patcher.start()
-        self.addCleanup(patcher.stop)
+        profile = patch.object(self.service.codex, "profile", return_value=Mock())
+        self.native_profile = profile.start()
+        self.addCleanup(profile.stop)
+        identity = patch.object(
+            self.service.codex, "saved_identity", return_value=Mock()
+        )
+        self.native_identity = identity.start()
+        self.addCleanup(identity.stop)
         self.snapshot = SubscriptionSnapshot(
             buckets=[
                 SubscriptionBucket(
@@ -121,21 +117,26 @@ class SubscriptionObservationTests(unittest.TestCase):
             "not_checked",
         )
 
-    def test_expired_revoked_mismatched_credentials_discard_cached_values(self):
-        for mutation in [
-            {"state": "revoked"},
-            {"expires_at": self.now},
-            {"subject": "foreign"},
-        ]:
-            with self.subTest(mutation=mutation):
-                self.account.update(
-                    state="active", expires_at=self.now + 3600, subject="subject"
-                )
+    def test_unavailable_or_changed_native_custody_discards_cached_values(self):
+        for boundary in (self.native_profile, self.native_identity):
+            with self.subTest(boundary=boundary):
                 self.refresh()
-                self.account.update(mutation)
+                boundary.side_effect = ProviderConnectionError(
+                    "provider_connection_changed"
+                )
                 with self.assertRaises(ProviderConnectionError):
                     self.read()
                 self.assertEqual(len(self.quota.entries), 0)
+                boundary.side_effect = None
+
+    def test_retained_token_sharing_login_never_launches_known_unsupported_quota(self):
+        self.service._save(
+            self.owner,
+            [self.record.model_copy(update={"client_id": "retained-client"})],
+        )
+        self.assertEqual(self.read().reason, "unsupported")
+        self.assertEqual(self.refresh().reason, "unsupported")
+        self.reader.assert_not_called()
 
     def test_stale_after_age_or_reset_never_infers_replenishment(self):
         first = self.refresh()

@@ -189,6 +189,8 @@ function AccountLimits({
         <p>This provider does not report subscription limits here.</p>
       ) : !eligible ? (
         <p>Open Manage accounts to reconnect.</p>
+      ) : observation?.reason === "unsupported" ? (
+        <p>Sign in again in Manage accounts to use this connection for subscription limits.</p>
       ) : (
         <>
           {observation?.snapshot && (

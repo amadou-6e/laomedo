@@ -146,6 +146,29 @@ describe("saved provider Settings", () => {
     await waitFor(() => expect(confirmCodexReplacement).toHaveBeenCalledWith("fixture"));
   });
 
+  it("allows Back to cancel while a background progress read is still pending", async () => {
+    jest.useFakeTimers();
+    try {
+      const progress = { attempt_id: "fixture", provider: "codex", status: "connecting", connection_id: null, code: null };
+      sessionStorage.setItem("laomedo.provider-attempt", "fixture");
+      (readProgress as jest.Mock).mockResolvedValue(progress);
+      (readCodexAttempt as jest.Mock).mockResolvedValue({ progress, authorization_url: "https://auth.openai.com/codex/device", user_code: "ABCD-1234", replacement_account: null });
+      (cancelLogin as jest.Mock).mockResolvedValue({ ...progress, status: "cancelled" });
+      render(<ProviderConnections />);
+      await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+      let finishRead: (value: unknown) => void;
+      (readProgress as jest.Mock).mockReturnValue(new Promise(resolve => { finishRead = resolve; }));
+      await act(async () => { jest.advanceTimersByTime(1500); await Promise.resolve(); });
+      const back = screen.getByRole("button", { name: "Back to connections" });
+      expect(back).not.toBeDisabled();
+      fireEvent.click(back);
+      await act(async () => { await Promise.resolve(); });
+      expect(cancelLogin).toHaveBeenCalledWith("fixture");
+      await act(async () => { finishRead!({ ...progress, status: "connected" }); });
+      expect(screen.getByRole("heading", { name: "Providers" })).toBeTruthy();
+    } finally { jest.useRealTimers(); }
+  });
+
   it("starts the selected browser provider directly from Continue", async () => {
     (beginLogin as jest.Mock).mockResolvedValue({ progress: { attempt_id: "fixture", provider: "codex", status: "connecting", connection_id: null, code: null }, authorization_url: null });
     render(<ProviderConnections />);

@@ -42,6 +42,7 @@ export default function ProviderConnections() {
   const surface = useRef<HTMLElement | null>(null);
   const epoch = useRef(0);
   const inFlight = useRef<number | null>(null);
+  const polling = useRef(false);
   const claudeTab = useRef<Window | null>(null);
 
   useEffect(() => {
@@ -68,14 +69,22 @@ export default function ProviderConnections() {
     if (document.scrollingElement) document.scrollingElement.scrollTop = 0;
   }, [screen]);
 
-  async function refresh() {
+  function admitAction() {
+    if (inFlight.current && !polling.current) return false;
+    if (polling.current) { ++epoch.current; inFlight.current = null; polling.current = false; }
+    return true;
+  }
+
+  async function refresh(background = false) {
     if (inFlight.current) return;
     const revision = ++epoch.current;
-    inFlight.current = revision;
-    setBusy(true); setError("");
+    inFlight.current = revision; polling.current = background;
+    if (!background) setBusy(true);
+    setError("");
     if (attempt?.code === "provider_save_unconfirmed") setScreen("pending");
     try {
-      const next = await listConnections();
+      const attemptOnly = background && screen === "pending" && rows !== undefined;
+      let next = attemptOnly ? rows : await listConnections();
       if (revision !== epoch.current) return;
       setRows(next);
       setSelected(current => next.find(row => row.connection_id === current?.connection_id));
@@ -102,6 +111,11 @@ export default function ProviderConnections() {
         setAttempt(progress);
         if (["connecting", "verifying", "awaiting_confirmation"].includes(progress.status)) setScreen("pending");
         else {
+          if (attemptOnly) {
+            next = await listConnections();
+            if (revision !== epoch.current) return;
+            setRows(next);
+          }
           sessionStorage.removeItem(pendingKey);
           if (progress.code !== "provider_save_unconfirmed") {
             window.history.replaceState(null, "", "/settings/providers");
@@ -128,7 +142,7 @@ export default function ProviderConnections() {
         } else if (attempt?.code === "provider_save_unconfirmed") setScreen("failure");
       }
     } finally {
-      if (inFlight.current === revision) inFlight.current = null;
+      if (inFlight.current === revision) { inFlight.current = null; polling.current = false; }
       if (revision === epoch.current) setBusy(false);
     }
   }
@@ -151,9 +165,9 @@ export default function ProviderConnections() {
 
   useEffect(() => {
     if (screen !== "pending") return;
-    const timer = window.setInterval(() => { void refresh(); }, 1500);
+    const timer = window.setInterval(() => { void refresh(true); }, 1500);
     return () => window.clearInterval(timer);
-  }, [screen, attempt?.attempt_id]);
+  }, [screen, attempt?.attempt_id, attempt?.status]);
 
   useEffect(() => {
     if (screen !== "removing" || selected?.lifecycle !== "disconnecting") return;
@@ -162,7 +176,7 @@ export default function ProviderConnections() {
   }, [screen, selected?.connection_id, selected?.lifecycle]);
 
   async function prepareDisconnect() {
-    if (!selected || inFlight.current) return;
+    if (!selected || !admitAction()) return;
     const revision = ++epoch.current;
     inFlight.current = revision; setBusy(true); setError("");
     try {
@@ -176,7 +190,7 @@ export default function ProviderConnections() {
   }
 
   async function removeConnection(retry = false) {
-    if (!selected || !removal && !retry || inFlight.current) return;
+    if (!selected || !removal && !retry || !admitAction()) return;
     const revision = ++epoch.current;
     inFlight.current = revision; setBusy(true); setError("");
     try {
@@ -205,7 +219,7 @@ export default function ProviderConnections() {
   }
 
   async function saveGo() {
-    if (inFlight.current) return;
+    if (!admitAction()) return;
     const revision = ++epoch.current;
     inFlight.current = revision; setBusy(true); setError("");
     setGoSaveUnconfirmed(false);
@@ -228,7 +242,7 @@ export default function ProviderConnections() {
   }
 
   async function confirmReplacement() {
-    if (!attempt?.attempt_id || inFlight.current) return;
+    if (!attempt?.attempt_id || !admitAction()) return;
     const revision = ++epoch.current;
     inFlight.current = revision; setBusy(true); setError("");
     try { const progress = await confirmCodexReplacement(attempt.attempt_id); if (revision === epoch.current) setAttempt(progress); }
@@ -237,7 +251,7 @@ export default function ProviderConnections() {
   }
 
   async function finishClaude() {
-    if (!attempt?.attempt_id || inFlight.current) return;
+    if (!attempt?.attempt_id || !admitAction()) return;
     const revision = ++epoch.current; inFlight.current = revision; setBusy(true); setError("");
     const code = nativeCode; setNativeCode("");
     try { const progress = await submitClaudeCode(attempt.attempt_id, code); if (revision === epoch.current) setAttempt(progress); }
@@ -246,7 +260,7 @@ export default function ProviderConnections() {
   }
 
   async function signIn() {
-    if (inFlight.current) return;
+    if (!admitAction()) return;
     if (activeProvider === "claude") {
       claudeTab.current = window.open("about:blank", "_blank");
       if (claudeTab.current) claudeTab.current.opener = null;
@@ -278,7 +292,7 @@ export default function ProviderConnections() {
   }
 
   async function back() {
-    if (inFlight.current) return;
+    if (!admitAction()) return;
     if (screen === "pending" && attempt?.attempt_id) {
       const revision = ++epoch.current;
       inFlight.current = revision; setBusy(true); setError("");
