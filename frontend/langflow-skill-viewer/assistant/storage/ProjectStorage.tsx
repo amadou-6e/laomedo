@@ -100,7 +100,7 @@ export default function ProjectStorage({ activeGraphId, onFailure }: { activeGra
       <fieldset disabled={busy} className="min-w-0 space-y-5 disabled:opacity-60">
         <section className="space-y-2">
           <h3 className="text-sm font-medium">Clone a repository</h3>
-          {state?.repositories.map(repo => <p key={repo.id} className="break-all text-xs text-muted-foreground">{repo.name} · {repo.path}</p>)}
+          {state?.repositories.map(repo => <p key={repo.id} className="break-all text-xs text-muted-foreground">{repo.name} · app-owned checkout</p>)}
           <label className="block text-xs">Repository name<input className={input} value={name} onChange={event => setName(event.target.value)} /></label>
           <label className="block text-xs">GitHub repository<input className={input} value={path} placeholder="owner/repository" onChange={event => setPath(event.target.value)} /></label>
           <label className="block text-xs">Read token (optional for private repositories)<input type="password" autoComplete="off" className={input} value={token} onChange={event => setToken(event.target.value)} /></label>

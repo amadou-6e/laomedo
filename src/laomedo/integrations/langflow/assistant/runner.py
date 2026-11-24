@@ -120,7 +120,11 @@ class AssistantRunner:
                 run_id,
                 expected_hash,
             )
-        except (ProviderConnectionError, RunnerError, ValueError, OSError):
+        except RunnerError as error:
+            if error.code == "workspace_files_invalid":
+                raise AssistantError("workspace_files_invalid", 422) from None
+            raise AssistantError("assistant_storage_unavailable", 503) from None
+        except (ProviderConnectionError, ValueError, OSError):
             raise AssistantError("assistant_storage_unavailable", 503) from None
 
     def has_live_session(self, run_id):

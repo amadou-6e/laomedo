@@ -2958,6 +2958,16 @@
   "workspace_files_invalid": {
     "title": "Project files could not be prepared",
     "description": "Project files could not be prepared.",
-    "recovery": "Check that selected files are bounded UTF-8 text without symbolic links, then retry."
+    "recovery": "For an existing conversation, ask the assistant to remove binary, oversized or linked files from project/ using its shell, then retry in the same conversation. Selected files must be bounded UTF-8 text."
+  },
+  "assistant_storage_workspace_conflict": {
+    "title": "Project files were not saved",
+    "description": "A repository file changed outside this conversation. The native files and response are retained; you can keep chatting.",
+    "recovery": "Ask the assistant to read the current repository versions with read_project_file and restore that exact text in its shell workspace. After that turn succeeds, edits can save normally."
+  },
+  "assistant_storage_workspace_path_invalid": {
+    "title": "Project files were not saved",
+    "description": "The shell created a protected or unselected project path. The native files and response are retained; you can keep chatting.",
+    "recovery": "Ask the assistant to remove unsupported files from its project tree. Use project/agent-files for new files and only the selected project/graphs filenames, then retry in this conversation."
   }
 }

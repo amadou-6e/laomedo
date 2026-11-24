@@ -247,6 +247,20 @@ class McpTransportTests(unittest.IsolatedAsyncioTestCase):
                 ),
             )
             self.control.project_storage = files
+            from laomedo.integrations.langflow.assistant.storage.workspace import (
+                ProjectChatWorkspace,
+            )
+
+            ProjectChatWorkspace(files).prepare(
+                owner, self.control.context.conversation_id
+            )
+            files.configure_agent_files(
+                owner,
+                RepositoryLocation(
+                    repository_id=files.document(owner).repositories[0].id,
+                    path="later-folder",
+                ),
+            )
             async with streamablehttp_client(
                 self.origin + "/mcp/",
                 headers={"Authorization": "Bearer " + self.control.token},
@@ -268,6 +282,12 @@ class McpTransportTests(unittest.IsolatedAsyncioTestCase):
                     )
                     self.assertFalse(result.isError)
                     self.assertIn("Persistent project note", result.content[0].text)
+                    self.assertTrue(
+                        (root / "repo" / "agent-files" / "notes.md").exists()
+                    )
+                    self.assertFalse(
+                        (root / "repo" / "later-folder" / "notes.md").exists()
+                    )
                     stale = await session.call_tool(
                         "write_agent_file",
                         {

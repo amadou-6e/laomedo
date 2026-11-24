@@ -69,8 +69,8 @@ class WorkspaceFiles(BaseModel):
                 elif path.is_file():
                     if path.stat().st_size > 262144:
                         raise ValueError("workspace_files_too_large")
-                    files[path.relative_to(workspace).as_posix()] = path.read_text(
-                        encoding="utf-8"
+                    files[path.relative_to(workspace).as_posix()] = (
+                        path.read_bytes().decode("utf-8")
                     )
                     cls(files=files)
         return cls(files=files)

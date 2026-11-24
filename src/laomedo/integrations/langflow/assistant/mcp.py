@@ -104,15 +104,27 @@ class AuthoringMcp:
                 )
 
                 files = self.runtime.project_storage
+                from laomedo.integrations.langflow.assistant.storage.workspace import (
+                    ProjectChatWorkspace,
+                )
+
+                document = ProjectChatWorkspace(files).document(
+                    context.owner_id, context.conversation_id
+                )
                 if operation == "list_project_files":
-                    result = files.list_files(context.owner_id)
+                    result = files.list_files(context.owner_id, document=document)
                 elif operation == "read_project_file":
                     result = files.read_file(
-                        context.owner_id, arguments["path"], arguments.get("graph_id")
+                        context.owner_id,
+                        arguments["path"],
+                        arguments.get("graph_id"),
+                        document=document,
                     )
                 else:
                     result = files.write_file(
-                        context.owner_id, AgentFileWrite.model_validate(arguments)
+                        context.owner_id,
+                        AgentFileWrite.model_validate(arguments),
+                        document=document,
                     )
             elif operation in {
                 "list_native_commands",

@@ -5,7 +5,10 @@ from uuid import UUID
 
 from laomedo.agents.workspaces.models import WorkspaceFiles
 from laomedo.integrations.langflow.assistant.errors import AssistantError
-from laomedo.integrations.langflow.assistant.storage.models import ChatWorkspaceBinding
+from laomedo.integrations.langflow.assistant.storage.models import (
+    ChatWorkspaceBinding,
+    GraphFileBinding,
+)
 
 
 class ProjectChatWorkspace:
@@ -45,8 +48,29 @@ class ProjectChatWorkspace:
             )
             return self.storage.child(root, relative[len("project/agent-files/") :])
         if relative in binding.graphs:
-            return self.storage.graph_path(owner, binding.graphs[relative])
+            return self.storage.graph_path(
+                owner,
+                binding.graphs[relative],
+                document=self.document(owner, binding=binding),
+            )
         raise AssistantError("assistant_storage_path_invalid", 422)
+
+    def document(self, owner, conversation=None, *, binding=None):
+        """Use frozen selections for chat tools, retaining current checkout checks."""
+        document = self.storage.document(owner)
+        if binding is None and conversation is not None:
+            binding = self.read(owner, conversation)
+        if binding is not None:
+            document.agent_files = binding.agent_files
+            document.graphs = {
+                relative.removeprefix("project/graphs/").removesuffix(
+                    ".json"
+                ): GraphFileBinding(
+                    location=location, sha256=binding.target_hashes.get(relative) or ""
+                )
+                for relative, location in binding.graphs.items()
+            }
+        return document
 
     def bind_session(self, owner, conversation, session_key):
         """Refresh only an existing shell binding for this explicitly admitted turn."""
@@ -65,8 +89,6 @@ class ProjectChatWorkspace:
             if prior is not None:
                 return prior.initial_files
             document = self.storage.document(owner)
-            if document.agent_files is None and not document.graphs:
-                return WorkspaceFiles()
             binding = ChatWorkspaceBinding(
                 agent_files=document.agent_files, session_key=session_key
             )
@@ -108,13 +130,20 @@ class ProjectChatWorkspace:
             for relative in sorted(hashes.keys() | binding.workspace_hashes.keys()):
                 if hashes.get(relative) == binding.workspace_hashes.get(relative):
                     continue
-                target = self.target(owner, binding, relative)
+                try:
+                    target = self.target(owner, binding, relative)
+                except AssistantError as error:
+                    if error.code == "assistant_storage_path_invalid":
+                        raise AssistantError(
+                            "assistant_storage_workspace_path_invalid", 422
+                        ) from None
+                    raise
                 observed = self.storage.digest(target)
                 if observed not in (
                     binding.target_hashes.get(relative),
                     hashes.get(relative),
                 ):
-                    raise AssistantError("assistant_storage_file_changed", 409)
+                    raise AssistantError("assistant_storage_workspace_conflict", 409)
                 changes.append((relative, target))
             for relative, target in changes:
                 if relative in files.files:

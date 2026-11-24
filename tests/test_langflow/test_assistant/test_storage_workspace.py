@@ -73,9 +73,134 @@ class ProjectWorkspaceTests(unittest.TestCase):
                     }
                 ),
             )
-        self.assertEqual(caught.exception.code, "assistant_storage_file_changed")
+        self.assertEqual(caught.exception.code, "assistant_storage_workspace_conflict")
         self.assertEqual(self.notes.read_text(), "External edit")
         self.assertFalse((self.notes.parent / "new.md").exists())
+
+        # Restore the current repository text in the native workspace, then resume.
+        # Identical-content acceptance rebaselines safely without overwriting it.
+        current = self.storage.read_file(
+            self.owner,
+            "notes.md",
+            document=self.workspace.document(self.owner, self.conversation),
+        )["content"]
+        self.workspace.persist(
+            self.owner,
+            self.conversation,
+            WorkspaceFiles(
+                files={
+                    "project/agent-files/notes.md": current,
+                    "project/agent-files/new.md": "New",
+                }
+            ),
+        )
+        self.workspace.persist(
+            self.owner,
+            self.conversation,
+            WorkspaceFiles(
+                files={
+                    "project/agent-files/notes.md": "Merged after recovery",
+                    "project/agent-files/new.md": "New",
+                }
+            ),
+        )
+        self.assertEqual(self.notes.read_text(), "Merged after recovery")
+        self.assertEqual((self.notes.parent / "new.md").read_text(), "New")
+
+    def test_unsupported_file_can_be_removed_and_same_conversation_recovers(self):
+        initial = self.workspace.prepare(self.owner, self.conversation)
+        for relative in ("project/notes.md", "project/graphs/unknown.json"):
+            with self.subTest(relative=relative):
+                invalid = initial.model_copy(
+                    update={"files": {**initial.files, relative: "Unsupported"}}
+                )
+                with self.assertRaisesRegex(
+                    AssistantError, "assistant_storage_workspace_path_invalid"
+                ):
+                    self.workspace.persist(self.owner, self.conversation, invalid)
+                self.workspace.persist(self.owner, self.conversation, initial)
+        self.workspace.persist(
+            self.owner,
+            self.conversation,
+            WorkspaceFiles(
+                files={
+                    "project/agent-files/notes.md": "Recovered",
+                }
+            ),
+        )
+        self.assertEqual(self.notes.read_text(), "Recovered")
+
+    def test_chat_file_tools_keep_frozen_folder_and_graph_locations(self):
+        repository = self.storage.document(self.owner).repositories[0].id
+        graph = uuid4()
+        old_graph = RepositoryLocation(
+            repository_id=repository, path="graphs/original.json"
+        )
+        self.storage.replace(self.storage.graph_path(self.owner, old_graph), b"{}")
+        self.storage.bind_graph(self.owner, graph, old_graph, "initial")
+        self.workspace.prepare(self.owner, self.conversation)
+        self.storage.configure_agent_files(
+            self.owner, RepositoryLocation(repository_id=repository, path="new-folder")
+        )
+        self.storage.bind_graph(
+            self.owner,
+            graph,
+            RepositoryLocation(repository_id=repository, path="graphs/new.json"),
+            "other",
+        )
+        document = self.workspace.document(self.owner, self.conversation)
+        self.assertEqual(
+            self.storage.list_files(self.owner, document=document)["agent_files"],
+            ["notes.md"],
+        )
+        self.assertEqual(
+            self.storage.read_file(self.owner, "", str(graph), document=document)[
+                "content"
+            ],
+            "{}",
+        )
+        from laomedo.integrations.langflow.assistant.storage.models import (
+            AgentFileWrite,
+        )
+
+        observed = self.storage.read_file(self.owner, "notes.md", document=document)
+        self.storage.write_file(
+            self.owner,
+            AgentFileWrite(
+                path="notes.md",
+                content="Tool write",
+                expected_sha256=observed["sha256"],
+            ),
+            document=document,
+        )
+        self.assertEqual(self.notes.read_text(), "Tool write")
+        self.assertFalse((self.checkout / "new-folder" / "notes.md").exists())
+
+    def test_empty_selection_stays_empty_after_later_configuration(self):
+        empty_conversation = uuid4()
+        document = self.storage.document(self.owner)
+        document.agent_files = None
+        self.storage.save_document(self.owner, document)
+        self.workspace.prepare(self.owner, empty_conversation)
+        document.agent_files = RepositoryLocation(
+            repository_id=document.repositories[0].id, path="agent-files"
+        )
+        self.storage.save_document(self.owner, document)
+        frozen = self.workspace.document(self.owner, empty_conversation)
+        self.assertIsNone(frozen.agent_files)
+
+    def test_crlf_contents_survive_unmodified_roundtrip(self):
+        self.notes.write_bytes(b"First\r\nSecond\r\n")
+        files = self.workspace.prepare(self.owner, self.conversation)
+        run = self.root / "crlf-run"
+        run.mkdir()
+        files.materialize(run)
+        observed = WorkspaceFiles.from_workspace(run)
+        self.assertEqual(
+            observed.files["project/agent-files/notes.md"], "First\r\nSecond\r\n"
+        )
+        self.workspace.persist(self.owner, self.conversation, observed)
+        self.assertEqual(self.notes.read_bytes(), b"First\r\nSecond\r\n")
 
     def test_frozen_source_retry_and_locations_do_not_follow_settings_changes(self):
         initial = self.workspace.prepare(self.owner, self.conversation)

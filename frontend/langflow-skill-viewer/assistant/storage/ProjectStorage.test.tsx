@@ -19,6 +19,8 @@ it("uses each graph's location and observed file/app revisions", async () => {
   render(<ProjectStorage onFailure={jest.fn()} />);
   fireEvent.click(screen.getByRole("button", {name: "Project storage"}));
   await screen.findByText("Current: Project / agent-files");
+  expect(screen.queryByText(/C:\/project/)).not.toBeInTheDocument();
+  expect(screen.getByText(/app-owned checkout/)).toBeInTheDocument();
   await waitFor(() => expect(screen.getByLabelText("Graph")).not.toBeDisabled());
   fireEvent.change(screen.getByLabelText("Graph"), {target: {value: "first"}});
   expect(screen.getByLabelText("Graph JSON file")).toHaveValue("graphs/first.json");

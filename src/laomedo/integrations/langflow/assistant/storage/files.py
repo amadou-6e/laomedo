@@ -160,8 +160,8 @@ class ProjectStorage:
             self.save_document(owner, document)
             return self.describe(owner)
 
-    def graph_path(self, owner, location):
-        document = self.document(owner)
+    def graph_path(self, owner, location, *, document=None):
+        document = document if document is not None else self.document(owner)
         path = self.child(
             self.checkout(document, location.repository_id), location.path
         )
@@ -211,8 +211,8 @@ class ProjectStorage:
                 binding["availability"] = error.code
         return result
 
-    def agent_path(self, owner, relative):
-        document = self.document(owner)
+    def agent_path(self, owner, relative, *, document=None):
+        document = document if document is not None else self.document(owner)
         if document.agent_files is None:
             raise AssistantError("assistant_storage_agent_files_not_configured", 409)
         location = document.agent_files
@@ -221,10 +221,10 @@ class ProjectStorage:
         )
         return self.child(directory, relative)
 
-    def list_files(self, owner):
+    def list_files(self, owner, *, document=None):
         """Expose only selected file names, never host paths or whole checkouts."""
         with self.lock:
-            document = self.document(owner)
+            document = document if document is not None else self.document(owner)
             result = {"agent_files": [], "graph_files": list(document.graphs)}
             if document.agent_files:
                 location = document.agent_files
@@ -251,20 +251,21 @@ class ProjectStorage:
                     result["truncated"] = bool(pending) or scanned >= 1000
             return result
 
-    def read_file(self, owner, relative, graph_id=None):
+    def read_file(self, owner, relative, graph_id=None, *, document=None):
         with self.lock:
+            document = document if document is not None else self.document(owner)
             if graph_id:
-                binding = self.document(owner).graphs.get(str(UUID(graph_id)))
+                binding = document.graphs.get(str(UUID(graph_id)))
                 if binding is None:
                     raise AssistantError("assistant_storage_graph_not_connected", 404)
-                path = self.graph_path(owner, binding.location)
+                path = self.graph_path(owner, binding.location, document=document)
             else:
-                path = self.agent_path(owner, relative)
+                path = self.agent_path(owner, relative, document=document)
             digest = self.digest(path)
             if digest is None:
                 raise AssistantError("assistant_storage_file_missing", 404)
             try:
-                text = path.read_text(encoding="utf-8")
+                text = path.read_bytes().decode("utf-8")
             except (OSError, UnicodeError):
                 raise AssistantError("assistant_storage_text_required", 422) from None
             return {
@@ -273,9 +274,9 @@ class ProjectStorage:
                 "sha256": digest,
             }
 
-    def write_file(self, owner, request):
+    def write_file(self, owner, request, *, document=None):
         with self.lock:
-            path = self.agent_path(owner, request.path)
+            path = self.agent_path(owner, request.path, document=document)
             if self.digest(path) != request.expected_sha256:
                 raise AssistantError("assistant_storage_file_changed", 409)
             self.replace(path, request.content.encode("utf-8"))

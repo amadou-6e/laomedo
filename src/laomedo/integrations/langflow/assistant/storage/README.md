@@ -23,6 +23,8 @@ runner copies those bounded UTF-8 files into `/draft/project/agent-files/` and
 `/draft/project/graphs/<graph-id>.json`. Subsequent turns resume that same native
 workspace. Changing storage settings applies to new conversations; it does not
 retarget an existing chat. The initial bundle is retained for idempotent retries.
+MCP file tools use those same frozen locations, including an initially empty
+selection. They read current repository contents, not the native workspace copy.
 
 `persist(owner, conversation, files)` reads the runner's verified completed
 snapshot and writes changed files back only when each host file still matches its
@@ -34,6 +36,13 @@ file edits do not change app graphs until explicit Load. Conflicts retain the
 native snapshot and show an error while unlocking Send; external edits are never
 overwritten. File replacements are individually atomic; multiple replacements
 are not a distributed transaction. An interrupted or failed turn is not exported.
+On a conflict, use `read_project_file` to inspect the current repository version,
+then restore that exact text in the native workspace on the next turn. Identical
+contents safely update the baseline without overwriting the repository; a later
+turn can edit normally. Remove unsupported paths or non-UTF-8 files from the native
+`project/` tree before retrying. Preflight failure writes no selected files. Send
+remains available, and recovery does not require a new conversation. Byte decoding
+preserves CRLF in files that the model does not deliberately normalize.
 The bundle is limited to 256 files and 256 KiB serialized JSON. This is selected
 file access, not a mount of the entire repository or its Git metadata.
 
