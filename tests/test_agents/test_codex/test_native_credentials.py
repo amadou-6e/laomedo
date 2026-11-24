@@ -1,6 +1,8 @@
 """Current native credential custody: one writer, exact recovery, no token reads."""
 
 import json
+import subprocess
+import sys
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import TestCase
@@ -46,6 +48,32 @@ class NativeCredentialTests(TestCase):
             self.assertEqual(failure.exception.code, "provider_connection_busy")
         with second.lease() as profile:
             self.assertEqual(profile.docker_endpoint, "unix:///original.sock")
+
+    def test_writer_lock_fences_a_separate_process(self):
+        script = """
+from pathlib import Path
+import sys
+from unittest.mock import patch
+from laomedo.agents.agents.codex.native import CodexNativeCredentials
+from laomedo.agents.connections.errors import ProviderConnectionError
+credentials = CodexNativeCredentials(Path(sys.argv[1]))
+with patch.object(CodexNativeCredentials, '_client'):
+    try:
+        with credentials.lease(require_volume=False):
+            print('admitted')
+    except ProviderConnectionError as error:
+        print(error.code)
+"""
+        command = [sys.executable, "-c", script, str(self.root)]
+        with self.credentials.lease():
+            blocked = subprocess.run(
+                command, capture_output=True, text=True, check=True, timeout=30
+            )
+        self.assertEqual(blocked.stdout.strip(), "provider_connection_busy")
+        admitted = subprocess.run(
+            command, capture_output=True, text=True, check=True, timeout=30
+        )
+        self.assertEqual(admitted.stdout.strip(), "admitted")
 
     def test_registered_receipt_recovered_before_next_writer(self):
         receipt = self.root / "exact-session.json"
