@@ -4,6 +4,7 @@
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import ConnectionManager from "./ConnectionManager";
 import {
@@ -120,6 +121,15 @@ it("opens the existing account after duplicate app registration", async () => {
   expect(await screen.findByText(/This GitHub account is already connected/)).toBeTruthy();
   expect(screen.getByRole("button", { name: "Sign in again" })).toBeTruthy();
   expect(window.location.search).toBe("");
+});
+
+it("places sign-in beside disconnect in the connection footer", async () => {
+  (connectionRequest as jest.Mock).mockResolvedValue({ index: reconnectIndex });
+  render(<ConnectionManager />);
+  fireEvent.click(await screen.findByRole("button", { name: "View connection" }));
+  const footer = screen.getByRole("button", { name: "Disconnect" }).closest(".gc-footer");
+  expect(footer).not.toBeNull();
+  expect(within(footer as HTMLElement).getByRole("button", { name: "Sign in again" })).toBeTruthy();
 });
 
 it("keeps a rotated connection fenced and offers verification retry", async () => {

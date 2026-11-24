@@ -61,15 +61,6 @@ export default function ConnectionAccounts({
               Check access again
             </Button>
           )}
-          {!ready && (
-            <Button
-              ignoreTitleCase
-              disabled={busy}
-              onClick={() => reconnect(connection.id)}
-            >
-              Sign in again
-            </Button>
-          )}
           <div className="gc-section">
             <div className="gc-section-heading">
               <h3>{pending ? "Repository access is paused" : "Repository access"}</h3>
@@ -113,6 +104,15 @@ export default function ConnectionAccounts({
             <p className="gc-muted">
               Removing this connection stops Laomedo access.
             </p>
+            {!ready && (
+              <Button
+                ignoreTitleCase
+                disabled={busy}
+                onClick={() => reconnect(connection.id)}
+              >
+                Sign in again
+              </Button>
+            )}
             <Button
               ignoreTitleCase
               variant="outline"
