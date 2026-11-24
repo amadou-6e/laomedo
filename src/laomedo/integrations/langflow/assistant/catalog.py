@@ -4,6 +4,7 @@ from copy import deepcopy
 import json
 import math
 import re
+import hashlib
 
 from laomedo.integrations.langflow.assistant.errors import AssistantError
 
@@ -14,6 +15,40 @@ class ComponentCatalog:
     def __init__(self, snapshot):
         """Bind an already authorized installed metadata snapshot, without evaluating code."""
         self.snapshot = snapshot
+        self.resolutions = {}
+        self.approved_values = set()
+
+    def schema_revision(self, identity):
+        """Identify exact installed metadata/source without exposing its contents."""
+        return (
+            "sha256:"
+            + hashlib.sha256(
+                json.dumps(
+                    self.template(identity), sort_keys=True, default=str
+                ).encode()
+            ).hexdigest()
+        )
+
+    def resolution(self, identifier, identity, fields):
+        """Bind only an already host-validated resolution to exact node values."""
+        resolved = self.resolutions.get(identifier)
+        if (
+            resolved is None
+            or resolved.component_type != identity
+            or resolved.schema_revision != self.schema_revision(identity)
+        ):
+            raise AssistantError("assistant_configuration_stale", 409)
+        if any(fields.get(name) != value for name, value in resolved.fields.items()):
+            raise AssistantError("assistant_configuration_stale", 409)
+        return resolved
+
+    def allow_resolution(self, resolved):
+        """Admit exact audited values, never arbitrary field names or provider credentials."""
+        self.resolutions[resolved.id] = resolved
+        for name, value in resolved.fields.items():
+            self.approved_values.add(
+                (resolved.component_type, name, json.dumps(value, sort_keys=True))
+            )
 
     @classmethod
     async def from_installed(cls, owner):
@@ -102,7 +137,20 @@ class ComponentCatalog:
             raise AssistantError("assistant_component_metadata_unavailable", 422)
         if not isinstance(component["template"].get("code", {}).get("value"), str):
             raise AssistantError("assistant_component_metadata_unavailable", 422)
-        return deepcopy(component)
+        result = deepcopy(component)
+        if identity.split("/", 1)[-1] == "MCPTools" and not any(
+            output.get("name") == "component_as_tool" for output in result["outputs"]
+        ):
+            result["outputs"].append(
+                {
+                    "name": "component_as_tool",
+                    "display_name": "Toolset",
+                    "method": "to_toolkit",
+                    "types": ["Tool"],
+                    "cache": False,
+                }
+            )
+        return result
 
     def _protected_field(self, name, field):
         """Own the common credential/code/raw host-selector policy for values and edges."""
@@ -171,6 +219,40 @@ class ComponentCatalog:
                     "required": bool(field.get("required")),
                     "list": bool(field.get("list")),
                     "writable": self._writable(name, field),
+                    "kind": (
+                        "static"
+                        if self._writable(name, field)
+                        else (
+                            "dynamic"
+                            if field.get("dynamic") or field.get("real_time_refresh")
+                            else (
+                                "resource"
+                                if field.get("load_from_db")
+                                else "unsupported"
+                            )
+                        )
+                    ),
+                    "blocked_reason": (
+                        None
+                        if self._writable(name, field)
+                        else (
+                            "requires_audited_resolution"
+                            if name
+                            in {
+                                "provider_connection",
+                                "model",
+                                "effort",
+                                "skill_id",
+                                "revision_id",
+                            }
+                            else "field_not_supported"
+                        )
+                    ),
+                    "default_provenance": (
+                        "installed_static"
+                        if self._writable(name, field)
+                        else "not_copied"
+                    ),
                     "connectable": self._connectable(name, field),
                     "options": (
                         field.get("options", [])[:100]
@@ -182,6 +264,7 @@ class ComponentCatalog:
             )
         return {
             "component_type": identity,
+            "schema_revision": self.schema_revision(identity),
             "display_name": str(component.get("display_name") or identity)[:200],
             "description": str(component.get("description") or "")[:1500],
             "inputs": inputs,
@@ -192,8 +275,10 @@ class ComponentCatalog:
             ],
         }
 
-    def _value(self, name, field, value):
+    def _value(self, name, field, value, identity=None):
         """Check the exact static type without string coercion or executable validation."""
+        if (identity, name, json.dumps(value, sort_keys=True)) in self.approved_values:
+            return deepcopy(value)
         if not self._writable(name, field):
             raise AssistantError("assistant_field_not_writable", 422)
         values = value if field.get("list") else [value]
@@ -226,15 +311,19 @@ class ComponentCatalog:
             if (
                 not isinstance(field, dict)
                 or not isinstance(original, dict)
-                or not self._writable(name, original)
+                or (
+                    not self._writable(name, original)
+                    and (identity, name, json.dumps(value, sort_keys=True))
+                    not in self.approved_values
+                )
             ):
                 raise AssistantError("assistant_field_not_writable", 422)
-            checked = self._value(name, field, value)
+            checked = self._value(name, field, value, identity)
             if original.get("type") != field.get("type"):
                 raise AssistantError("assistant_field_type_invalid", 422)
             before = (
-                self._value(name, field, original.get("value"))
-                if original.get("value") is not None
+                self._value(name, field, original.get("value"), identity)
+                if original.get("value") is not None and self._writable(name, original)
                 else None
             )
             preview.append(
@@ -248,6 +337,8 @@ class ComponentCatalog:
                 + json.dumps(checked, ensure_ascii=False)
             )
             original["value"] = checked
+            if not self._writable(name, field):
+                original["show"] = True
         return preview
 
     def compile(self, graph):
@@ -259,6 +350,22 @@ class ComponentCatalog:
             if definition.key in by_key:
                 raise AssistantError("assistant_duplicate_node", 422)
             template = self.template(definition.component_type)
+            resolved = (
+                self.resolution(
+                    definition.resolution_id,
+                    definition.component_type,
+                    definition.fields,
+                )
+                if definition.resolution_id
+                else None
+            )
+            if (
+                resolved is not None
+                and definition.component_type.split("/", 1)[-1] == "MCPTools"
+            ):
+                template["tool_mode"] = True
+                if "tool" in template["template"]:
+                    template["template"]["tool"]["required"] = False
             # Clear all non-code values before applying host-approved defaults or
             # model settings. Cached user-specific selectors are never copied.
             for name, field in template["template"].items():
@@ -271,10 +378,11 @@ class ComponentCatalog:
                         {},
                     ):
                         diagnostics.append(
-                            definition.key
+                            "warning: "
+                            + definition.key
                             + "."
                             + name
-                            + ": installed setting omitted; configure explicitly in the editor"
+                            + ": private or unsupported installed value omitted"
                         )
                     field["value"] = None
                 elif "value" in field:
@@ -285,17 +393,22 @@ class ComponentCatalog:
                             "value"
                         ) not in ("", [], {}):
                             diagnostics.append(
-                                definition.key
+                                "warning: "
+                                + definition.key
                                 + "."
                                 + name
-                                + ": installed default unsupported; configure explicitly in the editor"
+                                + ": unsupported installed default omitted"
                             )
                         field["value"] = None
             for name, value in definition.fields.items():
                 field = template["template"].get(name)
                 if not isinstance(field, dict):
                     raise AssistantError("assistant_field_unknown", 422)
-                field["value"] = self._value(name, field, value)
+                field["value"] = self._value(
+                    name, field, value, definition.component_type
+                )
+                if resolved is not None and name in resolved.fields:
+                    field["show"] = True
             component_name = definition.component_type.split("/", 1)[1]
             identifier = component_name + "-" + definition.key
             node = {
@@ -304,6 +417,16 @@ class ComponentCatalog:
                 "position": {"x": (index % 3) * 420, "y": (index // 3) * 400},
                 "data": {"id": identifier, "type": component_name, "node": template},
             }
+            if resolved is not None:
+                node["data"]["laomedo_authoring_bindings"] = {
+                    "connection_id": (
+                        str(resolved.connection_id) if resolved.connection_id else None
+                    ),
+                    "generation": resolved.connection_generation,
+                    "resources": [
+                        resource.model_dump() for resource in resolved.resources
+                    ],
+                }
             by_key[definition.key] = node
             nodes.append(node)
         edges, targets, identities = [], set(), set()
@@ -370,7 +493,10 @@ class ComponentCatalog:
                         + name
                         + ": required setting or connection missing"
                     )
-        if diagnostics and not graph.allow_incomplete:
+        if (
+            any(not message.startswith("warning: ") for message in diagnostics)
+            and not graph.allow_incomplete
+        ):
             raise AssistantError("assistant_draft_incomplete", 422)
         return {
             "nodes": nodes,

@@ -53,6 +53,11 @@ class AssistantRuntime:
         self.contexts, self.host_tokens, self.tool_tasks = {}, {}, {}
         self.save_locks, self.uncertain_saves = {}, {}
         self.graph_jobs = {}
+        from laomedo.integrations.langflow.assistant.configuration import (
+            WorkflowConfiguration,
+        )
+
+        self.configuration = WorkflowConfiguration(self)
         self.revoked_sessions = set()
         self.session_aliases = {}
         self.closing = False
@@ -557,6 +562,7 @@ class AssistantRuntime:
 
     async def save(self, context, workflows, request):
         """Serialize saves and fence new operation keys after an uncertain acknowledgement."""
+        await self.configuration.prepare(context, workflows.catalog, request.spec.nodes)
         lock = self.save_locks.setdefault(context.message_id, asyncio.Lock())
         if lock.locked():
             raise AssistantError("assistant_save_pending")
@@ -590,7 +596,10 @@ class AssistantRuntime:
         from laomedo.integrations.langflow.assistant.actions import WorkflowActions
 
         return WorkflowActions(
-            self.store, await ComponentCatalog.from_installed(owner), self.authorize
+            self.store,
+            await ComponentCatalog.from_installed(owner),
+            self.authorize,
+            configuration=self.configuration,
         )
 
     async def propose_graph_action(self, context, request):
@@ -626,6 +635,41 @@ class AssistantRuntime:
                 lambda completed: self.graph_jobs.pop(identifier, None)
             )
         return result
+
+    async def cancel_graph_run(self, context, identifier):
+        """Cancel only the locally owned graph coroutine; report settlement separately."""
+        await self.authorize(context)
+        actions = await self.graph_actions(context.owner_id)
+        action = await actions.read(
+            context.owner_id,
+            context.conversation_id,
+            identifier,
+            session_key=context.session_key,
+        )
+        if action["kind"] != "run":
+            raise AssistantError("assistant_input_invalid", 422)
+        task = self.graph_jobs.get(identifier)
+        requested = bool(
+            task is not None
+            and not task.done()
+            and task.cancel("LANGFLOW_USER_CANCELLED")
+        )
+        await self.authorize(context)
+        return {
+            "action_id": str(identifier),
+            "run_id": action["run_id"],
+            "state": action["state"],
+            "cancellation": (
+                "requested"
+                if requested
+                else (
+                    "already_settled"
+                    if action["state"]
+                    in {"succeeded", "failed", "cancelled", "not_dispatched"}
+                    else "unavailable"
+                )
+            ),
+        }
 
     async def skills(self, context, query="", cursor=0):
         """List only the configured imported local registry; private source discovery is not added."""

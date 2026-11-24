@@ -15,6 +15,7 @@ def strip_local_bindings(value):
     if not isinstance(value, dict):
         return deepcopy(value)
     result = {key: strip_local_bindings(item) for key, item in value.items()}
+    result.pop("laomedo_authoring_bindings", None)
     field = result.get("provider_connection")
     if isinstance(field, dict):
         field.update(value="", options=[], options_metadata=[])

@@ -105,11 +105,27 @@ class GraphEditor:
                 raise AssistantError("assistant_duplicate_node", 422)
             seen.add(update.node_id)
             node = nodes[update.node_id]
+            identity = self.identity(node)
+            resolved = (
+                self.catalog.resolution(update.resolution_id, identity, update.fields)
+                if update.resolution_id
+                else None
+            )
             preview.extend(
                 self.catalog.update_saved_fields(
                     node, self.identity(node), update.fields
                 )
             )
+            if resolved is not None:
+                node["data"]["laomedo_authoring_bindings"] = {
+                    "connection_id": (
+                        str(resolved.connection_id) if resolved.connection_id else None
+                    ),
+                    "generation": resolved.connection_generation,
+                    "resources": [
+                        resource.model_dump() for resource in resolved.resources
+                    ],
+                }
         for identifier in changes.remove_nodes:
             if identifier not in nodes or identifier in seen:
                 raise AssistantError("assistant_duplicate_node", 422)

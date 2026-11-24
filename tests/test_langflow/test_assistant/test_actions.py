@@ -134,6 +134,70 @@ class GraphActionTests(unittest.IsolatedAsyncioTestCase):
         await self.engine.dispose()
         self.directory.cleanup()
 
+    async def test_actual_run_output_projection_is_durable_and_conversation_scoped(
+        self,
+    ):
+        from lfx.graph.schema import RunOutputs, ResultData
+        from lfx.schema.message import Message
+        from langflow.api.v1.schemas import RunResponse
+        from laomedo.integrations.langflow.assistant.evidence import WorkflowRunEvidence
+
+        request = GraphActionRequest(
+            operation_key="output-run",
+            kind="run",
+            workflow_id=self.flow_id,
+            expected_revision=self.revision,
+        )
+        proposal = await self.actions.propose(self.context, request)
+        result, _, _ = await self.decide(proposal)
+        evidence = WorkflowRunEvidence(self.actions)
+        response = RunResponse(
+            outputs=[
+                RunOutputs(
+                    outputs=[
+                        ResultData(
+                            component_id="Text-one",
+                            results={"answer": Message(text="actual output")},
+                            logs={"private": "LOG_CANARY"},
+                            artifacts={"private": "ARTIFACT_CANARY"},
+                        )
+                    ]
+                )
+            ],
+            session_id="test",
+        )
+        await evidence.retain(result, response)
+        await self.actions.finish(UUID(result["id"]), "succeeded")
+        observed = await evidence.read(self.context, UUID(result["id"]))
+        self.assertEqual(observed["outputs"][0]["value"], "actual output")
+        self.assertTrue(observed["output_available"])
+        self.assertNotIn("CANARY", str(observed))
+        self.assertEqual(observed["revision"], self.revision)
+        other = self.context.model_copy(update={"conversation_id": uuid4()})
+        with self.assertRaises(AssistantError):
+            await evidence.read(other, UUID(result["id"]))
+        await self.store.revoke("fixture")
+        with self.assertRaises(AssistantError):
+            await evidence.read(self.context, UUID(result["id"]))
+
+    async def test_absent_output_is_not_invented_and_sensitive_structures_are_omitted(
+        self,
+    ):
+        from laomedo.integrations.langflow.assistant.evidence import WorkflowRunEvidence
+
+        projected = WorkflowRunEvidence.safe_value(
+            {
+                "text": "useful",
+                "api_key": "KEY_CANARY",
+                "nested": {"authorization": "PRIVATE", "value": 3},
+            }
+        )
+        self.assertEqual(projected, {"text": "useful", "nested": {"value": 3}})
+        with self.assertRaises(ValueError):
+            WorkflowRunEvidence.safe_value(object())
+        with self.assertRaises(ValueError):
+            WorkflowRunEvidence.safe_value("x" * 65537)
+
     async def decide(self, proposal, decision="approve", key="fixture"):
         return await self.actions.decide(
             self.owner,

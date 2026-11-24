@@ -2,6 +2,7 @@
 
 import time
 from datetime import datetime, timezone
+from copy import deepcopy
 from uuid import UUID, uuid4
 
 from sqlalchemy.exc import IntegrityError
@@ -20,10 +21,11 @@ from laomedo.integrations.langflow.assistant.workflows import WorkflowDrafts
 class WorkflowActions:
     """Separate proposing a graph action from authorizing and executing its exact effects."""
 
-    def __init__(self, store, catalog, authorize):
+    def __init__(self, store, catalog, authorize, *, configuration=None):
         """Compose existing database/catalog ownership; retain no provider credentials."""
         self.store, self.catalog, self.authorize = store, catalog, authorize
         self.workflows = WorkflowDrafts(store, catalog, authorize)
+        self.configuration = configuration
 
     async def flow(self, session, owner, identifier):
         """Read and lock only an existing graph owned by this authenticated app user."""
@@ -54,9 +56,35 @@ class WorkflowActions:
         ):
             raise AssistantError("assistant_draft_not_editable", 403)
 
+    def run_data(self, data, request):
+        """Apply only digest-bound typed runtime inputs to a private snapshot, never persisted rows."""
+        result = deepcopy(data)
+        nodes = {node["id"]: node for node in result.get("nodes", [])}
+        seen = set()
+        for value in request.node_inputs:
+            key = value.node_id, value.field
+            if key in seen or value.node_id not in nodes:
+                raise AssistantError("assistant_input_invalid", 422)
+            seen.add(key)
+            node = nodes[value.node_id]
+            identity = GraphEditor(self.catalog).identity(node)
+            self.catalog.update_saved_fields(node, identity, {value.field: value.value})
+        if (
+            request.output_component is not None
+            and request.output_component not in nodes
+        ):
+            raise AssistantError("assistant_input_invalid", 422)
+        return result
+
     async def propose(self, context, request):
         """Record a bounded exact-revision proposal; never write the target or run it."""
         await self.authorize(context)
+        if self.configuration is not None and request.kind == "edit":
+            await self.configuration.prepare(
+                context,
+                self.catalog,
+                [*request.changes.add_nodes, *request.changes.updates],
+            )
         async with self.store.transaction() as session:
             await self.workflows.require_active(session, context)
             prior = (
@@ -81,10 +109,15 @@ class WorkflowActions:
                     "Reload open editor tabs before saving; unsaved editor work may overwrite this saved change."
                 )
             else:
+                self.run_data(flow.data, request)
                 preview = [
                     "Input: " + request.input_value,
                     "Input type: " + request.input_type,
                     "Output type: " + request.output_type,
+                    "Node inputs: "
+                    + request.model_dump_json(
+                        include={"node_inputs", "output_component"}
+                    ),
                     "Runs as your app user with your configured credentials/global variables.",
                     "May consume model quota and perform configured external actions. Chat Stop does not cancel graph runs.",
                 ]
@@ -202,6 +235,28 @@ class WorkflowActions:
                     row.state = "stale"
                     row.error_code = "assistant_source_revision_changed"
                 else:
+                    if self.configuration is not None:
+                        from laomedo.integrations.langflow.assistant.models import (
+                            AuthoringContext,
+                        )
+
+                        binding_context = AuthoringContext(
+                            owner_id=owner,
+                            conversation_id=conversation,
+                            message_id=row.message_id,
+                            attempt_id=row.attempt_id,
+                            session_key=key,
+                        )
+                        await self.configuration.check_graph(
+                            binding_context, self.catalog, flow.data, active=False
+                        )
+                        if row.kind == "edit":
+                            await self.configuration.prepare(
+                                binding_context,
+                                self.catalog,
+                                [*request.changes.add_nodes, *request.changes.updates],
+                                active=False,
+                            )
                     await ensure_flow_permission(
                         actor,
                         FlowAction.WRITE if row.kind == "edit" else FlowAction.EXECUTE,
@@ -353,10 +408,14 @@ class WorkflowActions:
                 input_value=request.input_value,
                 input_type=request.input_type,
                 output_type=request.output_type,
+                output_component=request.output_component or "",
                 session_id="assistant-action-" + str(identifier),
             )
+            snapshot = snapshot.model_copy(
+                update={"data": self.run_data(snapshot.data, request)}, deep=True
+            )
             dispatched = True
-            await simple_run_flow(
+            response = await simple_run_flow(
                 snapshot,
                 input_request,
                 api_key_user=actor,
@@ -365,6 +424,11 @@ class WorkflowActions:
                 http_request=None,
                 expose_error_details=False,
             )
+            from laomedo.integrations.langflow.assistant.evidence import (
+                WorkflowRunEvidence,
+            )
+
+            await WorkflowRunEvidence(self).retain(result, response)
             await self.finish(identifier, "succeeded")
         except asyncio.CancelledError:
             await asyncio.shield(
@@ -410,7 +474,9 @@ class WorkflowActions:
                     value = str(getattr(job.status, "value", job.status))
                     if value == "completed":
                         state = "succeeded"
-                    elif value in {"failed", "cancelled", "timed_out"}:
+                    elif value == "cancelled":
+                        state = "cancelled"
+                    elif value in {"failed", "timed_out"}:
                         state = "failed"
             except Exception:
                 pass

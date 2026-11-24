@@ -18,6 +18,7 @@ from laomedo.integrations.langflow.assistant.models import (
     AssistantGraphAction,
     AssistantGraphPermission,
     AssistantNativeAction,
+    AssistantRunEvidence,
 )
 
 
@@ -99,6 +100,7 @@ class AssistantStore:
                 AssistantGraphAction,
                 AssistantGraphPermission,
                 AssistantNativeAction,
+                AssistantRunEvidence,
             )
         ]
 
@@ -269,6 +271,7 @@ class AssistantStore:
                 raise AssistantError("assistant_conversation_active")
             for model in (
                 AssistantNativeAction,
+                AssistantRunEvidence,
                 AssistantGraphPermission,
                 AssistantGraphAction,
                 AssistantDraftReceipt,

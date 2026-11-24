@@ -7,6 +7,15 @@ from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 AUTHORING_SERVER_NAME = "laomedo"
+RESOLUTION_SECONDS = 300
+RESOLUTION_LIMIT = 256
+RUN_OUTPUT_BYTES = 65536
+RUN_OUTPUT_ITEMS = 200
+AUDITED_AGENT_COMPONENTS = {
+    "LaomedoCodexAgent": "codex",
+    "LaomedoClaudeAgent": "claude",
+    "LaomedoOpenCodeAgent": "opencode",
+}
 AUTHORING_TOOL_NAMES = (
     "list_workflows",
     "get_workflow",
@@ -17,6 +26,10 @@ AUTHORING_TOOL_NAMES = (
     "propose_graph_edit",
     "propose_graph_run",
     "get_graph_action",
+    "resolve_node_configuration",
+    "validate_workflow",
+    "get_workflow_run",
+    "cancel_workflow_run",
     "list_native_commands",
     "list_native_agents",
     "propose_native_command",
@@ -40,6 +53,7 @@ The private workspace is scratch space, not the user's repository. Do not seek c
 Use list_native_commands to discover actual built-ins supported by this conversation provider. Selectable native agents and custom commands are unavailable in this chat. Never invent commands or invoke them through shell/files. Use propose_native_command with exact arguments and the observed catalog revision, then let the human approve its card after this response finishes. Read get_native_action for the authoritative outcome on a later requested turn. A proposal never runs a command itself. Do not repeat approval IDs or technical metadata in prose. OpenCode native init/review target the isolated controller directory containing agent configuration, not the worker workspace or the user's repository. No repository files or Git history are available there; only worker-tool writes reach the retained scratch workspace. Report that target and do not claim repository review or a retained file without actual worker receipts. Commands may consume model quota. Do not use native account, rename, goal or permission controls.
 After saving, explain the useful result briefly. The application supplies the authoritative draft card and Open action.
 If a previous turn stopped, its workspace may retain partial changes; a new user message is not a replay of that turn.
+Discover schema revisions and blocked reasons. Use resolve_node_configuration for audited dependent account/model/effort, Skill and registered MCP choices; use only explicit saved accounts. Copy the returned fields and resolution_id into the node or field update. Missing or unsupported settings are not success: use validate_workflow without running components, and repair its diagnostics before calling a graph ready. Never invoke component hooks, send credentials or use raw code/HTTP as an authoring shortcut. Preserve unmentioned saved settings. After an approved run use get_workflow_run to inspect real outputs and node identity; completed without available outputs is not an answer. A repair needs a separate approved run. cancel_workflow_run requests cancellation of the exact approved graph; Chat Stop still stops only chat. No automatic retry of unknown effects.
 """
 
 

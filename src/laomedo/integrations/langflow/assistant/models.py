@@ -17,6 +17,163 @@ from sqlmodel import SQLModel, Field
 from laomedo.agents.agents.base.models import ModelCatalog, NativeCommandInvocation
 
 
+class FlowDiagnostic(BaseModel):
+    """Safe no-execution readiness issue, tied to an exact graph location."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    code: str = ModelField(max_length=100, description="Stable diagnostic category.")
+    node_id: str | None = ModelField(
+        default=None, max_length=200, description="Affected node, when known."
+    )
+    field: str | None = ModelField(
+        default=None,
+        max_length=100,
+        description="Affected input, never its private value.",
+    )
+    severity: Literal["error", "warning"] = ModelField(
+        default="error", description="Whether this issue prevents readiness."
+    )
+    message: str = ModelField(
+        max_length=500, description="Safe explanation without provider payloads."
+    )
+
+
+class ConfigurationRequest(BaseModel):
+    """One bounded installed-node candidate; no executable template or owner input."""
+
+    model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
+    component_type: str = ModelField(
+        max_length=200, description="Installed category-qualified identity."
+    )
+    fields: dict[str, JsonValue] = ModelField(
+        default_factory=dict,
+        max_length=40,
+        description="Requested safe static or audited dynamic values.",
+    )
+    schema_revision: str | None = ModelField(
+        default=None,
+        pattern=r"^sha256:[0-9a-f]{64}$",
+        description="Previously observed schema; changes refuse stale choices.",
+    )
+    connection_id: UUID | None = ModelField(
+        default=None, description="Explicit saved account for Agent model choices."
+    )
+    connection_generation: int | None = ModelField(
+        default=None, ge=1, description="Exact observed account epoch."
+    )
+
+
+class ResourceBinding(BaseModel):
+    """Safe resource identity and version; never an endpoint, config or credential."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    kind: Literal["skill", "mcp"] = ModelField(
+        description="Concern owning the resource reference."
+    )
+    id: str = ModelField(
+        min_length=1, max_length=200, description="Owner-validated opaque identity."
+    )
+    version: str = ModelField(
+        min_length=1,
+        max_length=200,
+        description="Immutable Skill revision or MCP configuration epoch.",
+    )
+
+
+class NodeResourceBindings(BaseModel):
+    """Persisted nonsecret bindings revalidated at execution and result release."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    connection_id: UUID | None = ModelField(
+        default=None, description="Explicit saved provider account."
+    )
+    generation: int | None = ModelField(
+        default=None, ge=1, description="Exact account epoch, absent with no account."
+    )
+    resources: list[ResourceBinding] = ModelField(
+        default_factory=list,
+        max_length=40,
+        description="Pinned concern-owned resources.",
+    )
+
+
+class ResolvedConfiguration(BaseModel):
+    """Host-held, expiring configuration evidence; never a transferable grant."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    id: UUID = ModelField(
+        default_factory=uuid4, description="Opaque resolution lookup identity."
+    )
+    owner_id: UUID = ModelField(exclude=True, description="Authenticated owner.")
+    conversation_id: UUID = ModelField(
+        exclude=True, description="Conversation whose request resolved values."
+    )
+    session_key: str = ModelField(
+        exclude=True, repr=False, description="Host-only browser authority fence."
+    )
+    component_type: str = ModelField(description="Exact installed component identity.")
+    schema_revision: str = ModelField(
+        description="Hash of the installed schema and trusted source."
+    )
+    fields: dict[str, JsonValue] = ModelField(
+        description="Validated nonsecret resolved values."
+    )
+    expires_at: float = ModelField(
+        description="Unix expiry; resolution never starts a run."
+    )
+    connection_id: UUID | None = ModelField(
+        default=None, description="Selected saved account if applicable."
+    )
+    connection_generation: int | None = ModelField(
+        default=None, description="Selected saved account epoch."
+    )
+    resources: list[ResourceBinding] = ModelField(
+        default_factory=list,
+        max_length=40,
+        description="Safe immutable resource identities and versions, without credentials.",
+    )
+
+
+class WorkflowNodeOutput(BaseModel):
+    """One bounded intended node output, excluding input/configuration/log objects."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    node_id: str = ModelField(
+        max_length=200, description="Actual reporting component ID."
+    )
+    output: str = ModelField(max_length=100, description="Actual named output.")
+    value: JsonValue = ModelField(description="Bounded safe text or data projection.")
+
+
+class AssistantRunEvidence(SQLModel, table=True):
+    """Owned terminal run projection; deletion follows its assistant conversation."""
+
+    __tablename__ = "laomedo_assistant_run_evidence"
+    action_id: UUID = Field(
+        primary_key=True, description="Exact previously approved action."
+    )
+    owner_id: UUID = Field(index=True, description="Run owner, never supplied by MCP.")
+    conversation_id: UUID = Field(
+        index=True, description="Owning conversation and deletion scope."
+    )
+    workflow_id: UUID = Field(description="Executed saved graph identity.")
+    run_id: UUID = Field(description="Execution owner's exact run identity.")
+    revision: str = Field(description="Exact approved snapshot revision.")
+    outputs: list[dict] = Field(
+        default_factory=list,
+        sa_column=Column(JSON),
+        description="Only canonical bounded WorkflowNodeOutput payloads.",
+    )
+    truncated: bool = Field(
+        default=False,
+        description="Some output exceeded projection bounds or was unsupported.",
+    )
+    created_at: float = Field(
+        default_factory=time.time,
+        description="Projection persistence time, not inferred run start.",
+    )
+
+
 class ModelCatalogCacheEntry(BaseModel):
     """An observed native catalog valid only for the same account runner instance."""
 
@@ -220,6 +377,10 @@ class DraftNode(BaseModel):
     fields: dict[str, JsonValue] = ModelField(
         default_factory=dict,
         description="Only schema-approved, non-secret static settings; no code templates.",
+    )
+    resolution_id: UUID | None = ModelField(
+        default=None,
+        description="Exact expiring host resolution for audited dynamic fields.",
     )
 
 
@@ -510,6 +671,10 @@ class GraphFieldUpdate(BaseModel):
     """Explicit static field replacements on one existing saved node."""
 
     model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
+    resolution_id: UUID | None = ModelField(
+        default=None,
+        description="Exact host resolution for this node's dynamic field update.",
+    )
     node_id: str = ModelField(min_length=1, max_length=200)
     fields: dict[str, JsonValue] = ModelField(min_length=1, max_length=40)
 
@@ -556,6 +721,19 @@ class GraphChanges(BaseModel):
         return self
 
 
+class GraphRunInput(BaseModel):
+    """One typed nonsecret runtime input on an exact saved node."""
+
+    model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
+    node_id: str = ModelField(max_length=200, description="Exact target node identity.")
+    field: str = ModelField(
+        max_length=100, description="Supported writable input, not a raw tweak key."
+    )
+    value: JsonValue = ModelField(
+        description="Explicit runtime value bound into approval digest."
+    )
+
+
 class GraphActionRequest(BaseModel):
     """Exact immutable proposal semantics; it grants no execution authority."""
 
@@ -564,6 +742,16 @@ class GraphActionRequest(BaseModel):
     workflow_id: UUID
     expected_revision: str = ModelField(pattern=r"^sha256:[0-9a-f]{64}$")
     kind: Literal["edit", "run"]
+    node_inputs: list[GraphRunInput] = ModelField(
+        default_factory=list,
+        max_length=40,
+        description="Exact runtime node values validated before approval and dispatch.",
+    )
+    output_component: str | None = ModelField(
+        default=None,
+        max_length=200,
+        description="Exact requested output node, or execution owner's default output selection.",
+    )
     summary: str = ModelField(default="", max_length=240)
     changes: GraphChanges | None = None
     input_value: str = ModelField(default="", max_length=12000, repr=False)
@@ -576,7 +764,11 @@ class GraphActionRequest(BaseModel):
         if (self.kind == "edit") != (self.changes is not None):
             raise ValueError("assistant_action_arguments_invalid")
         if self.kind == "edit" and (
-            self.input_value or self.input_type != "chat" or self.output_type != "any"
+            self.input_value
+            or self.input_type != "chat"
+            or self.output_type != "any"
+            or self.node_inputs
+            or self.output_component is not None
         ):
             raise ValueError("assistant_action_arguments_invalid")
         return self

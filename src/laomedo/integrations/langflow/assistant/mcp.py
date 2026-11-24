@@ -23,6 +23,8 @@ from laomedo.integrations.langflow.assistant.models import (
     GraphActionRequest,
     GraphChanges,
     NativeCommandRequest,
+    ConfigurationRequest,
+    GraphRunInput,
 )
 
 
@@ -133,9 +135,26 @@ class AuthoringMcp:
                 "propose_graph_edit",
                 "propose_graph_run",
                 "get_graph_action",
+                "get_workflow_run",
+                "cancel_workflow_run",
             }:
                 actions = await self.runtime.graph_actions(context.owner_id)
-                if operation == "get_graph_action":
+                if operation == "get_workflow_run":
+                    from laomedo.integrations.langflow.assistant.evidence import (
+                        WorkflowRunEvidence,
+                    )
+
+                    result = await WorkflowRunEvidence(actions).read(
+                        context,
+                        arguments["action_id"],
+                        node_id=arguments.get("node_id"),
+                        cursor=arguments.get("cursor", 0),
+                    )
+                elif operation == "cancel_workflow_run":
+                    result = await self.runtime.cancel_graph_run(
+                        context, arguments["action_id"]
+                    )
+                elif operation == "get_graph_action":
                     result = await actions.read(
                         context.owner_id,
                         context.conversation_id,
@@ -150,7 +169,15 @@ class AuthoringMcp:
                 result = await self.runtime.skills(context, **arguments)
             else:
                 workflows = await self.runtime.workflow_tools(context)
-                if operation == "list_workflows":
+                if operation == "resolve_node_configuration":
+                    result = await self.runtime.configuration.resolve(
+                        context, workflows.catalog, arguments["request"]
+                    )
+                elif operation == "validate_workflow":
+                    result = await self.runtime.configuration.validate(
+                        context, workflows, **arguments
+                    )
+                elif operation == "list_workflows":
                     result = await workflows.list(context, **arguments)
                 elif operation == "get_workflow":
                     result = await workflows.get(context, **arguments)
@@ -289,6 +316,8 @@ class AuthoringMcp:
         input_type: str = "chat",
         output_type: str = "any",
         summary: str = "",
+        node_inputs: list[GraphRunInput] | None = None,
+        output_component: str | None = None,
     ) -> dict:
         """Propose execution of an exact saved revision/input for human approval. Runs only with existing human conversation consent; otherwise waits for approval. Uses the approving app user's configured credentials/global variables; may consume quota or perform external actions. Never retry unknown effects under a new key."""
         try:
@@ -297,6 +326,8 @@ class AuthoringMcp:
                 workflow_id=workflow_id,
                 expected_revision=expected_revision,
                 kind="run",
+                node_inputs=node_inputs or [],
+                output_component=output_component,
                 input_value=input_value,
                 input_type=input_type,
                 output_type=output_type,
@@ -309,3 +340,37 @@ class AuthoringMcp:
     async def get_graph_action(self, action_id: UUID, ctx: Context) -> dict:
         """Read this conversation's authoritative proposal/outcome without executing or approving it."""
         return await self._invoke(ctx, "get_graph_action", action_id=action_id)
+
+    async def resolve_node_configuration(
+        self, request: ConfigurationRequest, ctx: Context
+    ) -> dict:
+        """Resolve audited static/dependent/resource settings without running a graph or component hook."""
+        return await self._invoke(ctx, "resolve_node_configuration", request=request)
+
+    async def validate_workflow(
+        self,
+        ctx: Context,
+        spec: DraftGraph | None = None,
+        workflow_id: UUID | None = None,
+        expected_revision: str | None = None,
+    ) -> dict:
+        """Check one candidate or exact saved revision without graph construction or inference."""
+        return await self._invoke(
+            ctx,
+            "validate_workflow",
+            spec=spec,
+            workflow_id=workflow_id,
+            expected_revision=expected_revision,
+        )
+
+    async def get_workflow_run(
+        self, action_id: UUID, ctx: Context, node_id: str | None = None, cursor: int = 0
+    ) -> dict:
+        """Read owned actual node outputs/status with bounded paging; completion is not output evidence."""
+        return await self._invoke(
+            ctx, "get_workflow_run", action_id=action_id, node_id=node_id, cursor=cursor
+        )
+
+    async def cancel_workflow_run(self, action_id: UUID, ctx: Context) -> dict:
+        """Request cancellation of this conversation's exact approved run, without starting or replaying it."""
+        return await self._invoke(ctx, "cancel_workflow_run", action_id=action_id)

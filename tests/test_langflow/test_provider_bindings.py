@@ -211,6 +211,17 @@ class ProviderBindingTests(unittest.IsolatedAsyncioTestCase):
             ]
         }
         portable = strip_local_bindings(original)
+        bound = {
+            "data": {
+                "laomedo_authoring_bindings": {
+                    "connection_id": "LOCAL_BINDING",
+                    "generation": 1,
+                },
+                "node": {"template": {"provider_connection": field}},
+            }
+        }
+        self.assertNotIn("LOCAL_BINDING", str(strip_local_bindings(bound)))
+        self.assertIn("laomedo_authoring_bindings", bound["data"])
         template = portable["flows"][0]["data"]["nodes"][0]["data"]["node"]["template"]
         self.assertEqual(
             template["provider_connection"],

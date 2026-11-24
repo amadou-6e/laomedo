@@ -1,5 +1,18 @@
 # Application assistant
 
+## Complete flow authoring (issue311)
+
+`ComponentCatalog` owns metadata-only discovery, schema revisions and compilation;
+`WorkflowConfiguration` in `configuration.py` resolves audited configuration and
+readiness without executing component hooks. Request/result and resolution records
+remain in `models.py`; fixed bounds and supported families belong to `settings.py`.
+`WorkflowRunEvidence` in `evidence.py` projects and retains bounded actual outputs
+under existing assistant database ownership, then releases them only for the exact
+authorized conversation/action. `WorkflowActions` remains approval/execution owner;
+the private MCP dispatcher composes these services. Existing graph persistence and
+provider/Skill/MCP owners remain authoritative. Discovery and validation never
+submit a model task. Real acceptance and independent review are pending.
+
 Explicit human-entered Claude `/usage`, without arguments and advertised as
 non-model work, uses the existing atomic decision/dispatch path immediately.
 Assistant-proposed usage still requires human approval; other commands retain
