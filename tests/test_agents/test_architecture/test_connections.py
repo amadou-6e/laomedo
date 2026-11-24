@@ -69,7 +69,10 @@ class ConnectionOwnershipTests(unittest.TestCase):
                 "_locked",
             },
             "connections/controllers.py": {"_outside_git"},
-            "agents/codex/connection.py": {"_atomic_private", "_locked"},
+            "agents/codex/connection.py": {
+                "_atomic_private",
+                "_restrict_windows_directory",
+            },
             "agents/claude/connection.py": {
                 "_atomic_private",
                 "_restrict_windows_directory",

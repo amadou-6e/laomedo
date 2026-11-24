@@ -530,6 +530,10 @@ class BaseAgent(ABC):
             raise ArtifactError("artifact_source_changed_during_selection")
         return selections(result)
 
+    def subscription_limits(self):
+        """Refuse quota reads unless a provider implements the zero-turn capability."""
+        raise RunnerError("provider_method_unavailable")
+
     def _mcp_manifest(self, request):
         """Validate paired external admission fields before identity lookup or effects."""
         if ("mcp_manifest" in request) != ("mcp_registration" in request):

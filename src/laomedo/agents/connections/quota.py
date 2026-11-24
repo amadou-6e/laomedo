@@ -48,6 +48,66 @@ class SubscriptionObservations:
                     ):
                         self.entries.pop(binding, None)
 
+    def read(self, profile_id, connection_id, generation, lease_hash):
+        """Read memory only; never start native work, refresh credentials or consult ambient login."""
+        binding = SubscriptionBinding(
+            profile_id=profile_id, connection_id=connection_id, generation=generation
+        )
+        with self.service._lock:
+            record = self._check(binding, lease_hash)
+            self._prune()
+            return self._result(
+                binding,
+                lease_hash,
+                unsupported=record.provider != "codex"
+                or record.client_id != "codex-native",
+            )
+
+    def refresh(self, profile_id, connection_id, generation, lease_hash):
+        """Explicitly observe one native binding; each waiter must still own its lease on return."""
+        binding = SubscriptionBinding(
+            profile_id=profile_id, connection_id=connection_id, generation=generation
+        )
+        leader = False
+        with self.service._lock:
+            record = self._check(binding, lease_hash)
+            self._prune()
+            if record.provider != "codex" or record.client_id != "codex-native":
+                return self._result(binding, lease_hash, unsupported=True)
+            entry = self.entries.get(binding)
+            now = self.clock()
+            if entry is not None and (
+                (
+                    entry.reason is None
+                    and entry.stale_after is not None
+                    and now < entry.stale_after
+                )
+                or now - entry.attempted_at < SUBSCRIPTION_RETRY_SECONDS
+            ):
+                self.visible[(binding, lease_hash)] = None
+                self._prune()
+                return self._result(binding, lease_hash)
+            flight = self.flights.get(binding)
+            if flight is None:
+                if len(self.flights) >= SUBSCRIPTION_CACHE_ENTRIES:
+                    raise ProviderConnectionError("provider_connection_busy")
+                flight = Future()
+                self.flights[binding] = flight
+                leader = True
+        if leader:
+            self._observe(binding, flight)
+        else:
+            try:
+                flight.result(timeout=SUBSCRIPTION_WAIT_SECONDS)
+            except TimeoutError:
+                raise ProviderConnectionError("provider_runner_unavailable") from None
+        with self.service._lock:
+            self._check(binding, lease_hash)
+            self._prune()
+            self.visible[(binding, lease_hash)] = None
+            self._prune()
+            return self._result(binding, lease_hash)
+
     def _check(self, binding, lease_hash=None):
         """Require exact ownership, live local credential metadata and a nonrevoked lease."""
         if self.service._closing or (
@@ -117,66 +177,6 @@ class SubscriptionObservations:
             stale_after=entry.stale_after if entry else None,
             snapshot=entry.snapshot if entry else None,
         )
-
-    def read(self, profile_id, connection_id, generation, lease_hash):
-        """Read memory only; never start native work, refresh credentials or consult ambient login."""
-        binding = SubscriptionBinding(
-            profile_id=profile_id, connection_id=connection_id, generation=generation
-        )
-        with self.service._lock:
-            record = self._check(binding, lease_hash)
-            self._prune()
-            return self._result(
-                binding,
-                lease_hash,
-                unsupported=record.provider != "codex"
-                or record.client_id != "codex-native",
-            )
-
-    def refresh(self, profile_id, connection_id, generation, lease_hash):
-        """Explicitly observe one native binding; each waiter must still own its lease on return."""
-        binding = SubscriptionBinding(
-            profile_id=profile_id, connection_id=connection_id, generation=generation
-        )
-        leader = False
-        with self.service._lock:
-            record = self._check(binding, lease_hash)
-            self._prune()
-            if record.provider != "codex" or record.client_id != "codex-native":
-                return self._result(binding, lease_hash, unsupported=True)
-            entry = self.entries.get(binding)
-            now = self.clock()
-            if entry is not None and (
-                (
-                    entry.reason is None
-                    and entry.stale_after is not None
-                    and now < entry.stale_after
-                )
-                or now - entry.attempted_at < SUBSCRIPTION_RETRY_SECONDS
-            ):
-                self.visible[(binding, lease_hash)] = None
-                self._prune()
-                return self._result(binding, lease_hash)
-            flight = self.flights.get(binding)
-            if flight is None:
-                if len(self.flights) >= SUBSCRIPTION_CACHE_ENTRIES:
-                    raise ProviderConnectionError("provider_connection_busy")
-                flight = Future()
-                self.flights[binding] = flight
-                leader = True
-        if leader:
-            self._observe(binding, flight)
-        else:
-            try:
-                flight.result(timeout=SUBSCRIPTION_WAIT_SECONDS)
-            except TimeoutError:
-                raise ProviderConnectionError("provider_runner_unavailable") from None
-        with self.service._lock:
-            self._check(binding, lease_hash)
-            self._prune()
-            self.visible[(binding, lease_hash)] = None
-            self._prune()
-            return self._result(binding, lease_hash)
 
     def _observe(self, binding, flight):
         """Retain a safe read only after exact native teardown and generation revalidation."""

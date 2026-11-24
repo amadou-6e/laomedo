@@ -232,3 +232,7 @@ prompts, answers and transient MCP registration capabilities.
 for reserved, running or uncertain continuations without starting work. Connection
 inventory and cleanup include these reservations even when the retained parent
 run still has a terminal status. Only settled journal entries leave that inventory.
+
+`BaseAgent.subscription_limits()` declares the optional zero-turn quota capability.
+Providers without a supported implementation refuse it with `provider_method_unavailable`;
+Codex returns the native account observation without starting a model turn.

@@ -1,12 +1,13 @@
 """Native login lifecycle fixtures; these do not establish real provider acceptance."""
 
 import json
+from importlib.util import find_spec
 import tempfile
 import threading
 import time
 from pathlib import Path
 from types import SimpleNamespace
-from unittest import TestCase
+from unittest import TestCase, skipUnless
 from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
@@ -49,11 +50,14 @@ class CodexNativeLoginTests(TestCase):
         self.custody = self.custody_type.return_value
         self.custody.lease.return_value.__enter__.return_value = SimpleNamespace()
         self.custody.create.side_effect = self.mark_custody
-        from py_docker.containers.models import ContainerSpec
+        if find_spec("py_docker"):
+            from py_docker.containers.models import ContainerSpec
 
-        self.adapter.spec = MagicMock(
-            return_value=ContainerSpec(image="sha256:" + "a" * 64, name="fixture-auth")
-        )
+            self.adapter.spec = MagicMock(
+                return_value=ContainerSpec(
+                    image="sha256:" + "a" * 64, name="fixture-auth"
+                )
+            )
 
     def mark_custody(self, *args):
         root = self.adapter._root(self.profile, self.item.credential_id)
@@ -100,6 +104,7 @@ class CodexNativeLoginTests(TestCase):
         self.service._save(self.profile, [record])
         return record
 
+    @skipUnless(find_spec("py_docker"), "Requires the optional Docker SDK")
     def test_new_login_publishes_only_after_confirmed_native_teardown(self):
         item = self.attempt()
         self.frames()
@@ -110,6 +115,7 @@ class CodexNativeLoginTests(TestCase):
         self.assertEqual(item.progress.status, "connected")
         self.custody.erase.assert_not_called()
 
+    @skipUnless(find_spec("py_docker"), "Requires the optional Docker SDK")
     def test_replacement_requires_confirmation_and_preserves_graph_selector(self):
         previous = self.previous()
         graph = uuid4()
@@ -150,6 +156,7 @@ class CodexNativeLoginTests(TestCase):
             )
             erase.assert_called_once_with(self.profile, previous)
 
+    @skipUnless(find_spec("py_docker"), "Requires the optional Docker SDK")
     def test_cancellation_after_native_completion_discards_candidate_and_preserves_old(
         self,
     ):
@@ -170,6 +177,7 @@ class CodexNativeLoginTests(TestCase):
         self.custody.erase.assert_called_once()
         self.assertEqual(item.progress.status, "cancelled")
 
+    @skipUnless(find_spec("py_docker"), "Requires the optional Docker SDK")
     def test_unknown_native_output_never_publishes_or_leaks_raw_error(self):
         item = self.attempt()
         self.frames({"type": "failed", "code": "private-native-detail"})

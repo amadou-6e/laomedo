@@ -114,3 +114,6 @@ CodexNativeProfile and CodexAccountIdentity live in models.py. Identity is an
 observed email/account binding; subject_hash is not a claim of immutable user ID.
 These boundaries must be wired into login, discovery and every Agent launch before
 native saved connections can be exposed.
+Native identity projections are validated by `CodexConnection.validate_native_identity`,
+which rejects a public observation that does not match the saved account binding.
+The shared saved-connection facade delegates this provider-specific validation.

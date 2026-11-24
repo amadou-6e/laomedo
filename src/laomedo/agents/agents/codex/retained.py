@@ -94,6 +94,10 @@ class CodexRetainedCredentials:
             lifecycle=record.lifecycle,
         )
 
+    def erase_revision(self, profile_id, record):
+        """Erase the admitted retired revision under its broker refresh lock."""
+        self._scrub(self._broker(profile_id, record.credential_id), record.client_id)
+
     def _scrub(self, broker: ChatGPTConnection, client_id: str) -> None:
         """Remove an unadmitted or superseded token file under its refresh lock.
 
@@ -106,7 +110,3 @@ class CodexRetainedCredentials:
     def _broker(self, profile_id: UUID, credential_id: UUID) -> ChatGPTConnection:
         """Open only this connection's private broker, outside tool mounts."""
         return ChatGPTConnection(self.service._profile(profile_id) / str(credential_id))
-
-    def erase_revision(self, profile_id, record):
-        """Erase the admitted retired revision under its broker refresh lock."""
-        self._scrub(self._broker(profile_id, record.credential_id), record.client_id)

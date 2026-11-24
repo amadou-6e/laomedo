@@ -382,6 +382,10 @@ class CodexAgent(BaseAgent):
             effort=effort,
         )
 
+    def subscription_limits(self):
+        """Observe this admitted account without a thread or model prompt; cleanup failures propagate."""
+        return asyncio.run(self._subscription_limits())
+
     def _resume_checkpoint(self, record):
         """Read a same-instance, attempt-local settlement without promoting output success."""
         from pydantic import ValidationError
@@ -664,10 +668,6 @@ class CodexAgent(BaseAgent):
             if defaults:
                 result["default_model_id"] = defaults[0]
             return result
-
-    def subscription_limits(self):
-        """Observe this admitted account without a thread or model prompt; cleanup failures propagate."""
-        return asyncio.run(self._subscription_limits())
 
     async def _subscription_limits(self):
         """Finish native teardown before returning the safe provider quota snapshot."""

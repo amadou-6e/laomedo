@@ -45,10 +45,6 @@ class CodexConnection(BaseProviderConnection):
 
     def begin(self, profile_id, *, lease_hash, connection_id=None):
         """Start exactly one bounded native sign-in after explicit browser consent."""
-        try:
-            from py_docker.sessions.models import ContainerSession
-        except ImportError:
-            raise ProviderConnectionError("provider_method_unavailable") from None
         with self.service._lock:
             finished = [key for key, value in self.attempts.items() if value.settled]
             for key in finished[:-64]:
@@ -68,6 +64,10 @@ class CodexConnection(BaseProviderConnection):
             )
             if previous and previous.provider != "codex":
                 raise ProviderConnectionError("provider_method_unavailable")
+            try:
+                from py_docker.sessions.models import ContainerSession
+            except ImportError:
+                raise ProviderConnectionError("provider_method_unavailable") from None
             if (
                 previous
                 and self.service.controllers is not None
@@ -167,10 +167,6 @@ class CodexConnection(BaseProviderConnection):
         ):
             raise ProviderConnectionError("provider_login_expired")
 
-    def _root(self, profile_id, credential_id) -> Path:
-        """Resolve an opaque host-owned revision below the private profile root."""
-        return self.service._profile(profile_id) / str(credential_id)
-
     def details(self, profile_id, attempt_id, *, lease_hash):
         """Expose the device code and verified candidate only to the initiating lease."""
         with self.service._lock:
@@ -241,6 +237,15 @@ class CodexConnection(BaseProviderConnection):
             raise ProviderConnectionError("provider_connection_unavailable")
         return self.native(profile_id, record).profile()
 
+    @staticmethod
+    def validate_native_identity(value, record):
+        """Reject public native observations that do not match this saved binding."""
+        if (
+            CodexAccountIdentity.model_validate(value).subject_hash()
+            != record.subject_hash
+        ):
+            raise ValueError("native_identity_mismatch")
+
     def saved_identity(self, profile_id, record):
         """Read verified public metadata; no token refresh or native process is started."""
         try:
@@ -280,10 +285,6 @@ class CodexConnection(BaseProviderConnection):
         if record.client_id == "codex-native":
             raise ProviderConnectionError("provider_method_unavailable")
         return self.retained.borrow(profile_id, connection_id, generation)
-
-    def _broker(self, profile_id, credential_id):
-        """Resolve only an already-saved token-sharing revision during transition."""
-        return self.retained._broker(profile_id, credential_id)
 
     def reconcile_orphan(self, root, active=False):
         """Discard uncommitted native revisions; never replay an interrupted login."""
@@ -331,6 +332,14 @@ class CodexConnection(BaseProviderConnection):
             tmpfs={"/tmp": "rw,nosuid,nodev,size=64m,mode=1777"},
             nano_cpus=2_000_000_000,
         )
+
+    def _root(self, profile_id, credential_id) -> Path:
+        """Resolve an opaque host-owned revision below the private profile root."""
+        return self.service._profile(profile_id) / str(credential_id)
+
+    def _broker(self, profile_id, credential_id):
+        """Resolve only an already-saved token-sharing revision during transition."""
+        return self.retained._broker(profile_id, credential_id)
 
     def _check_live(self, item):
         """Fence expiry, cancellation, logout and stale replacement before publication."""

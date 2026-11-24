@@ -168,10 +168,13 @@ class SavedNativeCodexConnection(SavedConnectionCredential):
         except ProviderConnectionError as error:
             raise RunnerError(error.code) from None
 
+    def register_runtime(self, receipt):
+        """Record exact ACP custody before a native launch under the active lease."""
+        self.custody.register(Path(receipt))
+
     @contextmanager
     def _lease(self):
         """Hold one native writer through identity verification and caller teardown."""
-        from laomedo.agents.agents.codex.models import CodexAccountIdentity
         from laomedo.docker import DockerRuntime
         from py_docker.jobs.models import ContainerJob
         from py_docker.streams.models import StreamLimits
@@ -194,18 +197,12 @@ class SavedNativeCodexConnection(SavedConnectionCredential):
                 value = json.loads(result.stdout)
                 if result.exit_code or value.pop("type", None) != "identity":
                     raise ValueError()
-                observed = CodexAccountIdentity.model_validate(value)
                 with self.service._lock:
                     record = self.service.admitted(
                         self.profile_id, self.connection_id, self.generation
                     )
-                    if observed.subject_hash() != record.subject_hash:
-                        raise ValueError()
+                    self.service.codex.validate_native_identity(value, record)
             except (ValueError, TypeError, AttributeError):
                 raise RunnerError("provider_connection_changed") from None
             self.account(self.client_id)
             yield descriptor
-
-    def register_runtime(self, receipt):
-        """Record exact ACP custody before a native launch under the active lease."""
-        self.custody.register(Path(receipt))
