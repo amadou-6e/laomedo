@@ -2,6 +2,7 @@
 
 import json
 import re
+from itertools import islice
 from uuid import UUID
 
 from laomedo.integrations.langflow.assistant.errors import AssistantError
@@ -48,7 +49,7 @@ class WorkflowRunEvidence:
             }
         raise ValueError("output_type")
 
-    async def retain(self, action, response):
+    async def retain(self, action, response, *, data=None):
         """Persist intended RunResponse outputs without following arbitrary nested model state."""
         from lfx.graph.schema import RunOutputs, ResultData
         from lfx.schema.data import Data
@@ -58,17 +59,26 @@ class WorkflowRunEvidence:
         if not isinstance(response, RunResponse):
             return
         outputs, size, truncated = [], 0, False
-        for group in getattr(response, "outputs", []):
+        groups = getattr(response, "outputs", []) or []
+        truncated = len(groups) > RUN_OUTPUT_ITEMS
+        visited = 0
+        for group in islice(groups, RUN_OUTPUT_ITEMS):
             if not isinstance(group, RunOutputs):
                 truncated = True
                 continue
-            for node in group.outputs:
+            truncated = truncated or len(group.outputs) > RUN_OUTPUT_ITEMS
+            for node in islice(group.outputs, RUN_OUTPUT_ITEMS):
                 if not isinstance(node, ResultData) or not isinstance(
                     node.results, dict
                 ):
                     truncated = True
                     continue
-                for name, value in node.results.items():
+                truncated = truncated or len(node.results) > RUN_OUTPUT_ITEMS
+                for name, value in islice(node.results.items(), RUN_OUTPUT_ITEMS):
+                    visited += 1
+                    if visited > RUN_OUTPUT_ITEMS:
+                        truncated = True
+                        break
                     try:
                         # Message private properties/metadata never enter this projection.
                         if isinstance(value, Message):
@@ -91,6 +101,10 @@ class WorkflowRunEvidence:
                         continue
                     outputs.append(projected)
                     size += len(encoded)
+                if visited > RUN_OUTPUT_ITEMS:
+                    break
+            if visited > RUN_OUTPUT_ITEMS:
+                break
         async with self.actions.store.transaction() as session:
             from laomedo.integrations.langflow.assistant.models import (
                 AssistantGraphAction,
@@ -110,6 +124,13 @@ class WorkflowRunEvidence:
                         run_id=row.run_id,
                         revision=row.revision,
                         outputs=outputs,
+                        bindings=(
+                            self.actions.configuration.graph_bindings(
+                                self.actions.catalog, data
+                            )
+                            if self.actions.configuration is not None
+                            else []
+                        ),
                         truncated=truncated,
                     )
                 )
@@ -159,5 +180,12 @@ class WorkflowRunEvidence:
                 "next_cursor": cursor + 20 if len(values) > cursor + 20 else None,
                 "truncated": record.truncated if record else False,
             }
+            bindings = record.bindings if record else []
+        if bindings:
+            if self.actions.configuration is None:
+                raise AssistantError("assistant_resource_unavailable", 409)
+            await self.actions.configuration.check_bindings(
+                context, self.actions.catalog, bindings
+            )
         await self.actions.authorize(context)
         return result

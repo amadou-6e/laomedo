@@ -7,6 +7,7 @@ import re
 import hashlib
 
 from laomedo.integrations.langflow.assistant.errors import AssistantError
+from laomedo.integrations.langflow.assistant.settings import AUDITED_COMPONENT_DIGESTS
 
 
 class ComponentCatalog:
@@ -28,6 +29,21 @@ class ComponentCatalog:
                 ).encode()
             ).hexdigest()
         )
+
+    def audited_family(self, identity):
+        """Require exact reviewed installed source, not a forgeable component class name."""
+        component = self._index().get(identity, {})
+        name = identity.split("/", 1)[-1]
+        expected = AUDITED_COMPONENT_DIGESTS.get(name)
+        code = component.get("template", {}).get("code", {}).get("value")
+        if (
+            expected
+            and isinstance(code, str)
+            and hashlib.sha256(code.replace("\r\n", "\n").strip().encode()).hexdigest()
+            == expected
+        ):
+            return name
+        return None
 
     def resolution(self, identifier, identity, fields):
         """Bind only an already host-validated resolution to exact node values."""
@@ -138,7 +154,7 @@ class ComponentCatalog:
         if not isinstance(component["template"].get("code", {}).get("value"), str):
             raise AssistantError("assistant_component_metadata_unavailable", 422)
         result = deepcopy(component)
-        if identity.split("/", 1)[-1] == "MCPTools" and not any(
+        if self.audited_family(identity) == "MCPTools" and not any(
             output.get("name") == "component_as_tool" for output in result["outputs"]
         ):
             result["outputs"].append(
@@ -361,7 +377,7 @@ class ComponentCatalog:
             )
             if (
                 resolved is not None
-                and definition.component_type.split("/", 1)[-1] == "MCPTools"
+                and self.audited_family(definition.component_type) == "MCPTools"
             ):
                 template["tool_mode"] = True
                 if "tool" in template["template"]:

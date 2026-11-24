@@ -68,6 +68,7 @@ class StartupSchemaTests(unittest.IsolatedAsyncioTestCase):
                             "laomedo_assistant_graph_action",
                             "laomedo_assistant_graph_permission",
                             "laomedo_assistant_native_action",
+                            "laomedo_assistant_run_evidence",
                         },
                     )
                     rows = (

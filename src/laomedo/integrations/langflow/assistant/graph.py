@@ -117,6 +117,16 @@ class GraphEditor:
                 )
             )
             if resolved is not None:
+                if self.catalog.audited_family(identity) == "MCPTools":
+                    metadata = node["data"]["node"]
+                    metadata["tool_mode"] = True
+                    metadata["outputs"] = [
+                        output
+                        for output in self.catalog.template(identity)["outputs"]
+                        if output.get("name") == "component_as_tool"
+                    ]
+                    if isinstance(metadata["template"].get("tool"), dict):
+                        metadata["template"]["tool"]["required"] = False
                 node["data"]["laomedo_authoring_bindings"] = {
                     "connection_id": (
                         str(resolved.connection_id) if resolved.connection_id else None

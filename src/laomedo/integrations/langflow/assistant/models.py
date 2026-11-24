@@ -97,6 +97,14 @@ class NodeResourceBindings(BaseModel):
     )
 
 
+class RunResourceBinding(BaseModel):
+    """Exact installed component and nonsecret resource fence for retained run evidence."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    component_type: str = ModelField(max_length=200, description="Installed identity.")
+    binding: NodeResourceBindings = ModelField(description="Approved resource epochs.")
+
+
 class ResolvedConfiguration(BaseModel):
     """Host-held, expiring configuration evidence; never a transferable grant."""
 
@@ -163,6 +171,11 @@ class AssistantRunEvidence(SQLModel, table=True):
         default_factory=list,
         sa_column=Column(JSON),
         description="Only canonical bounded WorkflowNodeOutput payloads.",
+    )
+    bindings: list[dict] = Field(
+        default_factory=list,
+        sa_column=Column(JSON),
+        description="Canonical RunResourceBinding fences; never resource configuration.",
     )
     truncated: bool = Field(
         default=False,

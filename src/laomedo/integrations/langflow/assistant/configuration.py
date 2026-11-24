@@ -13,6 +13,7 @@ from laomedo.integrations.langflow.assistant.models import FlowDiagnostic
 from laomedo.integrations.langflow.assistant.models import ResolvedConfiguration
 from laomedo.integrations.langflow.assistant.models import ResourceBinding
 from laomedo.integrations.langflow.assistant.models import NodeResourceBindings
+from laomedo.integrations.langflow.assistant.models import RunResourceBinding
 from laomedo.integrations.langflow.assistant.settings import AUDITED_AGENT_COMPONENTS
 from laomedo.integrations.langflow.assistant.settings import RESOLUTION_LIMIT
 from laomedo.integrations.langflow.assistant.settings import RESOLUTION_SECONDS
@@ -34,7 +35,7 @@ class WorkflowConfiguration:
         if request.schema_revision and request.schema_revision != schema:
             raise AssistantError("assistant_configuration_stale", 409)
         template = catalog.template(identity)["template"]
-        name = identity.split("/", 1)[-1]
+        name = catalog.audited_family(identity)
         values, options, resources = {}, {}, []
         dynamic = set()
         if name in AUDITED_AGENT_COMPONENTS:
@@ -191,7 +192,7 @@ class WorkflowConfiguration:
         ):
             raise AssistantError("assistant_configuration_stale", 409)
         provider = AUDITED_AGENT_COMPONENTS.get(
-            resolved.component_type.split("/", 1)[-1]
+            catalog.audited_family(resolved.component_type)
         )
         if resolved.connection_id is not None:
             if provider is None:
@@ -258,7 +259,7 @@ class WorkflowConfiguration:
             identity = catalog.project({"nodes": [node]})["nodes"][0].get(
                 "component_type", ""
             )
-            provider = AUDITED_AGENT_COMPONENTS.get(identity.split("/", 1)[-1])
+            provider = AUDITED_AGENT_COMPONENTS.get(catalog.audited_family(identity))
             if binding.connection_id:
                 if provider is None:
                     raise AssistantError("assistant_resource_unavailable", 409)
@@ -274,6 +275,41 @@ class WorkflowConfiguration:
                 if saved != str(selected):
                     raise AssistantError("assistant_configuration_stale", 409)
             await self.check_resources(context, binding.resources)
+
+    def graph_bindings(self, catalog, data):
+        """Project resource fences without keeping graph inputs, code or configuration."""
+        return [
+            RunResourceBinding(
+                component_type=catalog.project({"nodes": [node]})["nodes"][0][
+                    "component_type"
+                ],
+                binding=NodeResourceBindings.model_validate(
+                    node["data"]["laomedo_authoring_bindings"]
+                ),
+            ).model_dump(mode="json")
+            for node in (data or {}).get("nodes", [])
+            if node.get("data", {}).get("laomedo_authoring_bindings")
+        ]
+
+    async def check_bindings(self, context, catalog, bindings):
+        """Recheck retained output authority against current account and resource epochs."""
+        await self.runtime.authorize(context)
+        for raw in bindings:
+            value = RunResourceBinding.model_validate(raw)
+            provider = AUDITED_AGENT_COMPONENTS.get(
+                catalog.audited_family(value.component_type)
+            )
+            if value.binding.connection_id is not None:
+                if provider is None:
+                    raise AssistantError("assistant_resource_unavailable", 409)
+                self.runtime.check_connection(
+                    context.owner_id,
+                    provider,
+                    value.binding.connection_id,
+                    value.binding.generation,
+                )
+            await self.check_resources(context, value.binding.resources)
+        await self.runtime.authorize(context)
 
     async def validate(
         self, context, workflows, *, spec=None, workflow_id=None, expected_revision=None

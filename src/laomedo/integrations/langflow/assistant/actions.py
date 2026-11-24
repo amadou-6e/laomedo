@@ -414,6 +414,21 @@ class WorkflowActions:
             snapshot = snapshot.model_copy(
                 update={"data": self.run_data(snapshot.data, request)}, deep=True
             )
+            if self.configuration is not None:
+                from laomedo.integrations.langflow.assistant.models import (
+                    AuthoringContext,
+                )
+
+                context = AuthoringContext(
+                    owner_id=row.owner_id,
+                    conversation_id=row.conversation_id,
+                    message_id=row.message_id,
+                    attempt_id=row.attempt_id,
+                    session_key=key,
+                )
+                await self.configuration.check_graph(
+                    context, self.catalog, snapshot.data, active=False
+                )
             dispatched = True
             response = await simple_run_flow(
                 snapshot,
@@ -428,7 +443,7 @@ class WorkflowActions:
                 WorkflowRunEvidence,
             )
 
-            await WorkflowRunEvidence(self).retain(result, response)
+            await WorkflowRunEvidence(self).retain(result, response, data=snapshot.data)
             await self.finish(identifier, "succeeded")
         except asyncio.CancelledError:
             await asyncio.shield(

@@ -1,6 +1,7 @@
 """Current audited resolution, schema/resource fencing and no-hook readiness controls."""
 
 import time
+from pathlib import Path
 import unittest
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
@@ -59,7 +60,12 @@ class ConfigurationTests(unittest.IsolatedAsyncioTestCase):
                 "laomedo": {
                     "LaomedoCodexAgent": {
                         "template": {
-                            "code": {"value": "HOST_OWNED_ADAPTER"},
+                            "code": {
+                                "value": (
+                                    Path(__file__).resolve().parents[3]
+                                    / "components/laomedo/codex_agent.py"
+                                ).read_text(encoding="utf-8")
+                            },
                             "provider_connection": {
                                 "type": "str",
                                 "real_time_refresh": True,
@@ -204,3 +210,34 @@ class ConfigurationTests(unittest.IsolatedAsyncioTestCase):
                     fields={"runner_url": "http://untrusted"},
                 ),
             )
+
+    async def test_retained_output_fences_recheck_connection_and_resource_epochs(self):
+        result = await self.resolved()
+        node = DraftNode(
+            key="agent",
+            component_type=self.identity,
+            fields=result["fields"],
+            resolution_id=UUID(result["resolution_id"]),
+        )
+        await self.configuration.prepare(self.context, self.catalog, [node])
+        data, _ = self.catalog.compile(DraftGraph(nodes=[node]))
+        bindings = self.configuration.graph_bindings(self.catalog, data)
+        self.assertEqual(bindings[0]["binding"]["connection_id"], str(self.connection))
+        await self.configuration.check_bindings(self.context, self.catalog, bindings)
+        self.runtime.check_connection.side_effect = AssistantError(
+            "provider_connection_changed"
+        )
+        with self.assertRaisesRegex(AssistantError, "provider_connection_changed"):
+            await self.configuration.check_bindings(
+                self.context, self.catalog, bindings
+            )
+
+    async def test_same_named_component_with_changed_source_is_not_an_audited_adapter(
+        self,
+    ):
+        self.catalog.snapshot["laomedo"]["LaomedoCodexAgent"]["template"]["code"][
+            "value"
+        ] += "\n# changed implementation"
+        self.assertIsNone(self.catalog.audited_family(self.identity))
+        with self.assertRaises(AssistantError):
+            await self.resolved()

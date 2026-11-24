@@ -16,6 +16,13 @@ AUDITED_AGENT_COMPONENTS = {
     "LaomedoClaudeAgent": "claude",
     "LaomedoOpenCodeAgent": "opencode",
 }
+AUDITED_COMPONENT_DIGESTS = {
+    "LaomedoCodexAgent": "49d058262e07823ac7fa90e49abbdae33ff264f9c1b18f3cae132d96e89028c6",
+    "LaomedoClaudeAgent": "6c83458be69cf48508f68b4bf413d1b4d1268cabeffed0ba3f973970d365d416",
+    "LaomedoOpenCodeAgent": "4af7c7ee47a34802131c0dff639a8869a699424cd7a484971eadba9348ddc954",
+    "LaomedoSkill": "f68fe5d47bb406628a91f4d845820bdd68a9d57f8236c2049657ee11465ff68e",
+    "MCPTools": "9c2f70d7a83c219c73f444360c1547cc725276692c8d1832ff6367578db84274",
+}
 AUTHORING_TOOL_NAMES = (
     "list_workflows",
     "get_workflow",
