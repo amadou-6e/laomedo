@@ -30,3 +30,13 @@ file contents after both turns. This completes the previously quota-blocked
 Claude acceptance case; independent review remains pending. OpenCode had also
 passed a later fresh/resume check through the browser-session export fence at
 `a9c2e03f4`. These are bounded selected-file checks, not blanket provider approval.
+
+`recovery_shell.py` adds a bounded four-turn OpenCode check: initial write, external
+conflict, exact repository-text restoration via MCP plus shell, then a normal edit.
+2026-11-24: all four stages passed with the corrected runtime from `2f731a965`.
+The external version survived the conflict, Send unlocked, and later edits saved
+in the same conversation. `ui_state.py` creates reversible whitespace-only graph
+conflicts and briefly hides the validation clone's Git metadata for actual UI
+captures. All such graph bytes and Git metadata were restored. These probes are
+limited to the explicitly named app-owned validation checkout; no user repo is
+modified and no model-based probe is part of normal production verification.
