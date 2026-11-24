@@ -243,6 +243,15 @@ def create_app(profile_runtime=None, private_connections=False):
                 public_roots=(root,),
             )
         ).configure(app)
+    if profile_runtime is not None:
+        from laomedo.integrations.langflow.local_profiles.cookies import (
+            ProfileCookieBoundary,
+        )
+
+        # Last-added middleware is outermost, including private browser admission.
+        app.add_middleware(
+            ProfileCookieBoundary, port=profile_runtime.admission.marker.port
+        )
     # Register the API before the installed runtime's catch-all SPA routes.
     setup_static_files(app, frontend)
     return app

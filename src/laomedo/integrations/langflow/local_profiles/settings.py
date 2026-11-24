@@ -27,4 +27,9 @@ class LocalProfileSettings(BaseSettings):
     )
 
 
-PROFILE_COOKIE_NAMES = ("access_token_lf", "refresh_token_lf", "apikey_tkn_lflw")
+PROFILE_COOKIE_NAMES = (
+    "access_token_lf",
+    "refresh_token_lf",
+    "apikey_tkn_lflw",
+    "laomedo_private_session",
+)

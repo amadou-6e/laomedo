@@ -19,6 +19,7 @@ from starlette.responses import JSONResponse
 from laomedo.integrations.langflow.authentication.adapter import PrivateSessionAdapter
 from laomedo.integrations.langflow.authentication.errors import PrivateSessionError
 from laomedo.integrations.langflow.authentication.store import PrivateSessionStore
+from laomedo.integrations.langflow.local_profiles.cookies import ProfileCookieBoundary
 
 
 class UpstreamPolicyControl:
@@ -107,6 +108,27 @@ class PrivateSessionAdapterTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("SameSite=lax", cookie_header)
         self.assertIn("Path=/", cookie_header)
         self.assertIn("expires=", cookie_header)
+
+    async def test_profile_cookie_boundary_preserves_private_login_and_logout(self):
+        app = ProfileCookieBoundary(self.app, port=17866)
+        async with AsyncClient(
+            transport=ASGITransport(app),
+            base_url="http://127.0.0.1:17866",
+            headers={"Origin": "http://127.0.0.1:17866"},
+        ) as client:
+            response = await client.post("/api/v1/login")
+            self.assertIn("laomedo_profile_17866_access_token_lf", response.cookies)
+            self.assertIn(
+                "laomedo_profile_17866_laomedo_private_session", response.cookies
+            )
+            self.assertNotIn("x-laomedo-private-session", response.headers)
+            response = await client.post("/api/v1/refresh")
+            self.assertNotIn("x-laomedo-private-session", response.headers)
+            response = await client.post("/api/v1/logout")
+            self.assertEqual(response.status_code, 200)
+            self.assertNotIn(
+                "laomedo_profile_17866_laomedo_private_session", client.cookies
+            )
 
     async def test_status_only_or_unverified_token_cannot_mint_private_lease(self):
         self.policy.validate = False
