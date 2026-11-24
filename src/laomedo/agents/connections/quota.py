@@ -5,6 +5,7 @@ from concurrent.futures import Future, TimeoutError
 import time
 
 from laomedo.host.credentials.siwc.errors import AuthError
+from laomedo.agents.errors import RunnerError
 from laomedo.agents.connections.errors import ProviderConnectionError
 from laomedo.agents.connections.models import SubscriptionBinding
 from laomedo.agents.connections.models import SubscriptionCacheEntry
@@ -62,7 +63,6 @@ class SubscriptionObservations:
         )
         if record.provider == "codex" and record.client_id == "codex-native":
             try:
-                self.service.codex.profile(binding.profile_id, record)
                 self.service.codex.saved_identity(binding.profile_id, record)
             except Exception:
                 self.invalidate(
@@ -186,7 +186,7 @@ class SubscriptionObservations:
             if self.service.controllers is None:
                 raise ProviderConnectionError("provider_runner_unavailable")
             snapshot = self.service.controllers.subscription_limits(binding)
-        except ProviderConnectionError as error:
+        except (ProviderConnectionError, RunnerError) as error:
             reason = (
                 "busy" if error.code == "provider_connection_busy" else "refresh_failed"
             )

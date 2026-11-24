@@ -16,6 +16,7 @@ from laomedo.agents.agents.base.models import (
 )
 from laomedo.agents.connections.models import ConnectionRecord
 from laomedo.agents.connections.errors import ProviderConnectionError
+from laomedo.agents.errors import RunnerError
 from laomedo.agents.connections.quota import SubscriptionObservations
 from laomedo.agents.connections.service import ProviderConnections
 
@@ -88,6 +89,18 @@ class SubscriptionObservationTests(unittest.TestCase):
         self.assertEqual(self.reader.call_count, 1)
         self.assertEqual(self.refresh().snapshot, result.snapshot)
         self.assertEqual(self.reader.call_count, 1)
+        self.native_profile.assert_not_called()
+
+    def test_explicit_native_reader_does_not_hold_lifecycle_lock(self):
+        def observe(binding):
+            with ThreadPoolExecutor(max_workers=1) as pool:
+                pool.submit(self.service.check_lease, "independent-lease").result(
+                    timeout=2
+                )
+            return self.snapshot
+
+        self.reader.side_effect = observe
+        self.assertEqual(self.refresh().state, "ready")
 
     def test_shared_fresh_native_cache_requires_explicit_lease_visibility(self):
         self.refresh()
@@ -117,17 +130,14 @@ class SubscriptionObservationTests(unittest.TestCase):
             "not_checked",
         )
 
-    def test_unavailable_or_changed_native_custody_discards_cached_values(self):
-        for boundary in (self.native_profile, self.native_identity):
-            with self.subTest(boundary=boundary):
-                self.refresh()
-                boundary.side_effect = ProviderConnectionError(
-                    "provider_connection_changed"
-                )
-                with self.assertRaises(ProviderConnectionError):
-                    self.read()
-                self.assertEqual(len(self.quota.entries), 0)
-                boundary.side_effect = None
+    def test_changed_native_identity_metadata_discards_cached_values(self):
+        self.refresh()
+        self.native_identity.side_effect = ProviderConnectionError(
+            "provider_connection_changed"
+        )
+        with self.assertRaises(ProviderConnectionError):
+            self.read()
+        self.assertEqual(len(self.quota.entries), 0)
 
     def test_retained_token_sharing_login_never_launches_known_unsupported_quota(self):
         self.service._save(
@@ -177,10 +187,13 @@ class SubscriptionObservationTests(unittest.TestCase):
         self.assertEqual(self.reader.call_count, 3)
 
     def test_first_failure_and_native_busy_are_unavailable_not_zero(self):
-        self.reader.side_effect = ProviderConnectionError("provider_connection_busy")
-        result = self.refresh()
-        self.assertEqual((result.state, result.reason), ("unavailable", "busy"))
-        self.assertIsNone(result.snapshot)
+        for error_type in (ProviderConnectionError, RunnerError):
+            with self.subTest(error_type=error_type):
+                self.quota.invalidate()
+                self.reader.side_effect = error_type("provider_connection_busy")
+                result = self.refresh()
+                self.assertEqual((result.state, result.reason), ("unavailable", "busy"))
+                self.assertIsNone(result.snapshot)
 
     def test_retention_expires_without_native_fetch(self):
         self.refresh()
