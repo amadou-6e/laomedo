@@ -22,3 +22,11 @@ quota-blocked and no merge is authorized by these results.
 This evidence is specific to these revisions and the saved preview setup. It does
 not establish private-remote acceptance, cancellation write-back or arbitrary host
 filesystem isolation. No private runtime records or screenshots are tracked here.
+
+2026-11-24 reset follow-up: Claude fresh and resumed native-shell writes passed
+at implementation `070445cc0aed027580cd14970b3178c81785121b`, using the existing
+saved connection and normal profile login. The harness verified exact repository
+file contents after both turns. This completes the previously quota-blocked
+Claude acceptance case; independent review remains pending. OpenCode had also
+passed a later fresh/resume check through the browser-session export fence at
+`a9c2e03f4`. These are bounded selected-file checks, not blanket provider approval.
