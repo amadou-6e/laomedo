@@ -68,3 +68,7 @@ structure. Five-hour/week windows and scoped weekly buckets retain their native
 percentages and reset times; extra-usage billing is not subscription allowance.
 
 `connection.py` is the provider boundary. ClaudeConnection owns official-client begin/details/submit/cancel, native identity verification, exact labelled profile custody, orphan reconciliation and cleanup. ClaudeNativeProfile, ClaudeAccountIdentity and ClaudeLoginAttempt belong to models.py; its native cleanup budget belongs to settings.py. The shared Agent connection service owns admission/index fencing; host storage and profile authorization remain separate.
+
+`ClaudeConnection.summary()` checks saved profile custody only; it never starts a
+native client or revalidates OAuth while listing accounts. Native account checks
+belong to admitted catalog, quota and execution operations.

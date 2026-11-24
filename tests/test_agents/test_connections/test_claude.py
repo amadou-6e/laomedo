@@ -36,6 +36,32 @@ class ClaudeConnectionTests(unittest.TestCase):
         self.addCleanup(self.service.close)
         self.profile = uuid4()
 
+    def test_summary_never_starts_native_authentication(self):
+        record = ConnectionRecord(
+            provider="claude",
+            connection_id=uuid4(),
+            credential_id=uuid4(),
+            client_id="claude-native",
+            subject_hash="a" * 64,
+            label="Saved account",
+            generation=1,
+        )
+        with (
+            patch.object(self.service.claude, "profile") as custody,
+            patch.object(self.service.claude, "_auth_status") as native,
+        ):
+            summary = self.service.claude.summary(self.profile, record)
+            self.assertEqual(summary.auth_state, "ready")
+            native.assert_not_called()
+            custody.side_effect = ProviderConnectionError(
+                "provider_connection_unavailable"
+            )
+            self.assertEqual(
+                self.service.claude.summary(self.profile, record).auth_state,
+                "unavailable",
+            )
+            native.assert_not_called()
+
     @unittest.skipUnless(find_spec("py_docker"), "Requires the optional Docker SDK")
     def test_disconnect_daemon_failure_exposes_retry_and_preserves_custody(self):
         """Native ownership/daemon failures settle into fenced recovery state."""
