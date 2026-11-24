@@ -1,0 +1,236 @@
+version: 1
+title: "3. Evidence to Activity"
+header: "Codex | 3. Evidence to Activity"
+note: "Data-flow view, not every direct function call. Capture completeness, task completion and cleanup remain separate facts. | Provider roles #275. Paths are repository/package-relative as shown."
+matrix:
+  rows: 1
+  columns: 5
+  cells: [["col_0", "col_1", "col_2", "col_3", "col_4"]]
+  origin: [45, 150]
+  column_gaps: [110, 110, 110, 110]
+nodes:
+  source:
+    label_html: "<b>[A] Evidence source</b><br/>Native runtime + patched ACP adapter<br/><br/>Custom extension preserves item/thread/terminal events and host policy."
+    style:
+      width: 285
+      height: 150
+      fill: "#FFF0DF"
+      stroke: "#8193A5"
+      font_size: 14
+      rounded: true
+    source_files: ["docker/codex-acp/LaomedoExtension.ts", "docker/codex-acp/native-events.patch"]
+    graph_reference: "A"
+  rollout:
+    label_html: "<b>[B] Native evidence storage</b><br/>Dedicated profile sessions/<br/><br/>Codex persists thread evidence. Export selects the exact bound thread."
+    style:
+      width: 285
+      height: 150
+      fill: "#E7F3EC"
+      stroke: "#8193A5"
+      font_size: 14
+      rounded: true
+    source_files: []
+    graph_reference: "B"
+    external_source: "Native thread rollout files in the dedicated profile."
+  acp:
+    label_html: "<b>[C] ACP event transport</b><br/>agents/agents/base/acp/session.py; transport.py<br/><br/>AcpSession composes the upstream ACP SDK. DockerTransport carries its frames over attached stdin/stdout."
+    style:
+      width: 285
+      height: 150
+      fill: "#EAF0FA"
+      stroke: "#8193A5"
+      font_size: 14
+      rounded: true
+    source_files: ["src/laomedo/agents/agents/base/acp/session.py", "src/laomedo/agents/agents/base/acp/transport.py"]
+    graph_reference: "C"
+  export:
+    label_html: "<b>[D] Historical evidence reader</b><br/>codex/activity/rollout_export.py<br/><br/>Standalone Docker CLI reads only the selected native thread. This is not automatic Activity ingestion."
+    style:
+      width: 285
+      height: 150
+      fill: "#F0EAF8"
+      stroke: "#8193A5"
+      font_size: 14
+      rounded: true
+    source_files: ["src/laomedo/agents/agents/codex/activity/rollout_export.py"]
+    graph_reference: "D"
+  capture:
+    label_html: "<b>[E] Live evidence capture</b><br/>Controller native callback<br/>runtime.py:_native_event<br/><br/>Bind native identities/completion and retain safe raw/activity receipts."
+    style:
+      width: 285
+      height: 150
+      fill: "#F0EAF8"
+      stroke: "#8193A5"
+      font_size: 14
+      rounded: true
+    source_files: ["src/laomedo/agents/agents/codex/runtime.py"]
+    graph_reference: "E"
+  retained:
+    label_html: "<b>[F] Exported evidence artifact</b><br/>Explicitly selected output file<br/><br/>An evidence copy produced by the export command; separate from live Activity capture."
+    style:
+      width: 285
+      height: 150
+      fill: "#E7F3EC"
+      stroke: "#8193A5"
+      font_size: 14
+      rounded: true
+    source_files: []
+    graph_reference: "F"
+    external_source: "Caller-selected exported evidence file; not implementation source."
+  activity:
+    label_html: "<b>[G] Activity storage and projection</b><br/>agents/activity/<br/><br/>Retain and project observed records for the wider app. Provider projectors own native interpretation and pricing."
+    style:
+      width: 285
+      height: 150
+      fill: "#EAF0FA"
+      stroke: "#8193A5"
+      font_size: 14
+      rounded: true
+    source_files: ["src/laomedo/agents/activity/store.py", "src/laomedo/agents/activity/projection.py", "src/laomedo/agents/activity/routes.py"]
+    graph_reference: "G"
+  ui:
+    label_html: "<b>[H] Activity viewer</b><br/>Application UI<br/><br/>Read retained evidence, usage and uncertainty; no new model request."
+    style:
+      width: 285
+      height: 150
+      fill: "#EAF0FA"
+      stroke: "#8193A5"
+      font_size: 14
+      rounded: true
+    source_files: ["frontend/langflow-skill-viewer/agents/activity/GraphAgents.tsx", "frontend/langflow-skill-viewer/agents/activity/AgentActivity.tsx"]
+    graph_reference: "H"
+groups:
+  col_0:
+    title: "Native sources"
+    layout: "column"
+    children: ["source", "rollout"]
+    gap: 80
+    style:
+      padding: [60, 20, 25, 20]
+      min_height: 520
+      fill: "#F5F7FA"
+      font_size: 15
+  col_1:
+    title: "Shared wire / explicit export"
+    layout: "column"
+    children: ["acp", "export"]
+    gap: 80
+    style:
+      padding: [60, 20, 25, 20]
+      min_height: 520
+      fill: "#F5F7FA"
+      font_size: 15
+  col_2:
+    title: "Provider capture / selected output"
+    layout: "column"
+    children: ["capture", "retained"]
+    gap: 80
+    style:
+      padding: [60, 20, 25, 20]
+      min_height: 520
+      fill: "#F5F7FA"
+      font_size: 15
+  col_3:
+    title: "Shared Activity"
+    layout: "column"
+    children: ["activity"]
+    gap: 80
+    style:
+      padding: [60, 20, 25, 20]
+      min_height: 520
+      fill: "#F5F7FA"
+      font_size: 15
+  col_4:
+    title: "Wider application"
+    layout: "column"
+    children: ["ui"]
+    gap: 80
+    style:
+      padding: [60, 20, 25, 20]
+      min_height: 520
+      fill: "#F5F7FA"
+      font_size: 15
+edges:
+  edge_0:
+    from: "source"
+    to: "acp"
+    label: "raw notifications"
+    style:
+      stroke: "#8C619B"
+      dashed: true
+      width: 2
+      end_arrow: "classic"
+    from_port: [1, 0.5]
+    to_port: [0, 0.5]
+    waypoints: [[425.0, 285.0], [425.0, 285.0]]
+  edge_1:
+    from: "acp"
+    to: "capture"
+    label: "native callback"
+    style:
+      stroke: "#8C619B"
+      dashed: true
+      width: 2
+      end_arrow: "classic"
+    from_port: [1, 0.5]
+    to_port: [0, 0.5]
+    waypoints: [[860.0, 285.0], [860.0, 285.0]]
+  edge_2:
+    from: "capture"
+    to: "activity"
+    label: "retained receipts"
+    style:
+      stroke: "#8C619B"
+      dashed: true
+      width: 2
+      end_arrow: "classic"
+    from_port: [1, 0.5]
+    to_port: [0, 0.5]
+    waypoints: [[1295.0, 285.0], [1295.0, 285.0]]
+  edge_3:
+    from: "activity"
+    to: "ui"
+    label: "read / project"
+    style:
+      stroke: "#8C619B"
+      dashed: true
+      width: 2
+      end_arrow: "classic"
+    from_port: [1, 0.5]
+    to_port: [0, 0.5]
+    waypoints: [[1730.0, 285.0], [1730.0, 285.0]]
+  edge_4:
+    from: "source"
+    to: "rollout"
+    label: "native persistence"
+    style:
+      stroke: "#8C619B"
+      dashed: true
+      width: 2
+      end_arrow: "classic"
+    from_port: [0.5, 1]
+    to_port: [0.5, 0]
+  edge_5:
+    from: "rollout"
+    to: "export"
+    label: "selected read"
+    style:
+      stroke: "#8C619B"
+      dashed: true
+      width: 2
+      end_arrow: "classic"
+    from_port: [1, 0.5]
+    to_port: [0, 0.5]
+    waypoints: [[425.0, 515.0], [425.0, 515.0]]
+  edge_6:
+    from: "export"
+    to: "retained"
+    label: "retains copy"
+    style:
+      stroke: "#8C619B"
+      dashed: true
+      width: 2
+      end_arrow: "classic"
+    from_port: [1, 0.5]
+    to_port: [0, 0.5]
+    waypoints: [[860.0, 515.0], [860.0, 515.0]]

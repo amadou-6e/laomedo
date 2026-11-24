@@ -10,13 +10,21 @@ profile identity and display name; `ProfileIndex` describes picker contents.
 PINs are excluded from serialization and representations. A boundary must catch
 validation errors and return catalogue codes, never Pydantic input payloads.
 `settings.py` owns fixed local-profile policy, including the reserved system name.
-`auth.py` owns `LocalProfileAuthService`, the narrow authentication adapter.
+`auth.py` owns `LocalProfileAuthService`, the narrow authentication adapter. Its create_token delegates signing and expiry to upstream and adds a unique per-issuance jti, so two same-profile browser sessions minted in one second remain distinct.
 
 The startup adapter admits owned state before migrations and verifies the
 internal actor before serving. Profile creation delegates to upstream user
-creation; login, hashing and token validation stay upstream-owned. The authentication adapter refuses the internal actor without replacing ordinary
+creation. `ProfileRuntimeAdmission._upstream_tables()` identifies the pinned
+upstream's mapped models by defining ownership, including those not re-exported
+by its package, rather than treating unrelated feature tables
+in SQLModel's shared metadata as profile admission prerequisites. Each feature
+still owns initialization and validation of its own tables. Admission remains
+read-only and still verifies upstream schema, revision and internal identity.
+Profile login, hashing and token validation stay upstream-owned. The
+authentication adapter refuses the internal actor without replacing ordinary
 profile authentication. `runtime.py` composes these adaptations around the upstream
-lifespan only for the opt-in local profile app. The React entry UI is unfinished.
+lifespan only for the opt-in local profile app. The React entry UI is implemented;
+real registration, switching and restoration acceptance remain unverified.
 
 ## Object interfaces
 
@@ -66,3 +74,16 @@ delegate WebSocket/SSE/MCP identity to the configured service; service-method
 checks do not establish real transport acceptance. A local OS user directly
 editing the database or signing credentials is outside this convenience-lock
 trust boundary.
+
+`ProfileCookieBoundary` gives the upstream access, refresh and store-key cookies
+a port-specific browser name. It translates only the selected preview cookies
+at HTTP/WebSocket ingress and renames upstream Set-Cookie headers on egress,
+preserving their attributes. `ProfileCookieResponse` owns response forwarding.
+Foreign or unscoped auth cookies never supply a profile session; existing
+previews require normal PIN entry once. Origin checks and OAuth callback URLs
+stay at the exact 127.0.0.1 address. No cookies are copied between previews.
+
+Profile-mode logout always contacts the server even if another preview set the
+shared auto-login hint. An unavailable mode check also forces server logout;
+normal non-profile auto-login behavior remains unchanged. HTTP-only cookie
+erasure is confirmed by the server rather than a JavaScript clear operation.

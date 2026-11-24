@@ -3,18 +3,17 @@
 from pathlib import Path
 import os
 import time
-from laomedo.skills.registry.settings import (
-    MAX_FILE_BYTES,
-    MAX_FILES,
-    MAX_BUNDLE_BYTES,
-)
+from laomedo.skills.registry.settings import MAX_FILE_BYTES
+from laomedo.skills.registry.settings import MAX_FILES
+from laomedo.skills.registry.settings import MAX_BUNDLE_BYTES
 from laomedo.skills.registry.utils.inspection import _read_regular
 from laomedo.skills.registry.utils.files import is_link
 from laomedo.skills.sources.bundle import validate_bundle_path
 from laomedo.skills.sources.errors import SourceError
 from laomedo.skills.sources.models import SkillSourceChoice
 from laomedo.skills.sources.settings import MAX_ENTRIES
-from laomedo.skills.sources.utils import excluded_parts, skill_name
+from laomedo.skills.sources.utils import excluded_parts
+from laomedo.skills.sources.utils import skill_name
 
 
 class LocalSkillSource:

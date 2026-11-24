@@ -1,0 +1,1893 @@
+"""Codex adapter for the provider-neutral Agent lifecycle."""
+
+from __future__ import annotations
+from laomedo.agents.activity.models import ActivityPage
+from laomedo.agents.agents.base.models import ReadinessObservation
+from laomedo.docker import DockerRuntime
+from laomedo.container_images.errors import ImageBuildError
+from laomedo.agents.agents.codex.catalog import CodexModelCatalog
+from laomedo.agents.agents.codex.credentials import CodexCredentialProvider
+from laomedo.agents.agents.codex.settings import IDLE_AUTH_REFRESH_SECONDS
+from laomedo.agents.agents.codex.models import ResumeCheckpoint
+from laomedo.agents.agents.codex.models import IdleCodexSession
+from laomedo.agents.agents.codex.session import CodexSessionOwner
+
+from pathlib import Path
+from uuid import uuid4
+import hashlib
+import asyncio
+import logging
+import sys
+import json
+import re
+import shutil
+import threading
+import time
+
+from laomedo.agents.activity.models import ActivityAttemptRecord
+from laomedo.agents.agents.codex.settings import CLI_VERSION
+from laomedo.agents.agents.codex.settings import CONFIG
+from laomedo.agents.agents.codex.settings import CONFIG_LF_SHA256
+from laomedo.agents.agents.codex.settings import CONFIG_SHA256
+from laomedo.agents.agents.codex.settings import GIT_IMAGE
+from laomedo.agents.agents.codex.settings import GIT_IMAGE_ID
+from laomedo.agents.agents.codex.settings import IMAGE
+from laomedo.agents.agents.codex.settings import IMAGE_ID
+from laomedo.agents.agents.codex.settings import NATIVE_TURN_SECONDS
+from laomedo.agents.agents.codex.settings import PREFLIGHT_API_TIMEOUT_SECONDS
+from laomedo.agents.agents.codex.settings import PREFLIGHT_MAX_OUTPUT_BYTES
+from laomedo.agents.agents.codex.settings import PREFLIGHT_RECEIPT_FILENAME
+from laomedo.agents.agents.codex.settings import PREFLIGHT_STREAM_SECONDS
+from laomedo.agents.agents.codex.settings import PREFLIGHT_WAIT_SECONDS
+from laomedo.agents.agents.codex.settings import VOLUME
+from laomedo.agents.agents.codex.utils import _answer
+from laomedo.agents.agents.codex.utils import _auth_record_error
+from laomedo.agents.agents.codex.utils import _command_summary
+from laomedo.agents.agents.codex.utils import _ensure_split_profile
+from laomedo.agents.agents.codex.utils import _execution_evidence
+from laomedo.agents.agents.codex.utils import _native_error_summary
+from laomedo.agents.agents.codex.utils import _split_profile
+from laomedo.agents.agents.codex.controller.settings import Settings
+from laomedo.agents.interface.output.utils import evaluate
+from laomedo.agents.errors import RunnerError
+from laomedo.agents.agents.codex.runtime import CodexAgentRuntime
+from laomedo.agents.agents.codex.commands import CodexCommands
+from laomedo.agents.workspaces.utils import _hash_tree
+from laomedo.agents.agents.base.utils import _id
+from laomedo.agents.agents.base.utils import _json
+from laomedo.agents.agents.base.utils import failure_observation
+from laomedo.host.credentials.siwc.connection import ChatGPTConnection
+from laomedo.host.credentials.siwc.errors import AuthError
+from laomedo.host.credentials.siwc.utils import _outside_git
+from laomedo.host.leases.client import LeaseClient
+from laomedo.host.leases.models import ContainerIdentity
+from laomedo.host.leases.models import LeaseCleanupObservation
+from laomedo.host.leases.utils import cleanup_exact
+from laomedo.host.mediation.authority import RunGrantAuthority
+from laomedo.agents.workspaces.skills.utils import verify
+from laomedo.agents.agents.base.agent import BaseAgent
+from laomedo.agents.agents.base.models import CredentialBinding
+from laomedo.agents.agents.base.models import RuntimeBinding
+
+
+class CodexAgent(BaseAgent):
+    """Own Codex launch policy, native bindings and durable run finalization."""
+
+    credential_type = CodexCredentialProvider
+    catalog_type = CodexModelCatalog
+
+    provider = "codex"
+
+    def __init__(
+        self,
+        state: Path,
+        skill_store: Path,
+        source_workspace: Path,
+        *,
+        transport=CodexAgentRuntime,
+        check_docker: bool = True,
+        supervise_containers: bool | None = None,
+        lease_service: Path | None = None,
+        github_authority: RunGrantAuthority | None = None,
+        mediator_state: Path | None = None,
+        git_workspace: bool = False,
+        split_executor: bool = False,
+        split_provider_config=(),
+        split_access_token=None,
+        auth_store: Path | None = None,
+        auth_client_id: str | None = None,
+        auth_connection=None,
+        publication_controller=None,
+        image_id: str | None = None,
+        artifact_sources=None,
+    ):
+        """Bind admitted configuration and owned state; provider startup errors propagate before use."""
+        self._session_owner = None
+        self._session_guard = threading.Lock()
+        self._idle_sessions = {}
+        self._session_watch = None
+        self._idle_cleanup_lock = None
+        self._closing = False
+        self._managed_image = image_id is None
+        self.image = GIT_IMAGE if git_workspace else IMAGE
+        self.image_id = GIT_IMAGE_ID if git_workspace else IMAGE_ID
+        if image_id is not None:
+            if (
+                git_workspace
+                or split_executor
+                or not isinstance(image_id, str)
+                or not re.fullmatch(r"sha256:[0-9a-f]{64}", image_id)
+            ):
+                raise RunnerError("invalid_local_image_id")
+            # Trusted host startup configuration, never a per-run API input.
+            self.image_id = image_id
+        self.supervise_containers = (
+            transport is CodexAgentRuntime and not split_executor
+            if supervise_containers is None
+            else supervise_containers
+        )
+        if split_executor and self.supervise_containers:
+            raise RunnerError("split_executor_lease_unavailable")
+        if git_workspace and split_executor:
+            raise RunnerError("git_workspace_split_unsupported")
+        super().__init__(
+            state,
+            skill_store,
+            source_workspace,
+            lease_service=lease_service,
+            github_authority=github_authority,
+            mediator_state=mediator_state,
+            git_workspace=git_workspace,
+            publication_controller=publication_controller,
+            artifact_sources=artifact_sources,
+        )
+        self.transport = transport
+        self.split_executor = split_executor
+        self.split_provider_config = tuple(split_provider_config)
+        self.split_access_token = split_access_token
+        self.auth_client_id = auth_client_id
+        if auth_connection is not None and (
+            auth_store is not None
+            or auth_client_id is not None
+            or not split_executor
+            or split_provider_config
+            or split_access_token is not None
+        ):
+            raise RunnerError("conflicting_split_auth_sources")
+        if (auth_store is None) != (auth_client_id is None):
+            raise RunnerError("auth_account_selection_required")
+        if auth_store is not None and not split_executor:
+            raise RunnerError("app_owned_auth_requires_split_executor")
+        if auth_store is not None and (split_provider_config or split_access_token):
+            raise RunnerError("conflicting_split_auth_sources")
+        if auth_store is not None:
+            auth_root = _outside_git(auth_store)
+            if (
+                auth_root == self.state
+                or auth_root.is_relative_to(self.state)
+                or self.state.is_relative_to(auth_root)
+                or auth_root == self.store.root
+                or auth_root.is_relative_to(self.store.root)
+                or self.store.root.is_relative_to(auth_root)
+            ):
+                raise RunnerError("auth_store_overlaps_runner_state")
+            self.auth = ChatGPTConnection(auth_root)
+        else:
+            self.auth = auth_connection
+            if auth_connection is not None:
+                self.auth_client_id = auth_connection.client_id
+        if self.auth:
+            self.split_provider_config = (
+                'model_provider="openai_chatgpt_plan"',
+                'model_providers.openai_chatgpt_plan.name="ChatGPT plan"',
+                'model_providers.openai_chatgpt_plan.base_url="https://api.openai.com/v1"',
+                'model_providers.openai_chatgpt_plan.auth.command="/bin/cat"',
+                'model_providers.openai_chatgpt_plan.auth.args=["/tmp/laomedo-provider-auth/access-token"]',
+                'model_providers.openai_chatgpt_plan.auth.cwd="/"',
+                "model_providers.openai_chatgpt_plan.auth.refresh_interval_ms=1",
+                "model_providers.openai_chatgpt_plan.auth.timeout_ms=1000",
+                'model_providers.openai_chatgpt_plan.wire_api="responses"',
+                "model_providers.openai_chatgpt_plan.requires_openai_auth=false",
+                "model_providers.openai_chatgpt_plan.supports_websockets=false",
+            )
+        self.profile = _split_profile(self.state) if split_executor else VOLUME
+        if split_executor and transport is not CodexAgentRuntime:
+            raise RunnerError("split_executor_requires_native_transport")
+        if (
+            self.split_provider_config or split_access_token is not None
+        ) and not split_executor:
+            raise RunnerError("split_provider_requires_split_executor")
+        # The checked-in policy is LF on Linux and CRLF in Windows worktrees.
+        # Accept only these two reviewed byte representations of the same policy.
+        if hashlib.sha256(CONFIG.read_bytes()).hexdigest() not in {
+            CONFIG_SHA256,
+            CONFIG_LF_SHA256,
+        }:
+            raise RunnerError("permission_config_changed")
+        self.docker_environment = None
+        if check_docker:
+            self.docker_environment = self._check_container()
+            if split_executor:
+                _ensure_split_profile(
+                    self.profile, state=self.state, env=self.docker_environment
+                )
+            else:
+                with DockerRuntime(
+                    environment=self.docker_environment
+                ).connect() as docker:
+                    if not docker.volumes.exists(VOLUME):
+                        raise RunnerError("docker_control_failed")
+
+        for path in (self.state / "runs").glob("*/record.json"):
+            record = json.loads(path.read_text(encoding="utf-8"))
+            if record.get("live_session") == "idle":
+                record["live_session"] = "closed"
+                confirmed = check_docker and not self._pending_receipts(path.parent)
+                record["controller_cleanup"] = (
+                    "confirmed" if confirmed else "unverified"
+                )
+                record["container_ownership"]["cleanup_verified"] = confirmed
+                _json(path, record)
+
+    @property
+    def supports_mediated_github(self):
+        """Declare support only for this Agent mode that actually owns the supervised mediated path."""
+        return self.supervise_containers and not self.split_executor
+
+    def has_live_session(self, run_id):
+        """Observe only an exact in-memory zero-turn runtime owned by this Agent."""
+        with self._session_guard:
+            return run_id in self._idle_sessions
+
+    def close(self):
+        """Fence work, cancel active execution and close retained native resources."""
+        self._closing = True
+        super().close()
+        owner = self._session_owner
+        if owner is None:
+            return
+        if not self.lock.acquire(timeout=30):
+            raise RunnerError("container_termination_unverified")
+        try:
+            owner.run(self._close_idle_sessions())
+            owner.close()
+            self._session_owner = None
+        finally:
+            self.lock.release()
+
+    def cancel(self, run_id):
+        """Cancel active work or explicitly release an idle zero-turn controller."""
+        if self.has_live_session(run_id):
+            flag = self.cancel_flags.get(run_id)
+            if flag is not None:
+                flag.set()
+            self._session_owner.run(self._close_idle_session(run_id))
+            return self.status(run_id)
+        return super().cancel(run_id)
+
+    def runtime_binding(self):
+        """Return existing nonsecret provider/image/profile metadata for retained run identity."""
+        return RuntimeBinding(
+            provider=self.provider,
+            profile=self.profile,
+            image=self.image,
+            image_id=self.image_id,
+            execution_mode="codex_acp_split" if self.split_executor else "codex_acp",
+            cli_version=CLI_VERSION,
+            config_sha256=CONFIG_SHA256,
+            credential=(
+                CredentialBinding(
+                    credential_mode="chatgpt_plan_oauth",
+                    credential_ref=None,
+                    auth_outcome="not_checked",
+                )
+                if self.auth
+                else None
+            ),
+        )
+
+    def recover_interrupted(self, record):
+        """Reconcile only recorded owned resources after restart; do not replay the model request."""
+        owner = record.get("container_ownership") or {}
+        if owner.get("supervised"):
+            verified, detail = cleanup_exact(
+                ContainerIdentity(
+                    name=owner["name"],
+                    run_id=record["run_id"],
+                    token=owner["launch_token"],
+                    docker_endpoint=owner.get("docker_endpoint"),
+                )
+            )
+            owner["cleanup_verified"], owner["cleanup_detail"] = verified, detail
+            if not verified:
+                record["error_category"] = "container_cleanup_unverified"
+
+    def read_activity(
+        self, run_id: str, attempt_id: str, *, after: int = 0, limit: int = 100
+    ) -> ActivityPage:
+        """Normalize retained codex evidence behind the common Activity boundary."""
+        from laomedo.agents.agents.codex.activity.projection import project
+
+        return self._normalize_activity(
+            run_id, attempt_id, after=after, limit=limit, projector=project
+        )
+
+    def readiness(self) -> ReadinessObservation:
+        """Return the actual native check's availability, reason and scope without inference."""
+        try:
+            return self._observe_readiness(
+                ready_on_success=None, unverified_reason="authentication_not_verified"
+            )
+        except AuthError as error:
+            return ReadinessObservation(
+                provider=self.provider,
+                ready=False,
+                reason=error.code,
+                scope="native_handshake_and_policy_probes",
+                payload={"status": "blocked", "error_category": error.code},
+            )
+
+    def preflight(self) -> dict:
+        """Run provider handshake and policy probes without a model request."""
+        return asyncio.run(self._preflight())
+
+    def resume(
+        self,
+        run_id: str,
+        task: str,
+        *,
+        expected_post_run_hash: str,
+        expected_thread_id: str,
+        model: str,
+        effort: str,
+        activity_attempt_id: str | None = None,
+        run_timeout_seconds: int | None = None,
+        native_command=None,
+    ) -> dict:
+        """Admit an existing session/workspace binding before continuing it; failures never create a fresh session."""
+        self._validate_run_timeout(run_timeout_seconds)
+        if native_command is not None:
+            from laomedo.agents.agents.base.models import NativeCommandInvocation
+            from laomedo.agents.agents.codex.commands import CodexCommands
+
+            native_command = NativeCommandInvocation.model_validate(native_command)
+            CodexCommands.validate(native_command)
+            if task != native_command.text():
+                raise RunnerError("native_command_context_invalid")
+        if not all(
+            isinstance(value, str) and value.strip() for value in (model, effort)
+        ):
+            raise RunnerError("unsupported_model_effort")
+        record = self.status(run_id)
+        if (
+            self.publication_controller is not None
+            and run_id in self.publication_controller.owned
+        ):
+            raise RunnerError("publication_handoff_resume_denied")
+        if not isinstance(task, str) or not task.strip():
+            raise RunnerError("invalid_task")
+        checkpoint = self._resume_checkpoint(record)
+        if (
+            (record["status"] != "completed" and checkpoint is None)
+            or not record["thread_id"]
+            or record["thread_id"] != expected_thread_id
+            or (checkpoint.workspace_hash if checkpoint else record["post_run_hash"])
+            != expected_post_run_hash
+            or record["profile"] != self.profile
+            or record.get("workspace_mode", "files")
+            != ("git" if self.git_workspace else "files")
+            or record.get("execution_mode", "legacy")
+            != ("codex_acp_split" if self.split_executor else "codex_acp")
+            or record["image"] != self.image
+            or record["image_id"] != self.image_id
+            or record["cli_version"] != CLI_VERSION
+            or record["config_sha256"] != CONFIG_SHA256
+        ):
+            raise RunnerError("resume_binding_mismatch")
+        run_dir = self._run_dir(run_id)
+        if activity_attempt_id is not None:
+            if not isinstance(activity_attempt_id, str):
+                raise RunnerError("invalid_activity_attempt_id")
+            _id(activity_attempt_id)
+            if (
+                run_dir / "activity-attempts" / (activity_attempt_id + ".json")
+            ).exists():
+                raise RunnerError("activity_attempt_already_exists")
+        snapshot = run_dir / "post-run"
+        workspace = run_dir / "workspace"
+        if not snapshot.exists() or _hash_tree(snapshot) != expected_post_run_hash:
+            raise RunnerError("post_run_snapshot_mismatch")
+        if (
+            _hash_tree(workspace, exclude_root_git=self.git_workspace)
+            != expected_post_run_hash
+        ):
+            raise RunnerError("workspace_changed_since_snapshot")
+        if (
+            _hash_tree(run_dir / "canonical") != record["source_hash"]
+            or (run_dir / "store/sentinel.txt").read_text(encoding="utf-8")
+            != "STORE-ORIGINAL"
+        ):
+            raise RunnerError("protected_mount_changed")
+        if self.auth:
+            if record.get("runner_instance_id") != self.instance_id:
+                raise RunnerError("resume_after_runner_restart_forbidden")
+            _token, current = self.credentials.borrow().native_pair()
+            prior = record.get("credential") or {}
+            if any(
+                current.get(key) != prior.get(key)
+                for key in ("credential_ref", "provider_subject_hash")
+            ):
+                raise RunnerError("resume_auth_identity_mismatch")
+        return self._execute(
+            run_id,
+            task,
+            resume=True,
+            activity_attempt_id=activity_attempt_id,
+            model=model,
+            effort=effort,
+            native_command=native_command,
+        )
+
+    def prepare_initial_command(self, request: dict) -> str:
+        """Admit only exact control-only status on a newly created native session."""
+        if (
+            request.get("initial_native_command") != "status"
+            or request.get("task") != "/status"
+            or request.get("output_requirements") is not None
+            or request.get("github_scope") is not None
+            or request.get("github_authorization_ref") is not None
+        ):
+            raise RunnerError("native_command_context_invalid")
+        return "status"
+
+    def prepare_resume(self, run_id, body):
+        """Admit explicit Codex command mode without changing ordinary resume semantics."""
+        request = body.get("native_command")
+        ordinary = {
+            key: value for key, value in body.items() if key != "native_command"
+        }
+        extra = super().prepare_resume(run_id, ordinary)
+        if request is not None:
+            from laomedo.agents.agents.base.models import NativeCommandInvocation
+            from laomedo.agents.agents.codex.commands import CodexCommands
+
+            command = NativeCommandInvocation.model_validate(request)
+            CodexCommands.validate(command)
+            if self.status(run_id).get("output_requirements") or self.status(
+                run_id
+            ).get("github_scope"):
+                raise RunnerError("native_command_context_invalid")
+            extra["native_command"] = command
+        return extra
+
+    def _resume_checkpoint(self, record):
+        """Read a same-instance, attempt-local settlement without promoting output success."""
+        from pydantic import ValidationError
+
+        if record.get("status") not in {"failed", "cancelled", "interrupted"}:
+            return None
+        try:
+            checkpoint = ResumeCheckpoint.model_validate(
+                record.get("resume_checkpoint")
+            )
+        except ValidationError:
+            return None
+        if (
+            checkpoint.runner_instance_id != self.instance_id
+            or checkpoint.attempt_id != record.get("activity_attempt_id")
+            or checkpoint.thread_id != record.get("thread_id")
+            or record.get("attempt_finished") is not True
+            or record.get("controller_cleanup") != "confirmed"
+            or record.get("container_ownership", {}).get("cleanup_verified") is not True
+        ):
+            return None
+        return checkpoint
+
+    def _check_container(self) -> dict[str, str]:
+        """Recover and verify the Docker runtime without credentials or model work.
+
+        Returns
+        -------
+        dict[str, str]
+            Private host environment with the selected local daemon pinned.
+
+        Raises
+        ------
+        RunnerError
+            Existing image, CLI, configuration or cleanup refusal. Cleanup
+            uncertainty wins and retains the receipt; no implicit retry occurs.
+        """
+        try:
+            from docker.errors import DockerException
+            from requests.exceptions import RequestException
+            from py_docker.connection.settings import ConnectionSettings
+            from py_docker.containers.models import ContainerSpec
+            from py_docker.errors import (
+                CleanupUnconfirmedError,
+                ConnectionConfigurationError,
+                DockerOperationError,
+                OwnershipConflictError,
+            )
+            from py_docker.jobs.models import ContainerJob
+            from py_docker.streams.models import StreamLimits
+        except ImportError:
+            logging.getLogger(__name__).warning(
+                "Local Docker runtime dependencies are missing. Install Laomedo's "
+                "runner extra in the Python environment used to start this runner "
+                "(python -m pip install -e '.[runner]')."
+            )
+            raise RunnerError("runner_docker_check_unconfirmed") from None
+        snapshot = ConnectionSettings.environment_snapshot(None)
+        try:
+            with DockerRuntime(
+                settings=ConnectionSettings(
+                    timeout_seconds=PREFLIGHT_API_TIMEOUT_SECONDS
+                ),
+                environment=snapshot,
+            ).connect() as client:
+                receipt = self.state.joinpath(PREFLIGHT_RECEIPT_FILENAME)
+                DockerRuntime.recover_receipts(client, [receipt], kind="job")
+                self._recover_containers(client)
+                try:
+                    self.image_id = DockerRuntime.ensure_image(
+                        client, self.image, expected_id=self.image_id
+                    )
+                except OwnershipConflictError:
+                    raise RunnerError("docker_image_digest_changed") from None
+                result = DockerRuntime.execute_job(
+                    client,
+                    ContainerJob(
+                        spec=ContainerSpec(
+                            image=self.image_id,
+                            name="laomedo-codex-preflight-" + uuid4().hex,
+                            command=["codex", "--version"],
+                            user="10001:10001",
+                        ),
+                        limits=StreamLimits(
+                            seconds=PREFLIGHT_STREAM_SECONDS,
+                            max_bytes=PREFLIGHT_MAX_OUTPUT_BYTES,
+                        ),
+                        receipt_path=receipt,
+                        wait_timeout_seconds=PREFLIGHT_WAIT_SECONDS,
+                    ),
+                )
+                try:
+                    version = result.stdout.decode("utf-8").strip()
+                except UnicodeDecodeError:
+                    raise RunnerError("unsupported_codex_cli_version") from None
+                if result.exit_code != 0 or version != CLI_VERSION:
+                    raise RunnerError("unsupported_codex_cli_version")
+                pinned = {
+                    key: value
+                    for key, value in snapshot.items()
+                    if key.upper() not in {"DOCKER_HOST", "DOCKER_CONTEXT"}
+                }
+                pinned["DOCKER_HOST"] = client.connection.endpoint
+                return pinned
+        except RunnerError:
+            raise
+        except ImageBuildError:
+            raise RunnerError("container_image_build_failed") from None
+        except CleanupUnconfirmedError:
+            raise RunnerError("container_termination_unverified") from None
+        except ConnectionConfigurationError:
+            logging.getLogger(__name__).warning(
+                "Docker endpoint selection was rejected: use one unambiguous local "
+                "DOCKER_HOST or DOCKER_CONTEXT; TLS and remote endpoints are unsupported "
+                "by this local trial. No configuration values are logged."
+            )
+            raise RunnerError("runner_docker_check_unconfirmed") from None
+        except (
+            DockerOperationError,
+            DockerException,
+            RequestException,
+            OSError,
+            ValueError,
+            TypeError,
+            KeyError,
+            AttributeError,
+        ):
+            raise RunnerError("runner_docker_check_unconfirmed") from None
+
+    def _recover_containers(self, client) -> None:
+        """Recover central and legacy receipts on the selected client.
+
+        Parameters
+        ----------
+        client : py_docker.Client
+            Endpoint-bound client; recovery refuses uncertain or active receipts.
+        """
+        for pending in self.state.joinpath("receipts").glob("*.json"):
+            DockerRuntime.recover_receipts(client, [pending], kind="session")
+        for folder in ("runs", "catalog", "preflight"):
+            for pending in self.state.joinpath(folder).glob("*/*receipt*.json"):
+                DockerRuntime.recover_receipts(client, [pending], kind="session")
+
+    def _receipt_path(self, root: Path) -> Path:
+        """Keep lifecycle intent outside disposable metadata and evidence folders."""
+        directory = self.state.joinpath("receipts")
+        directory.mkdir(mode=0o700, exist_ok=True)
+        return directory.joinpath(root.name + "-controller.json")
+
+    def _pending_receipts(self, root: Path) -> bool:
+        """Retain evidence for either unresolved controller or executor cleanup."""
+        return any(self.state.joinpath("receipts").glob(root.name + "-*.json")) or any(
+            root.glob("*receipt*.json")
+        )
+
+    def _open_server(
+        self,
+        root: Path,
+        *,
+        access_token=None,
+        lifetime_seconds: float = 60,
+        name: str | None = None,
+        run_id: str | None = None,
+        launch_token: str | None = None,
+        capability: Path | None = None,
+        mediator_url: str | None = None,
+        mediator_instance: str | None = None,
+        repository: str | None = None,
+        branch: str | None = None,
+        base_branch: str = "main",
+    ):
+        """Launch the configured native runtime with exact admitted mounts, credential transfer and receipt identity."""
+        workspace, canonical, store_mount = (
+            root / name for name in ("workspace", "canonical", "store")
+        )
+        command_directory = None
+        if capability is not None and self.git_workspace:
+            from laomedo.host.mediation.agent_cli import configure_remote
+            from laomedo.host.mediation.agent_cli import prepare_commands
+
+            if repository is None or branch is None:
+                raise RunnerError("mediated_command_scope_missing")
+            command_directory = prepare_commands(root, repository, branch)
+            # The checkout was prepared without a provider remote. This is a
+            # credential-free helper URL, not an HTTPS fallback.
+            configure_remote(workspace, repository)
+        from laomedo.agents.agents.codex.controller.models import CodexLaunch
+
+        launch = CodexLaunch(
+            workspace=workspace,
+            canonical=canonical,
+            store_mount=store_mount,
+            image=self.image_id or self.image,
+            managed_image=self._managed_image,
+            profile=self.profile,
+            run_id=run_id,
+            launch_token=launch_token,
+            capability=capability,
+            mediator_url=mediator_url,
+            mediator_instance=mediator_instance,
+            command_directory=command_directory,
+            repository=repository,
+            branch=branch,
+            base_branch=base_branch,
+            **({"name": name} if name is not None else {}),
+        )
+        from laomedo.agents.agents.codex.controller.models import SplitPolicy
+
+        if isinstance(self.transport, type) and issubclass(
+            self.transport, CodexAgentRuntime
+        ):
+            split = (
+                SplitPolicy(
+                    managed_credential=bool(self.auth),
+                    provider_config=self.split_provider_config,
+                    access_token=(
+                        access_token
+                        if access_token is not None
+                        else self.split_access_token
+                    ),
+                )
+                if self.split_executor
+                else None
+            )
+            return self.transport(
+                launch,
+                root,
+                env=self.docker_environment,
+                lifetime_seconds=lifetime_seconds,
+                receipt_path=self._receipt_path(root),
+                split=split,
+                secret_redactions=(
+                    (capability.read_text(encoding="utf-8").strip(),)
+                    if capability is not None
+                    else ()
+                ),
+            )
+        return self.transport(launch, root)
+
+    async def _model_catalog(self):
+        """Read native model metadata under a temporary bounded scope and reconcile cleanup without inference."""
+        root = self.state / "catalog" / str(uuid4())
+        server = None
+        try:
+            for name in ("workspace", "canonical", "store"):
+                (root / name).mkdir(parents=True)
+            token = self.credentials.borrow().native_pair()[0] if self.auth else None
+            server = self._open_server(
+                root,
+                access_token=token,
+                lifetime_seconds=60 + Settings.load().startup_margin,
+            )
+            await server.initialize()
+            models = await server.models()
+            defaults = [item["id"] for item in models if item.get("is_default") is True]
+            if len(defaults) > 1:
+                raise RunnerError("model_list_invalid_entry")
+            result = {"models": models, "submitted_turns": 0}
+            if defaults:
+                result["default_model_id"] = defaults[0]
+            return result
+        finally:
+            try:
+                if server is not None:
+                    await server.close()
+            finally:
+                if not self._pending_receipts(root):
+                    shutil.rmtree(root, ignore_errors=True)
+
+    async def _preflight(self) -> dict:
+        """Launch native handshake, model and permission probes without a model turn.
+
+        This active check starts a controller and uses a disposable workspace.
+        Provider-neutral Docker startup validation is performed separately by
+        the constructor; this method checks the Codex protocol and permissions.
+        """
+        root = self.state / "preflight" / str(uuid4())
+        root.mkdir(parents=True)
+        for name in ("workspace", "canonical", "store"):
+            (root / name).mkdir()
+        (root / "canonical/sentinel.txt").write_text(
+            "CANONICAL-ORIGINAL", encoding="utf-8"
+        )
+        (root / "store/sentinel.txt").write_text("STORE-ORIGINAL", encoding="utf-8")
+        server = None
+        try:
+            token = self.credentials.borrow().native_pair()[0] if self.auth else None
+            server = self._open_server(
+                root,
+                access_token=token,
+                lifetime_seconds=160 + Settings.load().startup_margin,
+            )
+            await server.initialize()
+            models = await server.models()
+            checks = {}
+            for label in (
+                "workspace_write",
+                "canonical_write",
+                "store_write",
+                "auth_read",
+            ):
+                checks[label] = await server.preflight(label)
+            if self.git_workspace:
+                checks["git_binary"] = await server.preflight("git_binary")
+                if checks["git_binary"] != 0:
+                    raise RunnerError("git_image_missing_git")
+            if not (
+                checks["workspace_write"] == 0
+                and all(
+                    checks[x] not in (None, 0)
+                    for x in ("canonical_write", "store_write", "auth_read")
+                )
+                and (root / "workspace/canary.txt").read_text() == "CANARY"
+                and (root / "canonical/sentinel.txt").read_text()
+                == "CANONICAL-ORIGINAL"
+                and (root / "store/sentinel.txt").read_text() == "STORE-ORIGINAL"
+            ):
+                raise RunnerError("permission_preflight_failed")
+            return {
+                "status": "ready",
+                "models": models,
+                "image": self.image,
+                "image_id": self.image_id,
+                "cli_version": CLI_VERSION,
+                "profile": self.profile,
+                "config_sha256": CONFIG_SHA256,
+                "permission_checks": checks,
+                "submitted_turns": 0,
+            }
+        finally:
+            if server is not None:
+                await server.close()
+
+    async def _close_idle_sessions(self):
+        """Drain retained resources on their original native thread."""
+        for run_id in list(self._idle_sessions):
+            await self._close_idle_session(run_id, reason="shutdown")
+        if self._idle_cleanup_lock is not None:
+            async with self._idle_cleanup_lock:
+                pass
+        if self._session_watch is not None:
+            self._session_watch.cancel()
+            self._session_watch = None
+
+    async def _close_idle_session(self, run_id, *, reason="cancelled"):
+        """Close exact runtime ownership without rewriting a completed command result."""
+        if self._idle_cleanup_lock is None:
+            self._idle_cleanup_lock = asyncio.Lock()
+        async with self._idle_cleanup_lock:
+            with self._session_guard:
+                held = self._idle_sessions.get(run_id)
+            if held is None:
+                return
+            held.closing = True
+            confirmed = False
+            try:
+                await held.runtime.close()
+                if held.lease is not None:
+                    held.lease.finish()
+                confirmed = True
+            finally:
+                with self.control_lock:
+                    record = self.status(run_id)
+                    record["live_session"] = "closed"
+                    record["live_session_close_reason"] = reason
+                    record["controller_cleanup"] = (
+                        "confirmed" if confirmed else "unverified"
+                    )
+                    record["container_ownership"]["cleanup_verified"] = confirmed
+                    record["container_ownership"]["cleanup_detail"] = (
+                        "removed" if confirmed else "unverified"
+                    )
+                    _json(self._run_dir(run_id) / "record.json", record)
+                with self._session_guard:
+                    self._idle_sessions.pop(run_id, None)
+                self.release_mcp(run_id)
+                self.cancel_flags.pop(run_id, None)
+
+    async def _watch_idle_sessions(self):
+        """Release unused sessions after expiry, cancellation or loss of native health."""
+        while not self._closing:
+            await asyncio.sleep(0.5)
+            with self._session_guard:
+                sessions = list(self._idle_sessions.items())
+            for run_id, held in sessions:
+                reason = "cancelled" if held.cancelled.is_set() else "expired"
+                failed = held.cancelled.is_set() or time.monotonic() >= held.expires
+                if not failed:
+                    try:
+                        held.runtime.check_health(idle=True)
+                    except Exception as exc:
+                        reason = (
+                            str(exc)
+                            if str(exc)
+                            in {
+                                "auth_refresh_unknown",
+                                "auth_refresh_timeout",
+                                "auth_revoked",
+                                "auth_account_mismatch",
+                                "auth_generation_changed",
+                                "auth_mode_unavailable",
+                            }
+                            else "health_lost"
+                        )
+                        failed = True
+                if failed:
+                    try:
+                        await self._close_idle_session(run_id, reason=reason)
+                    except Exception:
+                        logging.getLogger(__name__).warning(
+                            "idle_codex_cleanup_unconfirmed"
+                        )
+
+    def _execute(
+        self,
+        run_id: str,
+        task: str,
+        *,
+        resume: bool,
+        activity_attempt_id: str | None = None,
+        model: str | None = None,
+        effort: str | None = None,
+        native_command=None,
+    ) -> dict:
+        """Own one admitted attempt and its cancellation, snapshot, evidence and exact cleanup finalization."""
+        if self._closing:
+            raise RunnerError("run_not_dispatchable")
+        with self._session_guard:
+            if (
+                self._session_owner is None
+                and self.status(run_id).get("initial_native_command") == "status"
+            ):
+                self._session_owner = CodexSessionOwner()
+            owner = self._session_owner
+        operation = self._execute_acp(
+            run_id,
+            task,
+            resume=resume,
+            activity_attempt_id=activity_attempt_id,
+            model=model,
+            effort=effort,
+            native_command=native_command,
+        )
+        return owner.run(operation) if owner is not None else asyncio.run(operation)
+
+    async def _execute_acp(
+        self,
+        run_id: str,
+        task: str,
+        *,
+        resume: bool,
+        activity_attempt_id: str | None = None,
+        model: str | None = None,
+        effort: str | None = None,
+        native_command=None,
+    ) -> dict:
+        """Coordinate the admitted attempt through shared ACP while retaining provider-specific policy and evidence."""
+        if activity_attempt_id is not None:
+            if not isinstance(activity_attempt_id, str):
+                raise RunnerError("invalid_activity_attempt_id")
+            _id(activity_attempt_id)
+        if not self.lock.acquire(blocking=False):
+            raise RunnerError("runner_busy")
+        run_dir, record, cancelled, server, lease = None, None, None, None, None
+        evidence_offset, attempt_turn_offset = 0, 0
+        launch_attempted = False
+        keep_alive = False
+        held = None
+        activity_start = None
+        activity_attempt = None
+        primary_failure = cleanup_failure = None
+        try:
+            run_dir = self._run_dir(run_id)
+            with self.control_lock:
+                record = self.status(run_id)
+                record.setdefault("precheck", {"installed": False, "call_count": 0})
+                if (
+                    not resume
+                    and record["status"] == "cancelled"
+                    and record.get("cancel_confirmed")
+                ):
+                    return record
+                if (not resume and record["status"] != "prepared") or (
+                    resume
+                    and record["status"] != "completed"
+                    and self._resume_checkpoint(record) is None
+                ):
+                    raise RunnerError("run_not_dispatchable")
+                self.check_mcp(record)
+                if (
+                    not resume
+                    and record.get("initial_native_command") is not None
+                    and (
+                        record["initial_native_command"] != "status"
+                        or task != "/status"
+                    )
+                ):
+                    raise RunnerError("native_command_context_invalid")
+                if resume and model is not None and effort is not None:
+                    # Session identity and workspace admission stay fixed; native
+                    # catalog/configure checks below validate this turn's selection.
+                    record["requested_model"] = model
+                    record["requested_effort"] = effort
+                with self._session_guard:
+                    held = self._idle_sessions.get(run_id) if resume else None
+                    if held is not None:
+                        if held.closing:
+                            raise RunnerError("run_not_dispatchable")
+                        self._idle_sessions.pop(run_id)
+                if resume and record.get("live_session") == "idle" and held is None:
+                    raise RunnerError("codex_idle_session_unavailable")
+                if (
+                    resume
+                    and record.get("live_session") == "closed"
+                    and not record["turns"]
+                ):
+                    raise RunnerError("codex_idle_session_unavailable")
+                if held is not None:
+                    server, lease = held.runtime, held.lease
+                    launch_attempted = True
+                    if time.monotonic() >= held.expires:
+                        raise RunnerError("codex_idle_session_unavailable")
+                cancelled = held.cancelled if held is not None else threading.Event()
+                if cancelled.is_set():
+                    raise RunnerError("run_not_dispatchable")
+                evidence_offset = (run_dir / "raw-events.jsonl").stat().st_size
+                attempt_turn_offset = len(record["turns"])
+                from laomedo.agents.activity.runner.feed import line_count
+                from laomedo.agents.activity.runner.feed import read_feed
+
+                activity_start = (
+                    line_count(run_dir / "activity-events.jsonl"),
+                    line_count(run_dir / "otel-events.jsonl"),
+                )
+                attempt_id = (
+                    activity_attempt_id
+                    if resume
+                    else record.get("activity_initial_attempt_id")
+                ) or str(uuid4())
+                attempts = run_dir / "activity-attempts"
+                attempts.mkdir(exist_ok=True)
+                if (attempts / (attempt_id + ".json")).exists():
+                    raise RunnerError("activity_attempt_already_exists")
+                activity_attempt = ActivityAttemptRecord(
+                    id=attempt_id,
+                    native_start=activity_start[0],
+                    otel_start=activity_start[1],
+                    native_end=None,
+                    otel_end=None,
+                    fresh_thread=not resume,
+                    usage_baseline=read_feed(
+                        run_dir / "activity-events.jsonl", tail=True
+                    )["usage_baseline"],
+                    status="running",
+                    ended_at=None,
+                ).to_record()
+                _json(attempts / (attempt_id + ".json"), activity_attempt)
+                record["activity_attempt_id"] = attempt_id
+                record.update(evidence_complete="unknown", completion_basis=None)
+                self.cancel_flags[run_id] = cancelled
+                record["status"] = "running"
+                record["snapshot_ready"] = False
+                record["post_run_hash"] = None
+                record["output_ref"] = None
+                record["controller_cleanup"] = "not_started"
+                record["attempt_finished"] = False
+                record.pop("resume_checkpoint", None)
+                record.pop("native_turn_status", None)
+                record["cancel_confirmed"] = False
+                record["cancel_requested"] = False
+                name = "laomedo-codex-" + uuid4().hex
+                launch_token = uuid4().hex
+                record["container_ownership"] = {
+                    "name": name,
+                    "docker_endpoint": (self.docker_environment or {}).get(
+                        "DOCKER_HOST"
+                    ),
+                    "launch_token": launch_token,
+                    "supervised": self.supervise_containers,
+                    "cleanup_verified": False,
+                }
+                if held is not None:
+                    record["container_ownership"] = dict(held.ownership)
+                    name = held.ownership["name"]
+                    launch_token = held.ownership["launch_token"]
+                    server, lease = held.runtime, held.lease
+                    launch_attempted = True
+                    record["live_session"] = "active"
+                _json(run_dir / "record.json", record)
+            try:
+                verify(
+                    run_dir / "workspace",
+                    record["skills"],
+                    record.get("skill_git_exclusion", {"enabled": False}),
+                )
+            except ValueError as exc:
+                raise RunnerError(str(exc)) from None
+            if self.supervise_containers and held is None:
+                if self.lease_service is None:
+                    raise RunnerError("lease_service_required")
+                try:
+                    lease = LeaseClient(
+                        self.lease_service,
+                        run_id=run_id,
+                        name=name,
+                        docker_endpoint=(self.docker_environment or {}).get(
+                            "DOCKER_HOST"
+                        ),
+                        token=launch_token,
+                        cancelled=cancelled,
+                        mediation_request=record.get("github_scope"),
+                    )
+                except (OSError, RuntimeError):
+                    raise RunnerError("lease_service_unavailable") from None
+                record["container_ownership"]["lease_instance"] = lease.instance
+                record["container_ownership"]["grant_id"] = lease.grant_id
+                if self.publication_controller is not None and record.get(
+                    "github_scope"
+                ):
+                    self.publication_controller.register(lease, record)
+                with self.control_lock:
+                    _json(run_dir / "record.json", record)
+            capability = None
+            mediator_url = None
+            mediator_instance = None
+            if record.get("github_scope") is not None:
+                if lease is None or lease.grant_id is None:
+                    raise RunnerError("mediated_grant_unavailable")
+                capability = lease.dir / "grant.secret"
+                if capability.is_symlink() or not capability.is_file():
+                    raise RunnerError("mediated_capability_unavailable")
+                mediator_url, mediator_instance = self._mediator_route()
+            access_token, auth_summary = (
+                self.credentials.borrow().native_pair() if self.auth else (None, None)
+            )
+            if resume and self.auth:
+                prior = record.get("credential") or {}
+                if any(
+                    auth_summary.get(key) != prior.get(key)
+                    for key in ("credential_ref", "provider_subject_hash")
+                ):
+                    raise RunnerError("resume_auth_identity_mismatch")
+            record["credential"] = auth_summary
+            _json(run_dir / "record.json", record)
+            transport_settings = Settings.load()
+            launch_attempted = True
+            credential_digest = (
+                hashlib.sha256(access_token.encode()).hexdigest()
+                if access_token is not None
+                else None
+            )
+            if held is not None and credential_digest != held.credential_digest:
+                if access_token is None:
+                    raise RunnerError("runner_authentication_required")
+                await server.refresh_credential(access_token)
+            if held is None:
+                server = self._open_server(
+                    run_dir,
+                    lifetime_seconds=(
+                        NATIVE_TURN_SECONDS * (1 + record.get("output_retries", 0))
+                        + transport_settings.startup_margin
+                        + (
+                            transport_settings.idle_session_seconds
+                            if record.get("initial_native_command") == "status"
+                            else 0
+                        )
+                    ),
+                    access_token=access_token,
+                    name=name,
+                    run_id=run_id,
+                    launch_token=launch_token,
+                    capability=capability,
+                    mediator_url=mediator_url,
+                    mediator_instance=mediator_instance,
+                    repository=(record.get("github_scope") or {}).get("repository"),
+                    branch=(record.get("github_scope") or {}).get("branch"),
+                    base_branch=(record.get("github_scope") or {}).get(
+                        "base_branch", "main"
+                    ),
+                )
+                record["controller_cleanup"] = "pending"
+                # Keep the pre-launch name/launch-token/grant ownership binding;
+                # lifecycle diagnostics must not replace it with a name-only map.
+                _json(run_dir / "record.json", record)
+                await server.initialize()
+            else:
+                record["controller_cleanup"] = "pending"
+            entries = await server.models()
+            choice = next(
+                (x for x in entries if x["id"] == record["requested_model"]), None
+            )
+            levels = set((choice or {}).get("efforts", []))
+            if choice is None or record["requested_effort"] not in levels:
+                raise RunnerError("unsupported_model_effort")
+            if cancelled.is_set():
+                record.update(
+                    status="cancelled",
+                    error_category="cancelled_before_turn",
+                    cancel_requested=True,
+                )
+                return record
+            server.mcp_access = self.mcp_access(run_id)
+            native_id = await server.open(
+                record, resume=resume, **({"reuse": True} if held is not None else {})
+            )
+            catalog = server.command_catalog()
+            initial_status = (
+                not resume and record.get("initial_native_command") == "status"
+            )
+            if initial_status:
+                from laomedo.agents.agents.base.models import NativeCommandInvocation
+
+                if catalog is None:
+                    raise RunnerError("native_command_not_supported")
+                projection = CodexCommands.project(catalog.model_dump(mode="json"))
+                if not any(
+                    item["name"] == "status"
+                    and item["executable"]
+                    and item["may_use_model"] is False
+                    for item in projection["commands"]
+                ):
+                    raise RunnerError("native_command_not_available")
+                native_command = NativeCommandInvocation(
+                    name="status", catalog_revision=catalog.revision()
+                )
+                CodexCommands.admit(native_command, catalog)
+            record["native_commands"] = {
+                "thread_id": native_id,
+                "catalog": (
+                    catalog.model_dump(mode="json") if catalog is not None else None
+                ),
+                "projection": (
+                    CodexCommands.project(catalog.model_dump(mode="json"))
+                    if catalog is not None
+                    else None
+                ),
+            }
+            if native_command is not None:
+                if (
+                    (not resume and not initial_status)
+                    or record.get("github_scope")
+                    or record.get("output_requirements")
+                ):
+                    raise RunnerError("native_command_context_invalid")
+            record["thread_id"] = native_id
+            record["precheck"]["installed"] = bool(record.get("output_requirements"))
+            record["effective_model"] = record["requested_model"]
+            record["effective_effort"] = record["requested_effort"]
+            # ACP echoes adapter configuration, not an independent native report.
+            record["effective_model_source"] = "host_requested_adapter_asserted"
+            record["effective_effort_source"] = "host_requested_adapter_asserted"
+            _json(run_dir / "record.json", record)
+            if cancelled.is_set():
+                record.update(
+                    status="cancelled",
+                    error_category="cancelled_before_turn",
+                    cancel_requested=True,
+                )
+                return record
+            attempt = self._reserve_turn()
+            record["attempt_number"] = attempt
+            _json(run_dir / "record.json", record)
+            if cancelled.is_set():
+                record.update(
+                    status="cancelled",
+                    error_category="cancelled_before_turn",
+                    cancel_requested=True,
+                )
+                return record
+            if record.get("github_scope") is not None:
+                task += (
+                    "\n\nThis run has approved, bounded GitHub mediation "
+                    "for its selected Actions reads, bound PR read/create/update, and "
+                    "verified-commit branch push operations. A "
+                    "bundle_freeze request only captures the fixed in-run "
+                    "Git bundle; it does not verify or push it. "
+                    "To request one of those operations, pipe one JSON object "
+                    "with repository, operation, payload and (for a write) "
+                    "effect_id to `node /run/laomedo/mediate.mjs`. "
+                    "The client reads its run capability from a read-only file; "
+                    "never print or copy that file. A denied or unknown write "
+                    "must not be retried automatically. Direct host GitHub "
+                    "credentials and ambient gh login are unavailable."
+                )
+                if self.git_workspace:
+                    task += (
+                        " Native `git push origin HEAD:refs/heads/"
+                        + record["github_scope"]["branch"]
+                        + "` and `git fetch origin` use the mediated helper. "
+                        "Fetch requires an explicitly granted read operation. "
+                        "The supported `gh pr view/create/edit`, `gh run list`, "
+                        "and GET-only `gh api` adapter is on PATH. "
+                        "PR writes require LAOMEDO_EFFECT_ID and "
+                        "LAOMEDO_RECONCILIATION_MARKER, an explicit title/body "
+                        "and target; unsupported commands fail visibly. "
+                        "Updates require a fast-forward from this run's "
+                        "last confirmed push; never force or fall back "
+                        "to direct HTTPS."
+                    )
+            turn_text = task
+            if record.get("output_requirements"):
+                turn_text += (
+                    "\nReturn your final submission as a JSON object with explicit task_outcome "
+                    "success or failure. Use laomedo_output_precheck on your form before "
+                    "handoff and correct rejected fields within this request. Requirements: "
+                    + json.dumps(record["output_requirements"], sort_keys=True)
+                )
+            server.assert_controller_isolated()
+            if self.auth:
+                auth_failure = {
+                    "error": "auth_revoked_during_turn",
+                    "outcome": "revoked",
+                    "code": "auth_revoked",
+                }
+
+                refresh_started = None
+
+                def still_authorized(*, idle=False):
+                    """Recheck identity; only idle controllers may await bounded renewal."""
+                    nonlocal refresh_started
+                    try:
+                        current = self.auth.account(self.auth_client_id)
+                        selected = self.auth.summary(current)
+                    except AuthError as exc:
+                        category, outcome = _auth_record_error(exc)
+                        auth_failure.update(
+                            error=category + "_during_turn",
+                            outcome=outcome,
+                            code=str(exc),
+                        )
+                        return False
+                    except (OSError, ValueError):
+                        auth_failure.update(
+                            error="auth_unavailable_during_turn",
+                            outcome="unavailable",
+                            code="auth_mode_unavailable",
+                        )
+                        return False
+                    if any(
+                        selected.get(key) != auth_summary.get(key)
+                        for key in ("credential_ref", "provider_subject_hash")
+                    ):
+                        auth_failure.update(
+                            error="auth_account_changed_during_turn",
+                            outcome="account_mismatch",
+                            code="auth_account_mismatch",
+                        )
+                        return False
+                    identity_generation = (
+                        "connection_generation"
+                        if "connection_generation" in auth_summary
+                        else "generation"
+                    )
+                    if selected.get(identity_generation) != auth_summary.get(
+                        identity_generation
+                    ):
+                        auth_failure.update(
+                            error="auth_generation_changed_during_turn",
+                            outcome="generation_changed",
+                            code="auth_generation_changed",
+                        )
+                        return False
+                    state = current.get("state")
+                    if state == "refresh_in_flight" and idle:
+                        if refresh_started is None:
+                            refresh_started = time.monotonic()
+                        if (
+                            time.monotonic() - refresh_started
+                            < IDLE_AUTH_REFRESH_SECONDS
+                        ):
+                            return True
+                        auth_failure.update(
+                            error="auth_refresh_failed_during_turn",
+                            outcome="refresh_unknown",
+                            code="auth_refresh_timeout",
+                        )
+                        return False
+                    refresh_started = None
+                    if state != "active":
+                        if state in {"refresh_unknown", "refresh_in_flight"}:
+                            auth_failure.update(
+                                error="auth_refresh_failed_during_turn",
+                                outcome="refresh_unknown",
+                                code="auth_refresh_unknown",
+                            )
+                        return False
+                    return True
+
+                server.authorization_failure = auth_failure
+                server.authorization_probe = still_authorized
+                if not still_authorized():
+                    raise AuthError(auth_failure["code"])
+            turn_event_offset = len(server.events)
+            native = await server.prompt(
+                turn_text,
+                skills=record["skills"],
+                seconds=NATIVE_TURN_SECONDS,
+                cancelled=cancelled,
+                **({"command": native_command} if native_command is not None else {}),
+            )
+            turn_id, status, error = native.turn_id, native.status, native.error
+            # Correction is a continuation of this native thread, never a new
+            # dispatch of the original task. Any mediated scope or tool effect
+            # blocks automatic continuation because safe repetition is unknown.
+            correction_count = 0
+            while record.get("output_requirements") and status == "completed":
+                try:
+                    submission = json.loads(
+                        _answer(server.events[turn_event_offset:], record["thread_id"])
+                        or "null"
+                    )
+                except (ValueError, TypeError):
+                    submission = None
+                validation = evaluate(record["output_requirements"], submission)
+                record["output_validation"] = validation
+                if (
+                    validation["contract_status"] == "accepted"
+                    or isinstance(submission, dict)
+                    and submission.get("task_outcome") == "failure"
+                    or correction_count >= record["output_retries"]
+                ):
+                    break
+                commands_before = _command_summary(server.events, turn_id)
+
+                def effect_event(event):
+                    """Retain the scoped effect observation without treating a model claim as host authorization."""
+                    if event.get("method") not in {"item/started", "item/completed"}:
+                        return False
+                    item = event.get("params", {}).get("item") or {}
+                    if item.get("type") in {"userMessage", "agentMessage", "reasoning"}:
+                        return False
+                    return not (
+                        item.get("type") == "dynamicToolCall"
+                        and item.get("tool") == "laomedo_output_precheck"
+                        and item.get("namespace") is None
+                        and item.get("id")
+                        in getattr(server, "verified_precheck_calls", set())
+                    )
+
+                tool_effect = any(effect_event(event) for event in server.events)
+                if (
+                    record.get("github_scope")
+                    or tool_effect
+                    or commands_before["commands"]
+                    or commands_before["identity_incomplete"]
+                ):
+                    record["output_correction_blocked"] = (
+                        "side_effect_safety_unverified"
+                    )
+                    break
+                if cancelled.is_set():
+                    status, error = "cancelled", "cancelled_by_user"
+                    break
+                attempt = self._reserve_turn()
+                record["turns"].append(
+                    {
+                        "turn_id": turn_id,
+                        "status": status,
+                        "correction_pending": True,
+                        "output_validation": validation,
+                    }
+                )
+                correction_count += 1
+                record["attempt_number"] = attempt
+                record["output_correction_count"] = correction_count
+                _json(run_dir / "record.json", record)
+                feedback = (
+                    "Continue this same session by correcting only your output form. "
+                    "Do not repeat the original task or any external writes. "
+                    "Use the existing output precheck. Validation feedback: "
+                    + json.dumps(validation, sort_keys=True)
+                )
+                server.assert_controller_isolated()
+                if self.auth and not still_authorized():
+                    raise AuthError(auth_failure["code"])
+                turn_event_offset = len(server.events)
+                native = await server.prompt(
+                    feedback,
+                    skills=record["skills"],
+                    seconds=NATIVE_TURN_SECONDS,
+                    cancelled=cancelled,
+                )
+                turn_id, status, error = native.turn_id, native.status, native.error
+            native_status = status
+            commands = (
+                _command_summary(server.events, turn_id)
+                if turn_id is not None
+                else None
+            )
+            record["native_turn_status"] = (
+                native_status if turn_id is not None else None
+            )
+            record["precheck"]["call_count"] = getattr(server, "precheck_call_count", 0)
+            record["command_summary"] = commands
+            record["native_answer"] = (
+                _answer(server.events[turn_event_offset:], record["thread_id"])
+                if native_status == "completed"
+                else None
+            )
+            if (
+                status == "completed"
+                and commands is not None
+                and (commands["outstanding_ids"] or commands["identity_incomplete"])
+            ):
+                status, error = "unknown", "outstanding_command_completion_unknown"
+            if self.auth and error == "auth_revoked_during_turn":
+                error = auth_failure["error"]
+                record["credential"]["auth_outcome"] = auth_failure["outcome"]
+            native_errors = (
+                _native_error_summary(server.events, turn_id)
+                if turn_id is not None
+                else {"last_category": None}
+            )
+            if status == "failed" and error is None and native_errors["last_category"]:
+                error = "codex_" + native_errors["last_category"]
+            receipt = {
+                "turn_id": turn_id,
+                "status": status,
+                "native_turn_status": native_status,
+                "command_summary": commands,
+                "error_category": error,
+                "native_completion_status": getattr(
+                    server, "native_completion_status", None
+                ),
+                "interrupt_acknowledged": getattr(
+                    server, "interrupt_acknowledged", False
+                ),
+                "native_error_summary": native_errors,
+                "input_hash": "sha256:" + hashlib.sha256(task.encode()).hexdigest(),
+            }
+            if native_command is None or turn_id is not None:
+                record["turns"].append(receipt)
+            else:
+                record.setdefault("native_command_receipts", []).append(
+                    {
+                        "request": native_command.model_dump(mode="json"),
+                        "result": native.model_dump(mode="json"),
+                        "attempt_id": record.get("activity_attempt_id"),
+                        "status": status,
+                        "answer": native.answer,
+                        "error_category": error,
+                    }
+                )
+            record["status"] = "completed" if status == "completed" else status
+            record["error_category"] = error
+            if status == "cancelled":
+                record["cancel_requested"] = True
+            record["native_error_summary"] = native_errors
+            record["answer"] = (
+                _answer(server.events[turn_event_offset:], record["thread_id"])
+                if status == "completed"
+                else None
+            )
+            if native_command is not None and status == "completed":
+                record["answer"] = getattr(native, "answer", None) or record["answer"]
+                if native_command.name.startswith("$"):
+                    if native.native_skill is None:
+                        raise RunnerError("native_command_outcome_unknown")
+                    record.setdefault("native_command_receipts", []).append(
+                        {
+                            "request": native_command.model_dump(mode="json"),
+                            "result": {
+                                "native_skill": native.native_skill.model_dump(
+                                    mode="json"
+                                )
+                            },
+                            "attempt_id": record.get("activity_attempt_id"),
+                            "status": "completed",
+                            "answer": record["answer"],
+                            "error_category": None,
+                        }
+                    )
+            catalog = server.command_catalog()
+            record["native_commands"] = {
+                "thread_id": native_id,
+                "catalog": (
+                    catalog.model_dump(mode="json") if catalog is not None else None
+                ),
+                "projection": (
+                    CodexCommands.project(catalog.model_dump(mode="json"))
+                    if catalog is not None
+                    else None
+                ),
+            }
+            if (
+                status == "completed"
+                and not record["answer"]
+                and not (
+                    native_command is not None and native_command.name == "compact"
+                )
+            ):
+                raise RunnerError("completed_without_agent_message")
+            self._verify_protected_mounts(run_dir, record)
+            if lease is not None and lease.lost.is_set():
+                raise RunnerError("lease_service_lost")
+            keep_alive = (
+                record["status"] == "completed"
+                and not record["turns"]
+                and record.get("initial_native_command") == "status"
+            )
+            if keep_alive:
+                retained = IdleCodexSession(
+                    runtime=server,
+                    lease=lease,
+                    cancelled=cancelled,
+                    ownership=dict(record["container_ownership"]),
+                    credential_digest=credential_digest,
+                    expires=(
+                        held.expires
+                        if held is not None
+                        else time.monotonic() + transport_settings.idle_session_seconds
+                    ),
+                )
+                with self._session_guard:
+                    self._idle_sessions[run_id] = retained
+                record["live_session"] = "idle"
+                record["controller_cleanup"] = "retained"
+                if self._session_watch is None:
+                    self._session_watch = asyncio.create_task(
+                        self._watch_idle_sessions()
+                    )
+        except Exception as exc:
+            primary_failure = primary_failure or failure_observation(
+                exc, stage="execution"
+            )
+            if record is None:
+                raise
+            if record["status"] not in {"interrupted", "cancelled"}:
+                record["status"] = "failed"
+                if isinstance(exc, AuthError):
+                    category, outcome = _auth_record_error(exc)
+                    record["error_category"] = category
+                    if isinstance(record.get("credential"), dict):
+                        record["credential"]["auth_outcome"] = outcome
+                else:
+                    record["error_category"] = (
+                        str(exc) if isinstance(exc, RunnerError) else type(exc).__name__
+                    )
+        finally:
+            if (
+                record is not None
+                and record.get("status") != "completed"
+                and primary_failure is None
+            ):
+                primary_failure = failure_observation(
+                    stage="terminal",
+                    code=(
+                        "lease_service_lost"
+                        if lease is not None and lease.lost.is_set()
+                        else record.get("error_category")
+                    ),
+                )
+            close_error = False
+            try:
+                if server is not None and not keep_alive:
+                    if record is not None:
+                        count = getattr(server, "precheck_call_count", 0)
+                        record["precheck"]["call_count"] = count
+                        record["precheck"]["installed"] = record["precheck"][
+                            "installed"
+                        ] or bool(getattr(server, "verified_precheck_calls", set()))
+                    await server.close()
+                    if record is not None:
+                        record["controller_cleanup"] = "confirmed"
+                        if "live_session" in record:
+                            record["live_session"] = (
+                                "materialized" if record["turns"] else "closed"
+                            )
+                        if not self.supervise_containers and getattr(
+                            server, "cleanup_confirmed", False
+                        ):
+                            record["container_ownership"].update(
+                                cleanup_verified=True, cleanup_detail="removed"
+                            )
+                    if record is not None and record.get("status") == "cancelled":
+                        record["cancel_confirmed"] = True
+            except Exception as close_failure:
+                cleanup_failure = cleanup_failure or failure_observation(
+                    close_failure, stage="cleanup"
+                )
+                primary_failure = primary_failure or cleanup_failure
+                close_error = True
+                if record is not None:
+                    record.update(
+                        status="failed",
+                        error_category=(
+                            close_failure.code
+                            if isinstance(close_failure, RunnerError)
+                            and close_failure.code
+                            in {
+                                "executor_termination_unverified",
+                                "container_termination_unverified",
+                                "runner_transport_failed",
+                            }
+                            else "container_termination_unverified"
+                        ),
+                    )
+                    record["controller_cleanup"] = "unverified"
+            else:
+                if record is not None and record.get("status") == "completed":
+                    try:
+                        record["post_run_hash"] = self._freeze_workspace(
+                            run_dir, record
+                        )
+                        record["output_ref"] = f"laomedo:run:{run_id}:workspace"
+                        record["snapshot_ready"] = True
+                    except Exception as snapshot_failure:
+                        primary_failure = primary_failure or failure_observation(
+                            snapshot_failure,
+                            stage="snapshot",
+                            code=(
+                                None
+                                if isinstance(snapshot_failure, RunnerError)
+                                else "workspace_copy_mismatch"
+                            ),
+                        )
+                        record.update(
+                            status="failed",
+                            answer=None,
+                            error_category=(
+                                snapshot_failure.code
+                                if isinstance(snapshot_failure, RunnerError)
+                                else "workspace_copy_mismatch"
+                            ),
+                        )
+            finally:
+                try:
+                    if (
+                        record is not None
+                        and record.get("status") != "completed"
+                        and self.publication_controller is not None
+                    ):
+                        self.publication_controller.cancel(run_id, "failed")
+                    if (
+                        record is not None
+                        and self.supervise_containers
+                        and not launch_attempted
+                    ):
+                        verified, detail = True, "not_launched"
+                        if lease is not None:
+                            try:
+                                lease.finish()
+                            except Exception as finish_failure:
+                                cleanup_failure = (
+                                    cleanup_failure
+                                    or failure_observation(
+                                        finish_failure,
+                                        stage="lease_finish",
+                                        code="lease_service_unverified",
+                                    )
+                                )
+                                verified, detail = False, "lease_service_unverified"
+                        record["container_ownership"]["cleanup_verified"] = verified
+                        record["container_ownership"]["cleanup_detail"] = detail
+                        if not verified:
+                            record.update(
+                                status="failed",
+                                error_category="container_termination_unverified",
+                            )
+                    elif (
+                        record is not None
+                        and self.supervise_containers
+                        and not keep_alive
+                    ):
+                        verified, detail = (
+                            (True, "removed")
+                            if getattr(server, "cleanup_confirmed", False)
+                            else cleanup_exact(
+                                ContainerIdentity(
+                                    name=name,
+                                    run_id=run_id,
+                                    token=launch_token,
+                                    docker_endpoint=(self.docker_environment or {}).get(
+                                        "DOCKER_HOST"
+                                    ),
+                                )
+                            )
+                        )
+                        if lease is not None:
+                            # The executor is already removed. Only a trusted
+                            # controller can keep its SAME lease through output
+                            # validation; no graph bearer can extend it.
+                            record["container_ownership"]["cleanup_verified"] = verified
+                            record["container_ownership"]["cleanup_detail"] = detail
+                            record.update(
+                                _execution_evidence(
+                                    run_dir / "raw-events.jsonl",
+                                    evidence_offset,
+                                    record,
+                                    record["turns"][attempt_turn_offset:],
+                                    resumed=resume,
+                                    streams_closed=(
+                                        server is not None and (server.streams_closed)
+                                    ),
+                                )
+                            )
+                            retained = (
+                                verified
+                                and not close_error
+                                and self.publication_controller is not None
+                                and self.publication_controller.finish_agent(record)
+                            )
+                            if not retained:
+                                try:
+                                    lease.finish()
+                                except Exception as finish_failure:
+                                    cleanup_failure = (
+                                        cleanup_failure
+                                        or failure_observation(
+                                            finish_failure,
+                                            stage="lease_finish",
+                                            code="lease_service_unverified",
+                                        )
+                                    )
+                                    verified = False
+                                    detail = "lease_service_unverified"
+                        record["container_ownership"]["cleanup_verified"] = verified
+                        record["container_ownership"]["cleanup_detail"] = detail
+                        if not verified:
+                            record.update(
+                                status="failed",
+                                error_category="container_termination_unverified",
+                            )
+                    with self.control_lock:
+                        if record is not None:
+                            record["attempt_finished"] = True
+                            if record.get("status") != "completed":
+                                record.update(
+                                    evidence_complete="unknown", completion_basis=None
+                                )
+                            if record.get("status") != "completed":
+                                record["snapshot_ready"] = False
+                                record["post_run_hash"] = None
+                                record["output_ref"] = None
+                                if (
+                                    record.get("status")
+                                    in {"failed", "cancelled", "interrupted"}
+                                    and self.publication_controller is None
+                                    and record.get("thread_id")
+                                    and server is not None
+                                    and getattr(server, "active_thread_id", None)
+                                    == record["thread_id"]
+                                    and server.streams_closed
+                                    and record.get("controller_cleanup") == "confirmed"
+                                    and record.get("container_ownership", {}).get(
+                                        "cleanup_verified"
+                                    )
+                                    is True
+                                ):
+                                    try:
+                                        digest = self._freeze_workspace(run_dir, record)
+                                        record["resume_checkpoint"] = ResumeCheckpoint(
+                                            attempt_id=record["activity_attempt_id"],
+                                            thread_id=record["thread_id"],
+                                            workspace_hash=digest,
+                                            runner_instance_id=self.instance_id,
+                                        ).model_dump()
+                                    except RunnerError:
+                                        # Failure remains the observed outcome; no checkpoint is safer
+                                        # than masking it or allowing an unverified continuation.
+                                        record.pop("resume_checkpoint", None)
+                            if cancelled is not None and cancelled.is_set():
+                                record["cancel_requested"] = True
+                            if activity_attempt is not None:
+                                from laomedo.agents.activity.utils import now
+
+                                try:
+                                    activity_attempt.update(
+                                        native_end=line_count(
+                                            run_dir / "activity-events.jsonl"
+                                        ),
+                                        otel_end=line_count(
+                                            run_dir / "otel-events.jsonl"
+                                        ),
+                                        status=record["status"],
+                                        ended_at=now(),
+                                    )
+                                    _json(
+                                        run_dir
+                                        / "activity-attempts"
+                                        / (activity_attempt["id"] + ".json"),
+                                        activity_attempt,
+                                    )
+                                except OSError:
+                                    pass  # An observation failure cannot change execution success.
+                            _json(run_dir / "record.json", record)
+                finally:
+                    try:
+                        if (
+                            record is not None
+                            and activity_attempt is not None
+                            and record.get("status") != "completed"
+                        ):
+                            primary_failure = primary_failure or failure_observation(
+                                sys.exc_info()[1],
+                                stage="terminal",
+                                code=(
+                                    "lease_service_lost"
+                                    if lease is not None and lease.lost.is_set()
+                                    else record.get("error_category")
+                                ),
+                            )
+                            source = verified_cleanup = None
+                            result = getattr(lease, "result", None)
+                            if type(result) is dict:
+                                observed = LeaseCleanupObservation.from_result(
+                                    result.get("cleanup_verified"), result.get("state")
+                                )
+                                source, verified_cleanup = (
+                                    "lease_result",
+                                    observed.verified,
+                                )
+                            self._retain_attempt_failure(
+                                run_dir,
+                                record,
+                                activity_attempt,
+                                primary_failure,
+                                cleanup_failure,
+                                cleanup_source=source,
+                                cleanup_verified=verified_cleanup,
+                            )
+                    except Exception:
+                        pass  # Diagnostics cannot replace finalization or lock release.
+                    finally:
+                        if not keep_alive:
+                            self.cancel_flags.pop(run_id, None)
+                        self.lock.release()
+        if keep_alive and record.get("status") != "completed":
+            await self._close_idle_session(run_id)
+            record = self.status(run_id)
+        return record

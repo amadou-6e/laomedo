@@ -17,9 +17,9 @@ from pydantic import (
 
 from laomedo.integrations.langflow.local_profiles.settings import (
     MAX_PROFILE_NAME_LENGTH,
-    PIN_DIGITS,
-    SYSTEM_PROFILE_NAME,
 )
+from laomedo.integrations.langflow.local_profiles.settings import PIN_DIGITS
+from laomedo.integrations.langflow.local_profiles.settings import SYSTEM_PROFILE_NAME
 
 
 class ProfileCreateRequest(BaseModel):

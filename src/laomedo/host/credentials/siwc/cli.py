@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+from laomedo.host.credentials.siwc.browser import browser_connect
+from laomedo.host.credentials.siwc.errors import AuthError
+
 from pathlib import Path
 import json
-import laomedo.host.credentials.siwc.browser as _siwc_browser
-import laomedo.host.credentials.siwc.errors as _siwc_errors
 
 
 def main() -> None:
@@ -17,18 +18,18 @@ def main() -> None:
     sub = parser.add_subparsers(dest="action", required=True)
     connect = sub.add_parser("connect")
     connect.add_argument("--client-id")
-    sub.add_parser("status")
+    status = sub.add_parser("status")
+    status.add_argument("client_id")
     sub.add_parser("list")
-    switch = sub.add_parser("switch")
-    switch.add_argument("client_id")
-    sub.add_parser("sign-out")
+    sign_out = sub.add_parser("sign-out")
+    sign_out.add_argument("client_id")
     args = parser.parse_args()
     try:
         store = _siwc_connection.ChatGPTConnection(args.store)
         if args.action == "connect":
-            result = _siwc_browser.browser_connect(store, client_id=args.client_id)
+            result = browser_connect(store, client_id=args.client_id)
         elif args.action == "status":
-            result = store.summary(store.active())
+            result = store.summary(store.account(args.client_id))
         elif args.action == "list":
             result = {
                 "accounts": [
@@ -37,12 +38,10 @@ def main() -> None:
                     if isinstance((entry := json.loads(path.read_text())), dict)
                 ]
             }
-        elif args.action == "switch":
-            result = store.switch(args.client_id)
         else:
-            result = store.sign_out()
+            result = store.sign_out(args.client_id)
         print(json.dumps(result, sort_keys=True))
-    except _siwc_errors.AuthError as exc:
+    except AuthError as exc:
         print(json.dumps({"auth_outcome": "failed", "error_category": str(exc)}))
         raise SystemExit(1) from None
 

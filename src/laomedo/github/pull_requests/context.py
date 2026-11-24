@@ -2,12 +2,10 @@
 
 import json
 from pydantic import ValidationError
-from laomedo.github.pull_requests.models import (
-    PRContext,
-    PRContextOperation,
-    PRContextOutcome,
-    GitHubPullRequest,
-)
+from laomedo.github.pull_requests.models import PRContext
+from laomedo.github.pull_requests.models import PRContextOperation
+from laomedo.github.pull_requests.models import PRContextOutcome
+from laomedo.github.pull_requests.models import GitHubPullRequest
 
 
 def context_value(value):

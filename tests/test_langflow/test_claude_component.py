@@ -12,10 +12,38 @@ from laomedo import __path__
 
 __path__.append(str(Path(__file__).resolve().parents[2] / "components/laomedo"))
 from laomedo.claude_agent import LaomedoClaudeAgent
-from laomedo.agents.contracts.output import requirements
+from laomedo.agents.interface.output.utils import requirements
 
 
 class ClaudeComponentTests(unittest.IsolatedAsyncioTestCase):
+
+    def test_catalog_failure_retains_safe_http_diagnostics_only(self):
+        from urllib.error import HTTPError
+        import laomedo.agents.interface.langflow.component as common
+        from laomedo.agents.interface.langflow.errors import RunnerRequestError
+
+        failure = HTTPError(
+            "http://localhost:8769/v1/models",
+            401,
+            "private upstream body",
+            {},
+            io.BytesIO(
+                b'{"private":"SECRET","runner_diagnostics":{"runner_code":"unauthorized","private":"SECRET"}}'
+            ),
+        )
+        node = self.node()
+        with (
+            patch.object(
+                node, "_model_catalog_token_file_path", return_value="synthetic"
+            ),
+            patch.object(Path, "read_text", return_value="synthetic-control"),
+            patch.object(common._HTTP, "open", side_effect=failure),
+        ):
+            with self.assertRaises(RunnerRequestError) as raised:
+                node._model_catalog({"runner_url": {"value": "http://localhost:8769"}})
+        self.assertEqual(raised.exception.diagnostics["http_status"], 401)
+        self.assertNotIn("SECRET", str(raised.exception))
+        self.assertNotIn("private upstream body", str(raised.exception))
 
     def test_resume_payload_contains_visible_execution_timeout(self):
         prior = {
@@ -91,7 +119,7 @@ class ClaudeComponentTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("handoff_reference", config)
 
     def test_model_refresh_uses_claude_runner_token_not_codex_token(self):
-        import laomedo.integrations.langflow.agent.component as codex
+        import laomedo.agents.interface.langflow.component as codex
 
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -124,7 +152,7 @@ class ClaudeComponentTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(http.call_args.kwargs["timeout"], 75)
 
     def test_resolved_model_efforts_follow_first_native_match_like_runner(self):
-        import laomedo.integrations.langflow.agent.component as codex
+        import laomedo.agents.interface.langflow.component as codex
 
         body = {
             "provider": "claude",
@@ -163,7 +191,7 @@ class ClaudeComponentTests(unittest.IsolatedAsyncioTestCase):
     async def test_native_labels_and_all_efforts_reach_dropdown_and_dispatch_payload(
         self,
     ):
-        import laomedo.integrations.langflow.agent.component as codex
+        import laomedo.agents.interface.langflow.component as codex
 
         node = self.node(model="fable", effort="max")
         catalog = codex._ModelCatalog()
@@ -201,7 +229,7 @@ class ClaudeComponentTests(unittest.IsolatedAsyncioTestCase):
     async def test_imported_resolved_model_keeps_native_efforts_and_pin_without_duplicate_picker_rows(
         self,
     ):
-        import laomedo.integrations.langflow.agent.component as codex
+        import laomedo.agents.interface.langflow.component as codex
 
         node = self.node(model="claude-sonnet-test", effort="max")
         catalog = codex._ModelCatalog()
@@ -290,9 +318,117 @@ class ClaudeComponentTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(answer.text, "answer")
         self.assertEqual(reference.data["provider"], "claude")
 
+    def test_only_explicit_cold_saved_dispatch_discovers_and_retries_once(self):
+        """Warm/concurrent calls and operator/recovery paths never add discovery."""
+        from laomedo.agents.interface.langflow.errors import RunnerRequestError
+        from laomedo.integrations.langflow.provider_connections.bindings import (
+            ProviderGraphBindings,
+        )
+
+        base = LaomedoClaudeAgent.__bases__[0]
+        code = "runner_model_catalog_unavailable_check_runner_connection"
+        for operation, managed, failure_code in (
+            ("fresh", True, code),
+            ("start", True, code),
+            ("status", True, code),
+            ("cancel", True, code),
+            ("fresh", False, code),
+            ("fresh", True, "runner_dispatch_refused"),
+        ):
+            with self.subTest(
+                operation=operation, managed=managed, failure_code=failure_code
+            ):
+                node = self.node(operation=operation)
+                node._saved_endpoint = ("http://localhost:8769", Path("pinned-token"))
+                refusal = RunnerRequestError(
+                    failure_code, {"http_status": 400, "runner_code": failure_code}
+                )
+                recovers = (
+                    managed and operation in {"fresh", "start"} and failure_code == code
+                )
+                with (
+                    patch.object(
+                        ProviderGraphBindings, "service", object() if managed else None
+                    ),
+                    patch.object(node, "_model_catalog", return_value={}) as discovery,
+                    patch.object(
+                        base, "_http", side_effect=[refusal, {"provider": "claude"}]
+                    ) as dispatch,
+                ):
+                    if recovers:
+                        self.assertEqual(
+                            node._http("http://localhost:8769/v1/runs", {}, "POST"),
+                            {"provider": "claude"},
+                        )
+                        discovery.assert_called_once_with(
+                            {}, saved_endpoint=node._saved_endpoint
+                        )
+                        self.assertEqual(dispatch.call_count, 2)
+                    else:
+                        with self.assertRaises(RunnerRequestError):
+                            node._http("http://localhost:8769/v1/runs", {}, "POST")
+                        discovery.assert_not_called()
+                        self.assertEqual(dispatch.call_count, 1)
+
+    def test_recovery_catalogue_uses_pinned_endpoint_without_reresolving_account(self):
+        """A concurrent reconnect cannot substitute the URL or token generation."""
+        import laomedo.agents.interface.langflow.component as common
+        from laomedo.integrations.langflow.provider_connections.bindings import (
+            ProviderGraphBindings,
+        )
+
+        node = self.node()
+        pinned = ("http://localhost:8769", Path("original-token"))
+        payload = {
+            "provider": "claude",
+            "models": [{"id": "sonnet", "efforts": ["low"]}],
+        }
+        with (
+            patch.object(ProviderGraphBindings, "service", object()),
+            patch.object(
+                ProviderGraphBindings,
+                "endpoint",
+                side_effect=AssertionError("must not rebind"),
+            ),
+            patch.object(Path, "read_text", return_value="synthetic-token"),
+            patch.object(
+                common._HTTP,
+                "open",
+                return_value=io.BytesIO(json.dumps(payload).encode()),
+            ) as opened,
+        ):
+            catalog = node._model_catalog({}, saved_endpoint=pinned)
+        self.assertEqual(catalog["sonnet"], ["low"])
+        self.assertEqual(node._saved_endpoint, pinned)
+        self.assertEqual(opened.call_args.args[0].full_url, pinned[0] + "/v1/models")
+
+    def test_warm_saved_dispatch_does_not_probe_a_busy_catalogue(self):
+        """A parallel run with an already known model goes straight to dispatch."""
+        from laomedo.integrations.langflow.provider_connections.bindings import (
+            ProviderGraphBindings,
+        )
+
+        node = self.node()
+        base = LaomedoClaudeAgent.__bases__[0]
+        with (
+            patch.object(ProviderGraphBindings, "service", object()),
+            patch.object(
+                node, "_model_catalog", side_effect=AssertionError("catalogue is busy")
+            ) as discovery,
+            patch.object(
+                base, "_http", return_value={"provider": "claude"}
+            ) as dispatch,
+        ):
+            node._http("http://localhost:8769/v1/runs", {}, "POST")
+        discovery.assert_not_called()
+        dispatch.assert_called_once()
+
     def test_runner_provider_mismatch_is_checked_by_subclass(self):
         base = LaomedoClaudeAgent.__bases__[0]
-        with patch.object(base, "_http", return_value={"provider": "codex"}):
+        with (
+            patch.object(base, "_http", return_value={"provider": "codex"}),
+            patch.object(LaomedoClaudeAgent, "_model_catalog", return_value={}),
+        ):
             with self.assertRaisesRegex(RuntimeError, "runner_provider_mismatch"):
                 self.node()._http("http://localhost:8769", {}, "POST")
 
@@ -337,12 +473,9 @@ class ClaudeComponentTests(unittest.IsolatedAsyncioTestCase):
         self,
     ):
         from urllib.error import HTTPError
-        import laomedo.integrations.langflow.agent.component as common
+        import laomedo.agents.interface.langflow.component as common
 
         for code in (
-            "claude_host_login_unavailable",
-            "claude_host_login_expired",
-            "claude_local_login_copy_failed",
             "claude_model_required",
             "claude_native_skill_policy_unsupported",
             "unsupported_claude_effort",
@@ -357,16 +490,20 @@ class ClaudeComponentTests(unittest.IsolatedAsyncioTestCase):
                 io.BytesIO(json.dumps({"error_category": code}).encode()),
             )
             with (
+                patch.object(node, "_model_catalog", return_value={}),
                 patch.object(node, "_token", return_value="internal"),
-                patch.object(common.request, "urlopen", side_effect=error),
+                patch.object(common._HTTP, "open", side_effect=error),
             ):
                 expected = (
                     code
                     if code != "SECRET payload and token"
                     else "runner_dispatch_refused"
                 )
-                with self.assertRaisesRegex(RuntimeError, "^" + expected + "$"):
+                with self.assertRaisesRegex(
+                    RuntimeError, "^" + expected + r"(?:;|$)"
+                ) as raised:
                     node._http("http://localhost:8769/v1/runs/async", {}, "POST")
+                self.assertNotIn("SECRET payload and token", str(raised.exception))
 
 
 if __name__ == "__main__":

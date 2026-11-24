@@ -15,11 +15,11 @@ from __future__ import annotations
 
 from pathlib import Path
 import argparse
-import laomedo.host.mediation.store as _mediation_store
+from laomedo.host.mediation.store import MediationStore
 
 
 def main() -> None:
-    import laomedo.host.leases.service as _leases_service
+    from laomedo.host.leases.service import LeaseService
 
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
@@ -42,7 +42,7 @@ def main() -> None:
     if any(value is not None for value in selected):
         if any(value is None for value in selected):
             parser.error("mediated mode requires all store and connection options")
-        import laomedo.host.mediation.authority as _mediation_authority
+        from laomedo.host.mediation.authority import RunGrantAuthority
 
         def matches(connection_id, generation, repository, reviewed_by):
             return bool(reviewed_by) and (connection_id, generation, repository) == (
@@ -51,23 +51,23 @@ def main() -> None:
                 args.repository,
             )
 
-        authority = _mediation_authority.RunGrantAuthority(
+        authority = RunGrantAuthority(
             args.authority_store, connection_authorizer=matches
         )
-        mediator = _mediation_store.MediationStore(
+        mediator = MediationStore(
             args.mediator_store,
             connection_is_current=lambda cid, gen, repo: matches(
                 cid, gen, repo, "lease-service"
             ),
         )
-        service = _leases_service.LeaseService(
+        service = LeaseService(
             args.state,
             port=args.port,
             mediator=mediator,
             mediation_authority=authority.authorize_lease,
         )
     else:
-        service = _leases_service.LeaseService(args.state, port=args.port)
+        service = LeaseService(args.state, port=args.port)
     service.serve()
 
 

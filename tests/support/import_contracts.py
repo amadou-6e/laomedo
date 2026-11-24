@@ -6,9 +6,6 @@ import json
 
 def maintained_sources(root):
     protected = set()
-    manifest = root / "tools/migrations/protected-graphs.json"
-    if manifest.exists():
-        protected.update(json.loads(manifest.read_text(encoding="utf-8")))
     for manifest in (root / "tools/migrations").glob("retained-*-callers.json"):
         protected.update(
             row["path"]

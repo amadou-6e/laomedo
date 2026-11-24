@@ -22,6 +22,7 @@ class LocalProfileBoundary:
         method = scope["method"]
         protected = (
             path.startswith("/api/v1/laomedo/profiles")
+            or path.startswith("/api/v1/laomedo/provider-connections")
             or path
             in {"/api/v1/login", "/api/v1/logout", "/api/v1/refresh", "/api/v1/users"}
             or path.startswith("/api/v1/users/")

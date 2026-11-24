@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import laomedo._paths as _package_paths
+from laomedo._paths import import_root
 import os
 
 
@@ -27,6 +27,12 @@ def service_environment(provider):
         "HOMEPATH",
         "PROGRAMDATA",
         "USERNAME",
+        "LAOMEDO_MCP_DIRECTORY",
+        "LAOMEDO_MCP_BIND",
+        "LAOMEDO_MCP_CONTROLLER_HOST",
+        "LAOMEDO_MCP_LEASE_SECONDS",
+        "LAOMEDO_MCP_MAX_REGISTRATIONS",
+        "LAOMEDO_MCP_MAX_CALLS",
     }
     if provider in {"codex", "claude"}:
         allowed.update(
@@ -40,5 +46,5 @@ def service_environment(provider):
         )
     return {
         **{key: value for key, value in os.environ.items() if key.upper() in allowed},
-        "PYTHONPATH": str(_package_paths.import_root()),
+        "PYTHONPATH": str(import_root()),
     }

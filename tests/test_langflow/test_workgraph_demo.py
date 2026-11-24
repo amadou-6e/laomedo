@@ -60,7 +60,7 @@ async def run_case(
         reference = payload.get("output_requirements") if payload else None
         precheck = []
         if correction:
-            from laomedo.agents.contracts.output import precheck_response
+            from laomedo.agents.interface.output.utils import precheck_response
 
             for candidate in (
                 [submission, {"task_outcome": "success", "report": "corrected fixture"}]
@@ -122,7 +122,10 @@ async def run_case(
         token.write_text("fixture-not-a-credential", encoding="utf-8")
         with (
             patch.dict(os.environ, {"LAOMEDO_RUNNER_TOKEN_FILE": str(token)}),
-            patch("urllib.request.urlopen", side_effect=respond),
+            patch(
+                "laomedo.agents.interface.langflow.component._HTTP.open",
+                side_effect=respond,
+            ),
         ):
             results = await graph.arun(
                 inputs=[{}], outputs=["success", "failure", "rejection", "recovery"]

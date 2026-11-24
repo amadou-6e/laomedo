@@ -23,7 +23,7 @@ Example host configuration (replace paths):
   "state": "C:/LocalRuntime/claude/runner",
   "skill_store": "C:/LocalRuntime/claude/registry",
   "source": "C:/Work/my-project/docs",
-  "image": "laomedo-claude-controller:2.1.310",
+  "image": "laomedo-claude-controller:2.1.310-acp0.98.0",
   "profile_volume": "laomedo-claude-profile",
   "lease_service": "C:/LocalRuntime/claude/lease",
   "port": 8769
@@ -35,19 +35,15 @@ keeping registry data outside Git. Use an existing state directory to preserve
 the API token and recorded results. Claude uses the packaged Docker adapter and
 the dedicated volume's subscription login. Start the independent lease supervisor
 with the same lease state path before the API. The retired host `executable`
-setting is not used by this Docker runner. Credential copying is disabled by default. For the authorised single-user local
-Claude prototype, set `mirror_host_claude_login: true` in this trusted JSON
-configuration. Startup enables mirroring; task execution copies only the current
-host access login into the labelled local Claude volume. The host retains the
-rotating refresh credential. No sessions, settings or full profile are copied.
-Async requests acknowledge before copying, and copy failures are retained against
-the run. Remote or TCP Docker endpoints are refused. Expired host access requires
-normal host Claude usage to refresh; it does not establish a missing subscription. For Codex, use `provider: "codex"` and omit the Claude-only
-`image` and `profile_volume` fields. Set `lease_service` to the independent Codex
-supervisor's absolute state path for normal supervised execution. An optional
-Codex-only `image_id` passes the exact host-reviewed local rebuild identity to
-the existing CLI; Git-workspace overrides are refused. Normal Docker/version
-checks and default image pins still apply when it is omitted.
+setting is not used by this Docker runner. Use Settings > Providers for app-owned sign-in, or authenticate explicitly in
+the dedicated standalone profile. Host credential copying is not supported.
+For Codex, use `provider: "codex"` and omit the Claude-only
+`image` and `profile_volume` configuration fields. Both providers use the
+independent `lease_service`; start that supervisor before the API. If omitted,
+its directory defaults to `lease` beside the runner state directory. Codex's
+normal Docker prerequisites and default runner options still apply. An optional
+Codex-only `image_id` selects an exact host-reviewed local rebuild identity;
+Git-workspace overrides are refused.
 
 Authenticated status/start routes select the configured host service when no URL
 is supplied. Legacy explicit URLs must still match exactly. They return only service state and safe reason codes,
@@ -73,7 +69,7 @@ Apply the combined overlay once to the pinned upstream checkout; do not apply tw
 independent error-panel transforms. Specifications depend on specs PR #392 and the selected A popup standard in
 specs PR #393.
 Claude startup uses the current package's Docker adapter and the configured
-dedicated profile. Opted-in mirroring additionally needs the host's normal login.
+dedicated profile. No host login is imported.
 Custom CLAUDE_CONFIG_DIR profiles are not forwarded.
 
 All authenticated app users can request startup of this one configured API. Enable
@@ -92,3 +88,7 @@ within the visible viewport when resized, zoomed or shortened by a keyboard.
 Escape inside the card dismisses it and restores prior focus. It never
 auto-dismisses, retries the graph, or cancels work when dismissed. Follow-up
 cards: #186 (error/stack), #187 (notice/success), #188 (other flow status).
+
+Existing trusted runner JSON must remove the retired `mirror_host_claude_login`
+key, including a value of `false`, before startup. Unknown configuration keys
+remain rejected; authenticate through Settings or the dedicated native profile.

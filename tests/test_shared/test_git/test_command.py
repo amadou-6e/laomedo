@@ -13,12 +13,10 @@ from unittest.mock import MagicMock, patch
 from pydantic import SecretStr, ValidationError
 from laomedo.git.command import GitCommandRunner
 from laomedo.git.errors import GitCommandTimeout
-from laomedo.git.models import (
-    GitCommand,
-    GitCredential,
-    GitEnvironmentProfile,
-    GitExecutionContext,
-)
+from laomedo.git.models import GitCommand
+from laomedo.git.models import GitCredential
+from laomedo.git.models import GitEnvironmentProfile
+from laomedo.git.models import GitExecutionContext
 from laomedo.git.settings import MEDIATED_TOKEN_ENV
 
 
@@ -85,6 +83,27 @@ class SharedGitTests(unittest.TestCase):
                 credential.model_dump_json(),
             ):
                 self.assertNotIn(secret, value)
+
+    @unittest.skipUnless(os.name == "nt", "Git for Windows long-path behavior")
+    def test_owned_baseline_supports_real_long_object_paths(self):
+        from laomedo.agents.workspaces.baseline import initialize
+        from laomedo.git.repository import GitRepository
+
+        with tempfile.TemporaryDirectory(prefix="laomedo-git-long-") as temporary:
+            parent = Path(temporary)
+            while len(str(parent)) < 205:
+                parent /= "owned-workspace-" + "x" * 20
+            workspace = parent / "workspace"
+            workspace.mkdir(parents=True)
+            (workspace / "task.txt").write_text("retained source", encoding="utf-8")
+            initialize(workspace)
+            context = GitExecutionContext(profile=GitEnvironmentProfile.WORKSPACE)
+            result = GitRepository(workspace, context=context).run(
+                ["status", "--porcelain"]
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(result.stdout, b"")
+            self.assertTrue(any((workspace / ".git" / "objects").glob("??/*")))
 
     def test_invalid_credential_does_not_echo_input(self):
         with self.assertRaises(ValidationError) as found:
@@ -193,6 +212,7 @@ class SharedGitTests(unittest.TestCase):
         }
         for relative in (
             "agents/workspace",
+            "agents/workspaces",
             "github/transport/git",
             "host/publication/verified",
             "host/mediation",
@@ -211,6 +231,7 @@ class SharedGitTests(unittest.TestCase):
         for relative in (
             "git",
             "agents/workspace",
+            "agents/workspaces",
             "skills/sources",
             "github/transport/git",
             "host/publication/verified",

@@ -6,7 +6,7 @@ import unittest
 from unittest.mock import patch
 from urllib.error import HTTPError
 from laomedo.work_graph.client import LangflowLocalClient
-from laomedo.agents.workflow.errors import LaunchError
+from laomedo.work_graph.runs.errors import LaunchError
 
 
 def response(value):
@@ -17,7 +17,7 @@ class LocalGraphAuthTests(unittest.TestCase):
     def test_expired_local_token_refreshes_only_the_read(self):
         expired = HTTPError("http://127.0.0.1/flow", 401, "expired", {}, None)
         with patch(
-            "laomedo.work_graph.client.request.urlopen",
+            "laomedo.work_graph.client.request.OpenerDirector.open",
             side_effect=[
                 response({"access_token": "old"}),
                 expired,
@@ -36,7 +36,7 @@ class LocalGraphAuthTests(unittest.TestCase):
 
     def test_repeated_unauthorized_read_is_bounded(self):
         with patch(
-            "laomedo.work_graph.client.request.urlopen",
+            "laomedo.work_graph.client.request.OpenerDirector.open",
             side_effect=[
                 response({"access_token": "old"}),
                 HTTPError("local", 401, "expired", {}, None),
@@ -51,7 +51,7 @@ class LocalGraphAuthTests(unittest.TestCase):
 
     def test_forbidden_read_does_not_reauthenticate(self):
         with patch(
-            "laomedo.work_graph.client.request.urlopen",
+            "laomedo.work_graph.client.request.OpenerDirector.open",
             side_effect=[
                 response({"access_token": "old"}),
                 HTTPError("local", 403, "forbidden", {}, None),

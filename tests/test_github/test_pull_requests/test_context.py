@@ -2,7 +2,8 @@
 
 import tempfile
 import unittest
-from laomedo.github.pull_requests.context import context_value, task_text
+from laomedo.github.pull_requests.context import context_value
+from laomedo.github.pull_requests.context import task_text
 from test_github.test_pull_requests.utils import create_case
 
 

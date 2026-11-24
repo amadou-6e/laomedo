@@ -1,0 +1,302 @@
+"""Authenticated assistant HTTP adapters with owner and response-release fences."""
+
+from uuid import UUID
+from typing import Literal
+
+from fastapi import APIRouter, Depends, Request, Query, HTTPException
+from starlette.responses import JSONResponse
+from langflow.services.auth.utils import get_current_active_user
+
+from laomedo.integrations.langflow.assistant.errors import AssistantError
+from laomedo.integrations.langflow.assistant.models import (
+    ConversationRequest,
+    ConversationRenameRequest,
+    MessageRequest,
+    StopRequest,
+    GraphActionDecision,
+    NativeActionDecision,
+    NativeCommandRequest,
+)
+
+router = APIRouter(prefix="/api/v1/laomedo/assistant", tags=["Application assistant"])
+
+
+async def access(request: Request, user=Depends(get_current_active_user)):
+    """Resolve the current app profile and its validated native session."""
+    runtime = request.app.state.laomedo_assistant
+    try:
+        key = await runtime.session(request, user)
+        service = getattr(request.app.state, "provider_connections", None)
+        if service is not None:
+            from laomedo.integrations.langflow.provider_connections.routes import (
+                session_lease,
+            )
+
+            session_lease(request, service)
+        return runtime, UUID(str(user.id)), key
+    except AssistantError as error:
+        raise HTTPException(error.status, detail={"code": error.code}) from None
+
+
+async def release(runtime, owner, key, result, *, status=200):
+    """Recheck access after asynchronous work; no prior profile gets a late payload."""
+    await runtime.check_session(owner, key)
+    return JSONResponse(
+        result,
+        status_code=status,
+        headers={"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"},
+    )
+
+
+@router.get("/status")
+async def status(request: Request, user=Depends(get_current_active_user)):
+    """Expose only feature availability without creating a runner or model request."""
+    return JSONResponse(
+        {"available": request.app.state.laomedo_assistant.ready, "provider": "codex"},
+        headers={"Cache-Control": "no-store"},
+    )
+
+
+@router.get("/connections")
+async def connections(context=Depends(access)):
+    """Read profile-owned safe account selectors, never native credentials."""
+    runtime, owner, key = context
+    try:
+        return await release(runtime, owner, key, await runtime.connections(owner))
+    except AssistantError as error:
+        raise HTTPException(error.status, detail={"code": error.code}) from None
+
+
+@router.get("/models")
+async def models(
+    provider: Literal["codex", "claude", "opencode"] = "codex",
+    connection_id: UUID | None = None,
+    connection_generation: int | None = Query(default=None, ge=1),
+    context=Depends(access),
+):
+    """Discover actual model choices; inference is never part of model selection."""
+    runtime, owner, key = context
+    try:
+        return await release(
+            runtime,
+            owner,
+            key,
+            await runtime.models(owner, provider, connection_id, connection_generation),
+        )
+    except AssistantError as error:
+        raise HTTPException(error.status, detail={"code": error.code}) from None
+
+
+@router.post("/conversations")
+async def create_conversation(body: ConversationRequest, context=Depends(access)):
+    """Create retained chat metadata using a supported provider and initial defaults."""
+    runtime, owner, key = context
+    try:
+        return await release(
+            runtime, owner, key, await runtime.create(owner, key, body), status=201
+        )
+    except AssistantError as error:
+        raise HTTPException(error.status, detail={"code": error.code}) from None
+
+
+@router.get("/conversations")
+async def list_conversations(
+    cursor: int = Query(default=0, ge=0, le=10000), context=Depends(access)
+):
+    """Read bounded owner-visible conversation summaries."""
+    runtime, owner, key = context
+    try:
+        return await release(
+            runtime, owner, key, await runtime.store.list(owner, cursor)
+        )
+    except AssistantError as error:
+        raise HTTPException(error.status, detail={"code": error.code}) from None
+
+
+@router.patch("/conversations/{identifier}")
+async def rename_conversation(
+    identifier: UUID, body: ConversationRenameRequest, context=Depends(access)
+):
+    """Persist an explicit title with the same owner and revocation fences as saves."""
+    runtime, owner, key = context
+    try:
+        result = await runtime.store.rename(owner, identifier, body, session_key=key)
+        return await release(runtime, owner, key, result)
+    except AssistantError as error:
+        raise HTTPException(error.status, detail={"code": error.code}) from None
+
+
+@router.delete("/conversations/{identifier}")
+async def delete_conversation(identifier: UUID, context=Depends(access)):
+    """Delete one idle owned chat without touching saved workflows or run history."""
+    runtime, owner, key = context
+    try:
+        result = await runtime.store.delete_conversation(
+            owner, identifier, session_key=key
+        )
+        await runtime.release_idle_session(owner, identifier)
+        return await release(runtime, owner, key, result)
+    except AssistantError as error:
+        raise HTTPException(error.status, detail={"code": error.code}) from None
+
+
+@router.get("/conversations/{identifier}")
+async def conversation_detail(
+    identifier: UUID,
+    cursor: int = Query(default=0, ge=0, le=10000),
+    context=Depends(access),
+):
+    """Reopen retained history and reconcile its existing attempt without replay."""
+    runtime, owner, key = context
+    try:
+        from laomedo.integrations.langflow.assistant.actions import WorkflowActions
+
+        result = await runtime.detail(owner, identifier, cursor)
+        actions = WorkflowActions(runtime.store, None, runtime.authorize)
+        result["actions"] = await actions.list(owner, identifier, session_key=key)
+        result["permissions"] = await actions.permissions(owner, key, identifier)
+        from laomedo.integrations.langflow.assistant.native import NativeCommands
+
+        result["native_actions"] = await NativeCommands(runtime).list(
+            owner, identifier, session_key=key
+        )
+        return await release(runtime, owner, key, result)
+    except AssistantError as error:
+        raise HTTPException(error.status, detail={"code": error.code}) from None
+
+
+@router.post("/conversations/{identifier}/messages")
+async def send_message(identifier: UUID, body: MessageRequest, context=Depends(access)):
+    """Return an existing reservation for duplicates; acknowledge new background work with 202."""
+    runtime, owner, key = context
+    try:
+        return await release(
+            runtime,
+            owner,
+            key,
+            await runtime.send(owner, key, identifier, body),
+            status=202,
+        )
+    except AssistantError as error:
+        raise HTTPException(error.status, detail={"code": error.code}) from None
+
+
+@router.get("/conversations/{identifier}/activity")
+async def activity(
+    identifier: UUID,
+    attempt: UUID,
+    after: int = Query(default=0, ge=0, le=2147483647),
+    context=Depends(access),
+):
+    """Read the existing normalized Activity boundary, including retained offline snapshots."""
+    runtime, owner, key = context
+    try:
+        result = await runtime.activity(owner, identifier, attempt, after)
+        # Application display metadata stays outside the common Activity page
+        # and retained snapshots. No host capability or call ID is exposed.
+        result = {**result, "tool_names": runtime.mcp.display_names()}
+        return await release(
+            runtime,
+            owner,
+            key,
+            result,
+        )
+    except AssistantError as error:
+        raise HTTPException(error.status, detail={"code": error.code}) from None
+
+
+@router.post("/conversations/{identifier}/stop")
+async def stop(identifier: UUID, body: StopRequest, context=Depends(access)):
+    """Request cancellation of this conversation's exact active attempt."""
+    runtime, owner, key = context
+    try:
+        return await release(
+            runtime,
+            owner,
+            key,
+            await runtime.stop(owner, identifier, body.attempt_id),
+            status=202,
+        )
+    except AssistantError as error:
+        raise HTTPException(error.status, detail={"code": error.code}) from None
+
+
+@router.post("/lock")
+async def lock(context=Depends(access)):
+    """Revoke chat authority before the profile is locked or signed out."""
+    runtime, owner, key = context
+    try:
+        await runtime.lock_session(key)
+        return JSONResponse({"state": "locked"}, headers={"Cache-Control": "no-store"})
+    except AssistantError as error:
+        raise HTTPException(error.status, detail={"code": error.code}) from None
+
+
+@router.post("/conversations/{identifier}/actions/{action}/decision")
+async def decide_graph_action(
+    identifier: UUID, action: UUID, body: GraphActionDecision, context=Depends(access)
+):
+    """Human-only exact proposal approval/rejection through the same-origin app boundary."""
+    runtime, owner, key = context
+    try:
+        result = await runtime.decide_graph_action(owner, key, identifier, action, body)
+        return await release(runtime, owner, key, result)
+    except AssistantError as error:
+        raise HTTPException(error.status, detail={"code": error.code}) from None
+
+
+@router.post("/conversations/{identifier}/native-actions/{action}/decision")
+async def decide_native_action(
+    identifier: UUID, action: UUID, body: NativeActionDecision, context=Depends(access)
+):
+    """Approve or reject the exact native command through human app authority only."""
+    runtime, owner, key = context
+    try:
+        result = await runtime.decide_native_action(
+            owner, key, identifier, action, body
+        )
+        return await release(runtime, owner, key, result)
+    except AssistantError as error:
+        raise HTTPException(error.status, detail={"code": error.code}) from None
+
+
+@router.get("/conversations/{identifier}/native-commands")
+async def native_commands(identifier: UUID, context=Depends(access)):
+    """Expose this owned session's observed commands without inference or approval."""
+    runtime, owner, key = context
+    try:
+        return await release(
+            runtime, owner, key, await runtime.native_catalog(owner, identifier)
+        )
+    except AssistantError as error:
+        raise HTTPException(error.status, detail={"code": error.code}) from None
+
+
+@router.post("/conversations/{identifier}/native-commands")
+async def submit_native_command(
+    identifier: UUID, body: NativeCommandRequest, context=Depends(access)
+):
+    """Submit an explicit human slash command, never model-provided approval."""
+    runtime, owner, key = context
+    try:
+        result = await runtime.submit_native_command(owner, key, identifier, body)
+        return await release(runtime, owner, key, result, status=202)
+    except AssistantError as error:
+        raise HTTPException(error.status, detail={"code": error.code}) from None
+
+
+@router.post("/conversations/{identifier}/permissions/{category}/revoke")
+async def revoke_graph_permission(
+    identifier: UUID, category: str, context=Depends(access)
+):
+    """Withdraw human consent without canceling already admitted graph work."""
+    from laomedo.integrations.langflow.assistant.actions import WorkflowActions
+
+    runtime, owner, key = context
+    try:
+        result = await WorkflowActions(
+            runtime.store, None, runtime.authorize
+        ).revoke_permission(owner, key, identifier, category)
+        return await release(runtime, owner, key, result)
+    except AssistantError as error:
+        raise HTTPException(error.status, detail={"code": error.code}) from None

@@ -1,23 +1,15 @@
-# Examples
+# Maintained examples
 
-Start with [Skills](skills/README.md) for selecting and inspecting immutable
-instructions and building an atomic-edit graph with the existing Agent.
-The [Skill walkthrough](../docs/features/skills/walkthrough.md) gives complete
-local service setup and describes the optional real execution.
+Use the smallest entrypoint for the supported concern:
 
-The maintained Skill entrypoint contains one builder and its real editor skill.
-Historical executed exports and campaign variants are preserved on `exp`, with
-original revisions and byte provenance; they are not current setup instructions.
+- [Skills](skills/README.md): source discovery, pinned inspection and versioned operations.
+- [GitHub](github/README.md): selected Issue/PR inspection and PR feedback through a real Agent.
+- [Agents](agents/README.md): fresh/resume graphs for each provider and explicit provenance handoffs where supported.
 
-Other folders own provider-specific and GitHub graph workflows.
-Start GitHub work with the [single GitHub builder](github/README.md): existing
-Issue/PR inspection and bounded PR feedback through a real Agent. Historical
-GitHub campaigns and fixture examples are archived on `exp`; their tests do not
-serve as live workflow acceptance. `graph.py` provides pure shared node/edge
-construction for the maintained Skill and GitHub builders.
-The Agent runner prototype and its test dependencies remain Agent-owned until
-that migration. Skill viewer and summary campaigns are archived on `exp`; use
-the maintained Skill walkthrough for current setup. Historical evidence links
-in the product documentation identify an immutable archive revision and do not
-claim acceptance of the current UI. The maintained Skill builder imports no
-campaign scripts.
+`graph.py` constructs native node metadata and connections without dispatching work.
+Exporting or validating a graph does not establish real provider execution.
+Use real references and the prerequisites in each guide; no login material belongs
+in an exported graph. Historical campaigns and executed exports are preserved on
+`exp` with exact revisions and hashes, rather than additional setup entrypoints.
+Saved compatibility inputs belong to concern-owned tests. Remaining Shared/GitHub
+campaign consumers retain their separately documented migration boundaries.

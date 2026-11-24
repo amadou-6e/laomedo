@@ -10,7 +10,7 @@ import subprocess
 import tempfile
 import unittest
 
-from laomedo.agents.providers.codex.settings import MEDIATION_CLIENT
+from laomedo.agents.agents.codex.settings import MEDIATION_CLIENT
 from laomedo.host.mediation.store import MediationStore
 from laomedo.host.mediation.errors import MediationError
 from laomedo.host.mediation.authority import RunGrantAuthority

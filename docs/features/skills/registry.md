@@ -90,7 +90,7 @@ skill into the private store:
 
 ```powershell
 $private = Join-Path $env:LOCALAPPDATA 'Laomedo'
-python -m laomedo.agents.providers.codex.cli --state (Join-Path $private 'pilot-runner') --skill-store (Join-Path $private 'pilot-skills') --source-workspace examples/skill-agent-pilot/source --preflight
+python -m laomedo.agents.agents.codex.cli --state (Join-Path $private 'pilot-runner') --skill-store (Join-Path $private 'pilot-skills') --source-workspace examples/skill-agent-pilot/source --preflight
 ```
 
 The HTTP runner binds only to `127.0.0.1:8765`. It requires `Authorization: Bearer <token>` for every status and
@@ -125,4 +125,4 @@ and persist the import manifest. `POST /v1/runs/<run-id>/artifacts` with `paths`
 returns pinned manifest references, never file contents or arbitrary host paths.
 Cross-provider files require an explicit host-configured `--artifact-source
 PROVIDER=STATE` mapping. The source record provider, run and selected-file hashes
-are verified; requests cannot supply arbitrary host state paths. See [handoff examples](../../../examples/agent-handoffs/README.md).
+are verified; requests cannot supply arbitrary host state paths. See [handoff examples](../../../examples/agents/README.md).

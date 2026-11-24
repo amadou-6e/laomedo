@@ -1,0 +1,779 @@
+{
+  "kind": "supporting_internal_synthetic_wire_goldens_only",
+  "revision": "3299f8df976965b707e7c91d3309ea2e8e0aaadf",
+  "source_path": "src/laomedo/agents/agents/claude/auth/utils.py",
+  "source_sha256": "68f1ec71ba8e7675989f7f0bf79c3c37b3b2994681dc2f9b48d2a979efddbf80",
+  "writer_ast_sha256": "de05976cb5fd379977a3b964b1184ba67a5892b9aa2f29851df043424041bbd4",
+  "real_credentials_read": false,
+  "docker_or_model_dispatches": 0,
+  "cases": [
+    {
+      "expiry_type": "int",
+      "optional_variant": 0,
+      "optional_mask": 0,
+      "bytes_base64": "eyJjbGF1ZGVBaU9hdXRoIjogeyJhY2Nlc3NUb2tlbiI6ICJpbnRlcm5hbC1zeW50aGV0aWMtYWNjZXNzLXZhbHVlIiwgImV4cGlyZXNBdCI6IDEyMzQ1Njc4OTAxMjMsICJyZWZyZXNoVG9rZW4iOiAiIn19",
+      "sha256": "5be08a14e839585dc9b878636268fbdd04514e4562d5960cf352087219cafb01",
+      "input_json": "{\"accessToken\": \"internal-synthetic-access-value\", \"expiresAt\": 1234567890123}"
+    },
+    {
+      "expiry_type": "int",
+      "optional_variant": 0,
+      "optional_mask": 1,
+      "bytes_base64": "eyJjbGF1ZGVBaU9hdXRoIjogeyJhY2Nlc3NUb2tlbiI6ICJpbnRlcm5hbC1zeW50aGV0aWMtYWNjZXNzLXZhbHVlIiwgImV4cGlyZXNBdCI6IDEyMzQ1Njc4OTAxMjMsICJzY29wZXMiOiBudWxsLCAicmVmcmVzaFRva2VuIjogIiJ9fQ==",
+      "sha256": "8012d2c7058fd4f5f8c88ae9b48248b160739f639c50a92fa5dab3eb348aa5c6",
+      "input_json": "{\"accessToken\": \"internal-synthetic-access-value\", \"expiresAt\": 1234567890123, \"scopes\": null}"
+    },
+    {
+      "expiry_type": "int",
+      "optional_variant": 0,
+      "optional_mask": 2,
+      "bytes_base64": "eyJjbGF1ZGVBaU9hdXRoIjogeyJhY2Nlc3NUb2tlbiI6ICJpbnRlcm5hbC1zeW50aGV0aWMtYWNjZXNzLXZhbHVlIiwgImV4cGlyZXNBdCI6IDEyMzQ1Njc4OTAxMjMsICJzdWJzY3JpcHRpb25UeXBlIjogbnVsbCwgInJlZnJlc2hUb2tlbiI6ICIifX0=",
+      "sha256": "a3dd48955ccdd388e4824f6ff34c08d7332ac4d7240d937cfd6dedbde004621c",
+      "input_json": "{\"accessToken\": \"internal-synthetic-access-value\", \"expiresAt\": 1234567890123, \"subscriptionType\": null}"
+    },
+    {
+      "expiry_type": "int",
+      "optional_variant": 0,
+      "optional_mask": 3,
+      "bytes_base64": "eyJjbGF1ZGVBaU9hdXRoIjogeyJhY2Nlc3NUb2tlbiI6ICJpbnRlcm5hbC1zeW50aGV0aWMtYWNjZXNzLXZhbHVlIiwgImV4cGlyZXNBdCI6IDEyMzQ1Njc4OTAxMjMsICJzY29wZXMiOiBudWxsLCAic3Vic2NyaXB0aW9uVHlwZSI6IG51bGwsICJyZWZyZXNoVG9rZW4iOiAiIn19",
+      "sha256": "9d6702f5f00f9640f1d2fc64bd78722a4ebe1a138890be0887bb7b3de411f647",
+      "input_json": "{\"accessToken\": \"internal-synthetic-access-value\", \"expiresAt\": 1234567890123, \"scopes\": null, \"subscriptionType\": null}"
+    },
+    {
+      "expiry_type": "int",
+      "optional_variant": 0,
+      "optional_mask": 4,
+      "bytes_base64": "eyJjbGF1ZGVBaU9hdXRoIjogeyJhY2Nlc3NUb2tlbiI6ICJpbnRlcm5hbC1zeW50aGV0aWMtYWNjZXNzLXZhbHVlIiwgImV4cGlyZXNBdCI6IDEyMzQ1Njc4OTAxMjMsICJyYXRlTGltaXRUaWVyIjogbnVsbCwgInJlZnJlc2hUb2tlbiI6ICIifX0=",
+      "sha256": "71f3205b316cd09baafe9d921ce7a9447cf5d1dd4cff81e17f7c26c165b82c9a",
+      "input_json": "{\"accessToken\": \"internal-synthetic-access-value\", \"expiresAt\": 1234567890123, \"rateLimitTier\": null}"
+    },
+    {
+      "expiry_type": "int",
+      "optional_variant": 0,
+      "optional_mask": 5,
+      "bytes_base64": "eyJjbGF1ZGVBaU9hdXRoIjogeyJhY2Nlc3NUb2tlbiI6ICJpbnRlcm5hbC1zeW50aGV0aWMtYWNjZXNzLXZhbHVlIiwgImV4cGlyZXNBdCI6IDEyMzQ1Njc4OTAxMjMsICJzY29wZXMiOiBudWxsLCAicmF0ZUxpbWl0VGllciI6IG51bGwsICJyZWZyZXNoVG9rZW4iOiAiIn19",
+      "sha256": "4864025419d3c0669f35af84eeed31b170a3f2edc066ff9e1d157d9110a04bee",
+      "input_json": "{\"accessToken\": \"internal-synthetic-access-value\", \"expiresAt\": 1234567890123, \"scopes\": null, \"rateLimitTier\": null}"
+    },
+    {
+      "expiry_type": "int",
+      "optional_variant": 0,
+      "optional_mask": 6,
+      "bytes_base64": "eyJjbGF1ZGVBaU9hdXRoIjogeyJhY2Nlc3NUb2tlbiI6ICJpbnRlcm5hbC1zeW50aGV0aWMtYWNjZXNzLXZhbHVlIiwgImV4cGlyZXNBdCI6IDEyMzQ1Njc4OTAxMjMsICJzdWJzY3JpcHRpb25UeXBlIjogbnVsbCwgInJhdGVMaW1pdFRpZXIiOiBudWxsLCAicmVmcmVzaFRva2VuIjogIiJ9fQ==",
+      "sha256": "01155606e33b5b082fa76af0dd8792ddd921cd53bd55573111a7edbcac49f6c4",
+      "input_json": "{\"accessToken\": \"internal-synthetic-access-value\", \"expiresAt\": 1234567890123, \"subscriptionType\": null, \"rateLimitTier\": null}"
+    },
+    {
+      "expiry_type": "int",
+      "optional_variant": 0,
+      "optional_mask": 7,
+      "bytes_base64": "eyJjbGF1ZGVBaU9hdXRoIjogeyJhY2Nlc3NUb2tlbiI6ICJpbnRlcm5hbC1zeW50aGV0aWMtYWNjZXNzLXZhbHVlIiwgImV4cGlyZXNBdCI6IDEyMzQ1Njc4OTAxMjMsICJzY29wZXMiOiBudWxsLCAic3Vic2NyaXB0aW9uVHlwZSI6IG51bGwsICJyYXRlTGltaXRUaWVyIjogbnVsbCwgInJlZnJlc2hUb2tlbiI6ICIifX0=",
+      "sha256": "1dc944b1bf04e5eaaf97563483bf498665462763bffe773c9f861ae2eb0cdd4e",
+      "input_json": "{\"accessToken\": \"internal-synthetic-access-value\", \"expiresAt\": 1234567890123, \"scopes\": null, \"subscriptionType\": null, \"rateLimitTier\": null}"
+    },
+    {
+      "expiry_type": "int",
+      "optional_variant": 1,
+      "optional_mask": 0,
+      "bytes_base64": "eyJjbGF1ZGVBaU9hdXRoIjogeyJhY2Nlc3NUb2tlbiI6ICJpbnRlcm5hbC1zeW50aGV0aWMtYWNjZXNzLXZhbHVlIiwgImV4cGlyZXNBdCI6IDEyMzQ1Njc4OTAxMjMsICJyZWZyZXNoVG9rZW4iOiAiIn19",
+      "sha256": "5be08a14e839585dc9b878636268fbdd04514e4562d5960cf352087219cafb01",
+      "input_json": "{\"accessToken\": \"internal-synthetic-access-value\", \"expiresAt\": 1234567890123}"
+    },
+    {
+      "expiry_type": "int",
+      "optional_variant": 1,
+      "optional_mask": 1,
+      "bytes_base64": "eyJjbGF1ZGVBaU9hdXRoIjogeyJhY2Nlc3NUb2tlbiI6ICJpbnRlcm5hbC1zeW50aGV0aWMtYWNjZXNzLXZhbHVlIiwgImV4cGlyZXNBdCI6IDEyMzQ1Njc4OTAxMjMsICJzY29wZXMiOiAiXHUwMGU5dGlxdWV0dGUiLCAicmVmcmVzaFRva2VuIjogIiJ9fQ==",
+      "sha256": "46b1fe0be10d36e1101a0c8017eed67c97a6b207a70b221ab6442cf13269a716",
+      "input_json": "{\"accessToken\": \"internal-synthetic-access-value\", \"expiresAt\": 1234567890123, \"scopes\": \"\\u00e9tiquette\"}"
+    },
+    {
+      "expiry_type": "int",
+      "optional_variant": 1,
+      "optional_mask": 2,
+      "bytes_base64": "eyJjbGF1ZGVBaU9hdXRoIjogeyJhY2Nlc3NUb2tlbiI6ICJpbnRlcm5hbC1zeW50aGV0aWMtYWNjZXNzLXZhbHVlIiwgImV4cGlyZXNBdCI6IDEyMzQ1Njc4OTAxMjMsICJzdWJzY3JpcHRpb25UeXBlIjogIlx1MDBlOXRpcXVldHRlIiwgInJlZnJlc2hUb2tlbiI6ICIifX0=",
+      "sha256": "31a48f48db3ec9fc96b9fcb847eee9d0227f7b3f6d088630cf359bccd93ed312",
+      "input_json": "{\"accessToken\": \"internal-synthetic-access-value\", \"expiresAt\": 1234567890123, \"subscriptionType\": \"\\u00e9tiquette\"}"
+    },
+    {
+      "expiry_type": "int",
+      "optional_variant": 1,
+      "optional_mask": 3,
+      "bytes_base64": "eyJjbGF1ZGVBaU9hdXRoIjogeyJhY2Nlc3NUb2tlbiI6ICJpbnRlcm5hbC1zeW50aGV0aWMtYWNjZXNzLXZhbHVlIiwgImV4cGlyZXNBdCI6IDEyMzQ1Njc4OTAxMjMsICJzY29wZXMiOiAiXHUwMGU5dGlxdWV0dGUiLCAic3Vic2NyaXB0aW9uVHlwZSI6ICJcdTAwZTl0aXF1ZXR0ZSIsICJyZWZyZXNoVG9rZW4iOiAiIn19",
+      "sha256": "7614b210e465743bccf50c020051206a0fb24c0d19274f9e6cd4eefe9338d9d1",
+      "input_json": "{\"accessToken\": \"internal-synthetic-access-value\", \"expiresAt\": 1234567890123, \"scopes\": \"\\u00e9tiquette\", \"subscriptionType\": \"\\u00e9tiquette\"}"
+    },
+    {
+      "expiry_type": "int",
+      "optional_variant": 1,
+      "optional_mask": 4,
+      "bytes_base64": "eyJjbGF1ZGVBaU9hdXRoIjogeyJhY2Nlc3NUb2tlbiI6ICJpbnRlcm5hbC1zeW50aGV0aWMtYWNjZXNzLXZhbHVlIiwgImV4cGlyZXNBdCI6IDEyMzQ1Njc4OTAxMjMsICJyYXRlTGltaXRUaWVyIjogIlx1MDBlOXRpcXVldHRlIiwgInJlZnJlc2hUb2tlbiI6ICIifX0=",
+      "sha256": "efd0006e1d99323492ff2c2f932dcced42287770598cb3ac651aae3ef6a8bb4e",
+      "input_json": "{\"accessToken\": \"internal-synthetic-access-value\", \"expiresAt\": 1234567890123, \"rateLimitTier\": \"\\u00e9tiquette\"}"
+    },
+    {
+      "expiry_type": "int",
+      "optional_variant": 1,
+      "optional_mask": 5,
+      "bytes_base64": "eyJjbGF1ZGVBaU9hdXRoIjogeyJhY2Nlc3NUb2tlbiI6ICJpbnRlcm5hbC1zeW50aGV0aWMtYWNjZXNzLXZhbHVlIiwgImV4cGlyZXNBdCI6IDEyMzQ1Njc4OTAxMjMsICJzY29wZXMiOiAiXHUwMGU5dGlxdWV0dGUiLCAicmF0ZUxpbWl0VGllciI6ICJcdTAwZTl0aXF1ZXR0ZSIsICJyZWZyZXNoVG9rZW4iOiAiIn19",
+      "sha256": "77e2ed070d88fd84efb5b0266bfc08e5727effbebc2652442e901bc18e94a027",
+      "input_json": "{\"accessToken\": \"internal-synthetic-access-value\", \"expiresAt\": 1234567890123, \"scopes\": \"\\u00e9tiquette\", \"rateLimitTier\": \"\\u00e9tiquette\"}"
+    },
+    {
+      "expiry_type": "int",
+      "optional_variant": 1,
+      "optional_mask": 6,
+      "bytes_base64": "eyJjbGF1ZGVBaU9hdXRoIjogeyJhY2Nlc3NUb2tlbiI6ICJpbnRlcm5hbC1zeW50aGV0aWMtYWNjZXNzLXZhbHVlIiwgImV4cGlyZXNBdCI6IDEyMzQ1Njc4OTAxMjMsICJzdWJzY3JpcHRpb25UeXBlIjogIlx1MDBlOXRpcXVldHRlIiwgInJhdGVMaW1pdFRpZXIiOiAiXHUwMGU5dGlxdWV0dGUiLCAicmVmcmVzaFRva2VuIjogIiJ9fQ==",
+      "sha256": "8caf4355bcbf1d7efbe8d01431fae2a5da341f4560aac3841fe5ec97d95e6533",
+      "input_json": "{\"accessToken\": \"internal-synthetic-access-value\", \"expiresAt\": 1234567890123, \"subscriptionType\": \"\\u00e9tiquette\", \"rateLimitTier\": \"\\u00e9tiquette\"}"
+    },
+    {
+      "expiry_type": "int",
+      "optional_variant": 1,
+      "optional_mask": 7,
+      "bytes_base64": "eyJjbGF1ZGVBaU9hdXRoIjogeyJhY2Nlc3NUb2tlbiI6ICJpbnRlcm5hbC1zeW50aGV0aWMtYWNjZXNzLXZhbHVlIiwgImV4cGlyZXNBdCI6IDEyMzQ1Njc4OTAxMjMsICJzY29wZXMiOiAiXHUwMGU5dGlxdWV0dGUiLCAic3Vic2NyaXB0aW9uVHlwZSI6ICJcdTAwZTl0aXF1ZXR0ZSIsICJyYXRlTGltaXRUaWVyIjogIlx1MDBlOXRpcXVldHRlIiwgInJlZnJlc2hUb2tlbiI6ICIifX0=",
+      "sha256": "622818e331c2041c40802786c8cfbd5236e7d7dfc613f4bb5feccd0b0cb843af",
+      "input_json": "{\"accessToken\": \"internal-synthetic-access-value\", \"expiresAt\": 1234567890123, \"scopes\": \"\\u00e9tiquette\", \"subscriptionType\": \"\\u00e9tiquette\", \"rateLimitTier\": \"\\u00e9tiquette\"}"
+    },
+    {
+      "expiry_type": "int",
+      "optional_variant": 2,
+      "optional_mask": 0,
+      "bytes_base64": "eyJjbGF1ZGVBaU9hdXRoIjogeyJhY2Nlc3NUb2tlbiI6ICJpbnRlcm5hbC1zeW50aGV0aWMtYWNjZXNzLXZhbHVlIiwgImV4cGlyZXNBdCI6IDEyMzQ1Njc4OTAxMjMsICJyZWZyZXNoVG9rZW4iOiAiIn19",
+      "sha256": "5be08a14e839585dc9b878636268fbdd04514e4562d5960cf352087219cafb01",
+      "input_json": "{\"accessToken\": \"internal-synthetic-access-value\", \"expiresAt\": 1234567890123}"
+    },
+    {
+      "expiry_type": "int",
+      "optional_variant": 2,
+      "optional_mask": 1,
+      "bytes_base64": "eyJjbGF1ZGVBaU9hdXRoIjogeyJhY2Nlc3NUb2tlbiI6ICJpbnRlcm5hbC1zeW50aGV0aWMtYWNjZXNzLXZhbHVlIiwgImV4cGlyZXNBdCI6IDEyMzQ1Njc4OTAxMjMsICJzY29wZXMiOiBbIm9uZSIsIDIsIG51bGxdLCAicmVmcmVzaFRva2VuIjogIiJ9fQ==",
+      "sha256": "f88724e9bde0a73f4cb2882eae49b66d10e3850598f356b0a648ee6e88321917",
+      "input_json": "{\"accessToken\": \"internal-synthetic-access-value\", \"expiresAt\": 1234567890123, \"scopes\": [\"one\", 2, null]}"
+    },
+    {
+      "expiry_type": "int",
+      "optional_variant": 2,
+      "optional_mask": 2,
+      "bytes_base64": "eyJjbGF1ZGVBaU9hdXRoIjogeyJhY2Nlc3NUb2tlbiI6ICJpbnRlcm5hbC1zeW50aGV0aWMtYWNjZXNzLXZhbHVlIiwgImV4cGlyZXNBdCI6IDEyMzQ1Njc4OTAxMjMsICJzdWJzY3JpcHRpb25UeXBlIjogWyJvbmUiLCAyLCBudWxsXSwgInJlZnJlc2hUb2tlbiI6ICIifX0=",
+      "sha256": "564f20f0591b294b9e42c48bc6ba9d9e2929d97091bd4fd2e0fd6050adc339ef",
+      "input_json": "{\"accessToken\": \"internal-synthetic-access-value\", \"expiresAt\": 1234567890123, \"subscriptionType\": [\"one\", 2, null]}"
+    },
+    {
+      "expiry_type": "int",
+      "optional_variant": 2,
+      "optional_mask": 3,
+      "bytes_base64": "eyJjbGF1ZGVBaU9hdXRoIjogeyJhY2Nlc3NUb2tlbiI6ICJpbnRlcm5hbC1zeW50aGV0aWMtYWNjZXNzLXZhbHVlIiwgImV4cGlyZXNBdCI6IDEyMzQ1Njc4OTAxMjMsICJzY29wZXMiOiBbIm9uZSIsIDIsIG51bGxdLCAic3Vic2NyaXB0aW9uVHlwZSI6IFsib25lIiwgMiwgbnVsbF0sICJyZWZyZXNoVG9rZW4iOiAiIn19",
+      "sha256": "66903ef988ac1397ba53471a7904d00af4e451b8a35bf17ab006cce1689fd9fb",
+      "input_json": "{\"accessToken\": \"internal-synthetic-access-value\", \"expiresAt\": 1234567890123, \"scopes\": [\"one\", 2, null], \"subscriptionType\": [\"one\", 2, null]}"
+    },
+    {
+      "expiry_type": "int",
+      "optional_variant": 2,
+      "optional_mask": 4,
+      "bytes_base64": "eyJjbGF1ZGVBaU9hdXRoIjogeyJhY2Nlc3NUb2tlbiI6ICJpbnRlcm5hbC1zeW50aGV0aWMtYWNjZXNzLXZhbHVlIiwgImV4cGlyZXNBdCI6IDEyMzQ1Njc4OTAxMjMsICJyYXRlTGltaXRUaWVyIjogWyJvbmUiLCAyLCBudWxsXSwgInJlZnJlc2hUb2tlbiI6ICIifX0=",
+      "sha256": "38eaeef2f073bd678d3e8cb81370491915e041ea221dfd2fed7b95ffcbd4cc34",
+      "input_json": "{\"accessToken\": \"internal-synthetic-access-value\", \"expiresAt\": 1234567890123, \"rateLimitTier\": [\"one\", 2, null]}"
+    },
+    {
+      "expiry_type": "int",
+      "optional_variant": 2,
+      "optional_mask": 5,
+      "bytes_base64": "eyJjbGF1ZGVBaU9hdXRoIjogeyJhY2Nlc3NUb2tlbiI6ICJpbnRlcm5hbC1zeW50aGV0aWMtYWNjZXNzLXZhbHVlIiwgImV4cGlyZXNBdCI6IDEyMzQ1Njc4OTAxMjMsICJzY29wZXMiOiBbIm9uZSIsIDIsIG51bGxdLCAicmF0ZUxpbWl0VGllciI6IFsib25lIiwgMiwgbnVsbF0sICJyZWZyZXNoVG9rZW4iOiAiIn19",
+      "sha256": "33413e6999256325217d025f6ba5633b5fac3c3f99bd4d54db6a517fe3ad034c",
+      "input_json": "{\"accessToken\": \"internal-synthetic-access-value\", \"expiresAt\": 1234567890123, \"scopes\": [\"one\", 2, null], \"rateLimitTier\": [\"one\", 2, null]}"
+    },
+    {
+      "expiry_type": "int",
+      "optional_variant": 2,
+      "optional_mask": 6,
+      "bytes_base64": "eyJjbGF1ZGVBaU9hdXRoIjogeyJhY2Nlc3NUb2tlbiI6ICJpbnRlcm5hbC1zeW50aGV0aWMtYWNjZXNzLXZhbHVlIiwgImV4cGlyZXNBdCI6IDEyMzQ1Njc4OTAxMjMsICJzdWJzY3JpcHRpb25UeXBlIjogWyJvbmUiLCAyLCBudWxsXSwgInJhdGVMaW1pdFRpZXIiOiBbIm9uZSIsIDIsIG51bGxdLCAicmVmcmVzaFRva2VuIjogIiJ9fQ==",
+      "sha256": "59138416697abd35640ff6d283b0d003f858db9bb98179faac01760d18b5df66",
+      "input_json": "{\"accessToken\": \"internal-synthetic-access-value\", \"expiresAt\": 1234567890123, \"subscriptionType\": [\"one\", 2, null], \"rateLimitTier\": [\"one\", 2, null]}"
+    },
+    {
+      "expiry_type": "int",
+      "optional_variant": 2,
+      "optional_mask": 7,
+      "bytes_base64": "eyJjbGF1ZGVBaU9hdXRoIjogeyJhY2Nlc3NUb2tlbiI6ICJpbnRlcm5hbC1zeW50aGV0aWMtYWNjZXNzLXZhbHVlIiwgImV4cGlyZXNBdCI6IDEyMzQ1Njc4OTAxMjMsICJzY29wZXMiOiBbIm9uZSIsIDIsIG51bGxdLCAic3Vic2NyaXB0aW9uVHlwZSI6IFsib25lIiwgMiwgbnVsbF0sICJyYXRlTGltaXRUaWVyIjogWyJvbmUiLCAyLCBudWxsXSwgInJlZnJlc2hUb2tlbiI6ICIifX0=",
+      "sha256": "9c78113def398038bfcd5a1e4eb24ab0619b6d3565d52f9170be68ea25a9005a",
+      "input_json": "{\"accessToken\": \"internal-synthetic-access-value\", \"expiresAt\": 1234567890123, \"scopes\": [\"one\", 2, null], \"subscriptionType\": [\"one\", 2, null], \"rateLimitTier\": [\"one\", 2, null]}"
+    },
+    {
+      "expiry_type": "int",
+      "optional_variant": 3,
+      "optional_mask": 0,
+      "bytes_base64": "eyJjbGF1ZGVBaU9hdXRoIjogeyJhY2Nlc3NUb2tlbiI6ICJpbnRlcm5hbC1zeW50aGV0aWMtYWNjZXNzLXZhbHVlIiwgImV4cGlyZXNBdCI6IDEyMzQ1Njc4OTAxMjMsICJyZWZyZXNoVG9rZW4iOiAiIn19",
+      "sha256": "5be08a14e839585dc9b878636268fbdd04514e4562d5960cf352087219cafb01",
+      "input_json": "{\"accessToken\": \"internal-synthetic-access-value\", \"expiresAt\": 1234567890123}"
+    },
+    {
+      "expiry_type": "int",
+      "optional_variant": 3,
+      "optional_mask": 1,
+      "bytes_base64": "eyJjbGF1ZGVBaU9hdXRoIjogeyJhY2Nlc3NUb2tlbiI6ICJpbnRlcm5hbC1zeW50aGV0aWMtYWNjZXNzLXZhbHVlIiwgImV4cGlyZXNBdCI6IDEyMzQ1Njc4OTAxMjMsICJzY29wZXMiOiB7Im5lc3RlZCI6IFtmYWxzZSwgIlx1MDBlOSJdfSwgInJlZnJlc2hUb2tlbiI6ICIifX0=",
+      "sha256": "06f27d7b0cc2a6837236766cec9f6ffe957d0da04f6487512840399a61bb3103",
+      "input_json": "{\"accessToken\": \"internal-synthetic-access-value\", \"expiresAt\": 1234567890123, \"scopes\": {\"nested\": [false, \"\\u00e9\"]}}"
+    },
+    {
+      "expiry_type": "int",
+      "optional_variant": 3,
+      "optional_mask": 2,
+      "bytes_base64": "eyJjbGF1ZGVBaU9hdXRoIjogeyJhY2Nlc3NUb2tlbiI6ICJpbnRlcm5hbC1zeW50aGV0aWMtYWNjZXNzLXZhbHVlIiwgImV4cGlyZXNBdCI6IDEyMzQ1Njc4OTAxMjMsICJzdWJzY3JpcHRpb25UeXBlIjogeyJuZXN0ZWQiOiBbZmFsc2UsICJcdTAwZTkiXX0sICJyZWZyZXNoVG9rZW4iOiAiIn19",
+      "sha256": "4875bfc70f6ac494b98934cf8ae892b95a31563815d00415dc48e7d088f912be",
+      "input_json": "{\"accessToken\": \"internal-synthetic-access-value\", \"expiresAt\": 1234567890123, \"subscriptionType\": {\"nested\": [false, \"\\u00e9\"]}}"
+    },
+    {
+      "expiry_type": "int",
+      "optional_variant": 3,
+      "optional_mask": 3,
+      "bytes_base64": "eyJjbGF1ZGVBaU9hdXRoIjogeyJhY2Nlc3NUb2tlbiI6ICJpbnRlcm5hbC1zeW50aGV0aWMtYWNjZXNzLXZhbHVlIiwgImV4cGlyZXNBdCI6IDEyMzQ1Njc4OTAxMjMsICJzY29wZXMiOiB7Im5lc3RlZCI6IFtmYWxzZSwgIlx1MDBlOSJdfSwgInN1YnNjcmlwdGlvblR5cGUiOiB7Im5lc3RlZCI6IFtmYWxzZSwgIlx1MDBlOSJdfSwgInJlZnJlc2hUb2tlbiI6ICIifX0=",
+      "sha256": "ade510af6faeaceecd91f35bc01484f45687e42b3b58038afe44e34a0b4fe64e",
+      "input_json": "{\"accessToken\": \"internal-synthetic-access-value\", \"expiresAt\": 1234567890123, \"scopes\": {\"nested\": [false, \"\\u00e9\"]}, \"subscriptionType\": {\"nested\": [false, \"\\u00e9\"]}}"
+    },
+    {
+      "expiry_type": "int",
+      "optional_variant": 3,
+      "optional_mask": 4,
+      "bytes_base64": "eyJjbGF1ZGVBaU9hdXRoIjogeyJhY2Nlc3NUb2tlbiI6ICJpbnRlcm5hbC1zeW50aGV0aWMtYWNjZXNzLXZhbHVlIiwgImV4cGlyZXNBdCI6IDEyMzQ1Njc4OTAxMjMsICJyYXRlTGltaXRUaWVyIjogeyJuZXN0ZWQiOiBbZmFsc2UsICJcdTAwZTkiXX0sICJyZWZyZXNoVG9rZW4iOiAiIn19",
+      "sha256": "532aa15053ba96b742935ac2857e9946e91f5e46d67656b0faa43c9fb94e2c5c",
+      "input_json": "{\"accessToken\": \"internal-synthetic-access-value\", \"expiresAt\": 1234567890123, \"rateLimitTier\": {\"nested\": [false, \"\\u00e9\"]}}"
+    },
+    {
+      "expiry_type": "int",
+      "optional_variant": 3,
+      "optional_mask": 5,
+      "bytes_base64": "eyJjbGF1ZGVBaU9hdXRoIjogeyJhY2Nlc3NUb2tlbiI6ICJpbnRlcm5hbC1zeW50aGV0aWMtYWNjZXNzLXZhbHVlIiwgImV4cGlyZXNBdCI6IDEyMzQ1Njc4OTAxMjMsICJzY29wZXMiOiB7Im5lc3RlZCI6IFtmYWxzZSwgIlx1MDBlOSJdfSwgInJhdGVMaW1pdFRpZXIiOiB7Im5lc3RlZCI6IFtmYWxzZSwgIlx1MDBlOSJdfSwgInJlZnJlc2hUb2tlbiI6ICIifX0=",
+      "sha256": "101ada6c18c656c6cba770557ed581341a4cf393db470293d464fd9174825acb",
+      "input_json": "{\"accessToken\": \"internal-synthetic-access-value\", \"expiresAt\": 1234567890123, \"scopes\": {\"nested\": [false, \"\\u00e9\"]}, \"rateLimitTier\": {\"nested\": [false, \"\\u00e9\"]}}"
+    },
+    {
+      "expiry_type": "int",
+      "optional_variant": 3,
+      "optional_mask": 6,
+      "bytes_base64": "eyJjbGF1ZGVBaU9hdXRoIjogeyJhY2Nlc3NUb2tlbiI6ICJpbnRlcm5hbC1zeW50aGV0aWMtYWNjZXNzLXZhbHVlIiwgImV4cGlyZXNBdCI6IDEyMzQ1Njc4OTAxMjMsICJzdWJzY3JpcHRpb25UeXBlIjogeyJuZXN0ZWQiOiBbZmFsc2UsICJcdTAwZTkiXX0sICJyYXRlTGltaXRUaWVyIjogeyJuZXN0ZWQiOiBbZmFsc2UsICJcdTAwZTkiXX0sICJyZWZyZXNoVG9rZW4iOiAiIn19",
+      "sha256": "2a0c728f7e157cab925d133bebcce6a9230a08ba803f06d2b0a1421af18aed25",
+      "input_json": "{\"accessToken\": \"internal-synthetic-access-value\", \"expiresAt\": 1234567890123, \"subscriptionType\": {\"nested\": [false, \"\\u00e9\"]}, \"rateLimitTier\": {\"nested\": [false, \"\\u00e9\"]}}"
+    },
+    {
+      "expiry_type": "int",
+      "optional_variant": 3,
+      "optional_mask": 7,
+      "bytes_base64": "eyJjbGF1ZGVBaU9hdXRoIjogeyJhY2Nlc3NUb2tlbiI6ICJpbnRlcm5hbC1zeW50aGV0aWMtYWNjZXNzLXZhbHVlIiwgImV4cGlyZXNBdCI6IDEyMzQ1Njc4OTAxMjMsICJzY29wZXMiOiB7Im5lc3RlZCI6IFtmYWxzZSwgIlx1MDBlOSJdfSwgInN1YnNjcmlwdGlvblR5cGUiOiB7Im5lc3RlZCI6IFtmYWxzZSwgIlx1MDBlOSJdfSwgInJhdGVMaW1pdFRpZXIiOiB7Im5lc3RlZCI6IFtmYWxzZSwgIlx1MDBlOSJdfSwgInJlZnJlc2hUb2tlbiI6ICIifX0=",
+      "sha256": "9b8f1f5a2db8fde32272b65578dfb0f144549c7a6479d7018dbd4e3f416097a3",
+      "input_json": "{\"accessToken\": \"internal-synthetic-access-value\", \"expiresAt\": 1234567890123, \"scopes\": {\"nested\": [false, \"\\u00e9\"]}, \"subscriptionType\": {\"nested\": [false, \"\\u00e9\"]}, \"rateLimitTier\": {\"nested\": [false, \"\\u00e9\"]}}"
+    },
+    {
+      "expiry_type": "int",
+      "optional_variant": 4,
+      "optional_mask": 0,
+      "bytes_base64": "eyJjbGF1ZGVBaU9hdXRoIjogeyJhY2Nlc3NUb2tlbiI6ICJpbnRlcm5hbC1zeW50aGV0aWMtYWNjZXNzLXZhbHVlIiwgImV4cGlyZXNBdCI6IDEyMzQ1Njc4OTAxMjMsICJyZWZyZXNoVG9rZW4iOiAiIn19",
+      "sha256": "5be08a14e839585dc9b878636268fbdd04514e4562d5960cf352087219cafb01",
+      "input_json": "{\"accessToken\": \"internal-synthetic-access-value\", \"expiresAt\": 1234567890123}"
+    },
+    {
+      "expiry_type": "int",
+      "optional_variant": 4,
+      "optional_mask": 1,
+      "bytes_base64": "eyJjbGF1ZGVBaU9hdXRoIjogeyJhY2Nlc3NUb2tlbiI6ICJpbnRlcm5hbC1zeW50aGV0aWMtYWNjZXNzLXZhbHVlIiwgImV4cGlyZXNBdCI6IDEyMzQ1Njc4OTAxMjMsICJzY29wZXMiOiB0cnVlLCAicmVmcmVzaFRva2VuIjogIiJ9fQ==",
+      "sha256": "0ab5089196c47ff74e207360db78bb10e27e940bcd3f2cfc8bc2350d19216ad6",
+      "input_json": "{\"accessToken\": \"internal-synthetic-access-value\", \"expiresAt\": 1234567890123, \"scopes\": true}"
+    },
+    {
+      "expiry_type": "int",
+      "optional_variant": 4,
+      "optional_mask": 2,
+      "bytes_base64": "eyJjbGF1ZGVBaU9hdXRoIjogeyJhY2Nlc3NUb2tlbiI6ICJpbnRlcm5hbC1zeW50aGV0aWMtYWNjZXNzLXZhbHVlIiwgImV4cGlyZXNBdCI6IDEyMzQ1Njc4OTAxMjMsICJzdWJzY3JpcHRpb25UeXBlIjogdHJ1ZSwgInJlZnJlc2hUb2tlbiI6ICIifX0=",
+      "sha256": "6b985b2dcf2a9d6318b9e368f4e72453c20210eed6c784a87ecaa527b88f68b7",
+      "input_json": "{\"accessToken\": \"internal-synthetic-access-value\", \"expiresAt\": 1234567890123, \"subscriptionType\": true}"
+    },
+    {
+      "expiry_type": "int",
+      "optional_variant": 4,
+      "optional_mask": 3,
+      "bytes_base64": "eyJjbGF1ZGVBaU9hdXRoIjogeyJhY2Nlc3NUb2tlbiI6ICJpbnRlcm5hbC1zeW50aGV0aWMtYWNjZXNzLXZhbHVlIiwgImV4cGlyZXNBdCI6IDEyMzQ1Njc4OTAxMjMsICJzY29wZXMiOiB0cnVlLCAic3Vic2NyaXB0aW9uVHlwZSI6IHRydWUsICJyZWZyZXNoVG9rZW4iOiAiIn19",
+      "sha256": "e6cf00ff88303205e2504fd4fceac655214266d5ad07b5ee5fa38a5dc8582e4a",
+      "input_json": "{\"accessToken\": \"internal-synthetic-access-value\", \"expiresAt\": 1234567890123, \"scopes\": true, \"subscriptionType\": true}"
+    },
+    {
+      "expiry_type": "int",
+      "optional_variant": 4,
+      "optional_mask": 4,
+      "bytes_base64": "eyJjbGF1ZGVBaU9hdXRoIjogeyJhY2Nlc3NUb2tlbiI6ICJpbnRlcm5hbC1zeW50aGV0aWMtYWNjZXNzLXZhbHVlIiwgImV4cGlyZXNBdCI6IDEyMzQ1Njc4OTAxMjMsICJyYXRlTGltaXRUaWVyIjogdHJ1ZSwgInJlZnJlc2hUb2tlbiI6ICIifX0=",
+      "sha256": "01b8781f093bd34d04ce94dcca389a0a72536eeebc6628e76b0a5ba9331b0de8",
+      "input_json": "{\"accessToken\": \"internal-synthetic-access-value\", \"expiresAt\": 1234567890123, \"rateLimitTier\": true}"
+    },
+    {
+      "expiry_type": "int",
+      "optional_variant": 4,
+      "optional_mask": 5,
+      "bytes_base64": "eyJjbGF1ZGVBaU9hdXRoIjogeyJhY2Nlc3NUb2tlbiI6ICJpbnRlcm5hbC1zeW50aGV0aWMtYWNjZXNzLXZhbHVlIiwgImV4cGlyZXNBdCI6IDEyMzQ1Njc4OTAxMjMsICJzY29wZXMiOiB0cnVlLCAicmF0ZUxpbWl0VGllciI6IHRydWUsICJyZWZyZXNoVG9rZW4iOiAiIn19",
+      "sha256": "ef76ba6fd560df20eea8ab723f4c05124dbd7616faf63d1fbd68308238421c81",
+      "input_json": "{\"accessToken\": \"internal-synthetic-access-value\", \"expiresAt\": 1234567890123, \"scopes\": true, \"rateLimitTier\": true}"
+    },
+    {
+      "expiry_type": "int",
+      "optional_variant": 4,
+      "optional_mask": 6,
+      "bytes_base64": "eyJjbGF1ZGVBaU9hdXRoIjogeyJhY2Nlc3NUb2tlbiI6ICJpbnRlcm5hbC1zeW50aGV0aWMtYWNjZXNzLXZhbHVlIiwgImV4cGlyZXNBdCI6IDEyMzQ1Njc4OTAxMjMsICJzdWJzY3JpcHRpb25UeXBlIjogdHJ1ZSwgInJhdGVMaW1pdFRpZXIiOiB0cnVlLCAicmVmcmVzaFRva2VuIjogIiJ9fQ==",
+      "sha256": "6a684e24643ee15a688271840d4fe8c0240e66f2cc029aa7af12f1f3208ede85",
+      "input_json": "{\"accessToken\": \"internal-synthetic-access-value\", \"expiresAt\": 1234567890123, \"subscriptionType\": true, \"rateLimitTier\": true}"
+    },
+    {
+      "expiry_type": "int",
+      "optional_variant": 4,
+      "optional_mask": 7,
+      "bytes_base64": "eyJjbGF1ZGVBaU9hdXRoIjogeyJhY2Nlc3NUb2tlbiI6ICJpbnRlcm5hbC1zeW50aGV0aWMtYWNjZXNzLXZhbHVlIiwgImV4cGlyZXNBdCI6IDEyMzQ1Njc4OTAxMjMsICJzY29wZXMiOiB0cnVlLCAic3Vic2NyaXB0aW9uVHlwZSI6IHRydWUsICJyYXRlTGltaXRUaWVyIjogdHJ1ZSwgInJlZnJlc2hUb2tlbiI6ICIifX0=",
+      "sha256": "206535c8728cfe02e081fd2c50605d33cba060e63e63d5413018be89274746d9",
+      "input_json": "{\"accessToken\": \"internal-synthetic-access-value\", \"expiresAt\": 1234567890123, \"scopes\": true, \"subscriptionType\": true, \"rateLimitTier\": true}"
+    },
+    {
+      "expiry_type": "int",
+      "optional_variant": 5,
+      "optional_mask": 0,
+      "bytes_base64": "eyJjbGF1ZGVBaU9hdXRoIjogeyJhY2Nlc3NUb2tlbiI6ICJpbnRlcm5hbC1zeW50aGV0aWMtYWNjZXNzLXZhbHVlIiwgImV4cGlyZXNBdCI6IDEyMzQ1Njc4OTAxMjMsICJyZWZyZXNoVG9rZW4iOiAiIn19",
+      "sha256": "5be08a14e839585dc9b878636268fbdd04514e4562d5960cf352087219cafb01",
+      "input_json": "{\"accessToken\": \"internal-synthetic-access-value\", \"expiresAt\": 1234567890123}"
+    },
+    {
+      "expiry_type": "int",
+      "optional_variant": 5,
+      "optional_mask": 1,
+      "bytes_base64": "eyJjbGF1ZGVBaU9hdXRoIjogeyJhY2Nlc3NUb2tlbiI6ICJpbnRlcm5hbC1zeW50aGV0aWMtYWNjZXNzLXZhbHVlIiwgImV4cGlyZXNBdCI6IDEyMzQ1Njc4OTAxMjMsICJzY29wZXMiOiBOYU4sICJyZWZyZXNoVG9rZW4iOiAiIn19",
+      "sha256": "2046a35d4a17f9469e0a171981a020098b1bf5a913ae3da69468104d81cb2dde",
+      "input_json": "{\"accessToken\": \"internal-synthetic-access-value\", \"expiresAt\": 1234567890123, \"scopes\": NaN}"
+    },
+    {
+      "expiry_type": "int",
+      "optional_variant": 5,
+      "optional_mask": 2,
+      "bytes_base64": "eyJjbGF1ZGVBaU9hdXRoIjogeyJhY2Nlc3NUb2tlbiI6ICJpbnRlcm5hbC1zeW50aGV0aWMtYWNjZXNzLXZhbHVlIiwgImV4cGlyZXNBdCI6IDEyMzQ1Njc4OTAxMjMsICJzdWJzY3JpcHRpb25UeXBlIjogTmFOLCAicmVmcmVzaFRva2VuIjogIiJ9fQ==",
+      "sha256": "5ecdf7c78be4df26fbe6fa3ff172ac5298eb9d16e11818bc845fab7dadae9e74",
+      "input_json": "{\"accessToken\": \"internal-synthetic-access-value\", \"expiresAt\": 1234567890123, \"subscriptionType\": NaN}"
+    },
+    {
+      "expiry_type": "int",
+      "optional_variant": 5,
+      "optional_mask": 3,
+      "bytes_base64": "eyJjbGF1ZGVBaU9hdXRoIjogeyJhY2Nlc3NUb2tlbiI6ICJpbnRlcm5hbC1zeW50aGV0aWMtYWNjZXNzLXZhbHVlIiwgImV4cGlyZXNBdCI6IDEyMzQ1Njc4OTAxMjMsICJzY29wZXMiOiBOYU4sICJzdWJzY3JpcHRpb25UeXBlIjogTmFOLCAicmVmcmVzaFRva2VuIjogIiJ9fQ==",
+      "sha256": "031855acf1fa14dff6e8e2559e8398f662e857c6309aad85e7f78bcf17540425",
+      "input_json": "{\"accessToken\": \"internal-synthetic-access-value\", \"expiresAt\": 1234567890123, \"scopes\": NaN, \"subscriptionType\": NaN}"
+    },
+    {
+      "expiry_type": "int",
+      "optional_variant": 5,
+      "optional_mask": 4,
+      "bytes_base64": "eyJjbGF1ZGVBaU9hdXRoIjogeyJhY2Nlc3NUb2tlbiI6ICJpbnRlcm5hbC1zeW50aGV0aWMtYWNjZXNzLXZhbHVlIiwgImV4cGlyZXNBdCI6IDEyMzQ1Njc4OTAxMjMsICJyYXRlTGltaXRUaWVyIjogTmFOLCAicmVmcmVzaFRva2VuIjogIiJ9fQ==",
+      "sha256": "260868d49b1577f4e09b174d82d33ef8ed8cc21f8bd6cb3272b66f10a70a98bf",
+      "input_json": "{\"accessToken\": \"internal-synthetic-access-value\", \"expiresAt\": 1234567890123, \"rateLimitTier\": NaN}"
+    },
+    {
+      "expiry_type": "int",
+      "optional_variant": 5,
+      "optional_mask": 5,
+      "bytes_base64": "eyJjbGF1ZGVBaU9hdXRoIjogeyJhY2Nlc3NUb2tlbiI6ICJpbnRlcm5hbC1zeW50aGV0aWMtYWNjZXNzLXZhbHVlIiwgImV4cGlyZXNBdCI6IDEyMzQ1Njc4OTAxMjMsICJzY29wZXMiOiBOYU4sICJyYXRlTGltaXRUaWVyIjogTmFOLCAicmVmcmVzaFRva2VuIjogIiJ9fQ==",
+      "sha256": "e29e03c9dd7806e5f6ce129b5df143e92229926b4dd28924b68c0d3dc17c9df0",
+      "input_json": "{\"accessToken\": \"internal-synthetic-access-value\", \"expiresAt\": 1234567890123, \"scopes\": NaN, \"rateLimitTier\": NaN}"
+    },
+    {
+      "expiry_type": "int",
+      "optional_variant": 5,
+      "optional_mask": 6,
+      "bytes_base64": "eyJjbGF1ZGVBaU9hdXRoIjogeyJhY2Nlc3NUb2tlbiI6ICJpbnRlcm5hbC1zeW50aGV0aWMtYWNjZXNzLXZhbHVlIiwgImV4cGlyZXNBdCI6IDEyMzQ1Njc4OTAxMjMsICJzdWJzY3JpcHRpb25UeXBlIjogTmFOLCAicmF0ZUxpbWl0VGllciI6IE5hTiwgInJlZnJlc2hUb2tlbiI6ICIifX0=",
+      "sha256": "625678a7042d54035fe8099042583109338911d5437616bef8d7d83ed229e4ed",
+      "input_json": "{\"accessToken\": \"internal-synthetic-access-value\", \"expiresAt\": 1234567890123, \"subscriptionType\": NaN, \"rateLimitTier\": NaN}"
+    },
+    {
+      "expiry_type": "int",
+      "optional_variant": 5,
+      "optional_mask": 7,
+      "bytes_base64": "eyJjbGF1ZGVBaU9hdXRoIjogeyJhY2Nlc3NUb2tlbiI6ICJpbnRlcm5hbC1zeW50aGV0aWMtYWNjZXNzLXZhbHVlIiwgImV4cGlyZXNBdCI6IDEyMzQ1Njc4OTAxMjMsICJzY29wZXMiOiBOYU4sICJzdWJzY3JpcHRpb25UeXBlIjogTmFOLCAicmF0ZUxpbWl0VGllciI6IE5hTiwgInJlZnJlc2hUb2tlbiI6ICIifX0=",
+      "sha256": "a7bd94194616da835afb4ba2f14e6fd251a506863cd8f4776abaf85ea3da4919",
+      "input_json": "{\"accessToken\": \"internal-synthetic-access-value\", \"expiresAt\": 1234567890123, \"scopes\": NaN, \"subscriptionType\": NaN, \"rateLimitTier\": NaN}"
+    },
+    {
+      "expiry_type": "float",
+      "optional_variant": 0,
+      "optional_mask": 0,
+      "bytes_base64": "eyJjbGF1ZGVBaU9hdXRoIjogeyJhY2Nlc3NUb2tlbiI6ICJpbnRlcm5hbC1zeW50aGV0aWMtYWNjZXNzLXZhbHVlIiwgImV4cGlyZXNBdCI6IDEyMzQ1Njc4OTAxMjMuMCwgInJlZnJlc2hUb2tlbiI6ICIifX0=",
+      "sha256": "2a17e22e8e6d071828bc4bf15b6cfca8b7abb2618318e8116872c3b1e36343cb",
+      "input_json": "{\"accessToken\": \"internal-synthetic-access-value\", \"expiresAt\": 1234567890123.0}"
+    },
+    {
+      "expiry_type": "float",
+      "optional_variant": 0,
+      "optional_mask": 1,
+      "bytes_base64": "eyJjbGF1ZGVBaU9hdXRoIjogeyJhY2Nlc3NUb2tlbiI6ICJpbnRlcm5hbC1zeW50aGV0aWMtYWNjZXNzLXZhbHVlIiwgImV4cGlyZXNBdCI6IDEyMzQ1Njc4OTAxMjMuMCwgInNjb3BlcyI6IG51bGwsICJyZWZyZXNoVG9rZW4iOiAiIn19",
+      "sha256": "e3659e92dade70301aa5e8b023e67e0d5fd896ea12a4045f5f6c8598c7cc800b",
+      "input_json": "{\"accessToken\": \"internal-synthetic-access-value\", \"expiresAt\": 1234567890123.0, \"scopes\": null}"
+    },
+    {
+      "expiry_type": "float",
+      "optional_variant": 0,
+      "optional_mask": 2,
+      "bytes_base64": "eyJjbGF1ZGVBaU9hdXRoIjogeyJhY2Nlc3NUb2tlbiI6ICJpbnRlcm5hbC1zeW50aGV0aWMtYWNjZXNzLXZhbHVlIiwgImV4cGlyZXNBdCI6IDEyMzQ1Njc4OTAxMjMuMCwgInN1YnNjcmlwdGlvblR5cGUiOiBudWxsLCAicmVmcmVzaFRva2VuIjogIiJ9fQ==",
+      "sha256": "2f1da3e1e0fce065b65675eb699c2e2eb721d520691e3d661f6e99b195ebb09d",
+      "input_json": "{\"accessToken\": \"internal-synthetic-access-value\", \"expiresAt\": 1234567890123.0, \"subscriptionType\": null}"
+    },
+    {
+      "expiry_type": "float",
+      "optional_variant": 0,
+      "optional_mask": 3,
+      "bytes_base64": "eyJjbGF1ZGVBaU9hdXRoIjogeyJhY2Nlc3NUb2tlbiI6ICJpbnRlcm5hbC1zeW50aGV0aWMtYWNjZXNzLXZhbHVlIiwgImV4cGlyZXNBdCI6IDEyMzQ1Njc4OTAxMjMuMCwgInNjb3BlcyI6IG51bGwsICJzdWJzY3JpcHRpb25UeXBlIjogbnVsbCwgInJlZnJlc2hUb2tlbiI6ICIifX0=",
+      "sha256": "655633130ebaabfdc5ddabcfab7cdb21419903849064388900c8cbcbe76f444c",
+      "input_json": "{\"accessToken\": \"internal-synthetic-access-value\", \"expiresAt\": 1234567890123.0, \"scopes\": null, \"subscriptionType\": null}"
+    },
+    {
+      "expiry_type": "float",
+      "optional_variant": 0,
+      "optional_mask": 4,
+      "bytes_base64": "eyJjbGF1ZGVBaU9hdXRoIjogeyJhY2Nlc3NUb2tlbiI6ICJpbnRlcm5hbC1zeW50aGV0aWMtYWNjZXNzLXZhbHVlIiwgImV4cGlyZXNBdCI6IDEyMzQ1Njc4OTAxMjMuMCwgInJhdGVMaW1pdFRpZXIiOiBudWxsLCAicmVmcmVzaFRva2VuIjogIiJ9fQ==",
+      "sha256": "92f50723a2f6828e21e787379db4f0d759be8584f94c5499e474a12f8471a6bd",
+      "input_json": "{\"accessToken\": \"internal-synthetic-access-value\", \"expiresAt\": 1234567890123.0, \"rateLimitTier\": null}"
+    },
+    {
+      "expiry_type": "float",
+      "optional_variant": 0,
+      "optional_mask": 5,
+      "bytes_base64": "eyJjbGF1ZGVBaU9hdXRoIjogeyJhY2Nlc3NUb2tlbiI6ICJpbnRlcm5hbC1zeW50aGV0aWMtYWNjZXNzLXZhbHVlIiwgImV4cGlyZXNBdCI6IDEyMzQ1Njc4OTAxMjMuMCwgInNjb3BlcyI6IG51bGwsICJyYXRlTGltaXRUaWVyIjogbnVsbCwgInJlZnJlc2hUb2tlbiI6ICIifX0=",
+      "sha256": "58c3a41dfc389edb62863f710ef1d9ae10ffab0c6868a431b6f7f0e7e49f3658",
+      "input_json": "{\"accessToken\": \"internal-synthetic-access-value\", \"expiresAt\": 1234567890123.0, \"scopes\": null, \"rateLimitTier\": null}"
+    },
+    {
+      "expiry_type": "float",
+      "optional_variant": 0,
+      "optional_mask": 6,
+      "bytes_base64": "eyJjbGF1ZGVBaU9hdXRoIjogeyJhY2Nlc3NUb2tlbiI6ICJpbnRlcm5hbC1zeW50aGV0aWMtYWNjZXNzLXZhbHVlIiwgImV4cGlyZXNBdCI6IDEyMzQ1Njc4OTAxMjMuMCwgInN1YnNjcmlwdGlvblR5cGUiOiBudWxsLCAicmF0ZUxpbWl0VGllciI6IG51bGwsICJyZWZyZXNoVG9rZW4iOiAiIn19",
+      "sha256": "76b066800d9bc83b9f0409c1c906d276ec5af474e306674b09037c19021cc277",
+      "input_json": "{\"accessToken\": \"internal-synthetic-access-value\", \"expiresAt\": 1234567890123.0, \"subscriptionType\": null, \"rateLimitTier\": null}"
+    },
+    {
+      "expiry_type": "float",
+      "optional_variant": 0,
+      "optional_mask": 7,
+      "bytes_base64": "eyJjbGF1ZGVBaU9hdXRoIjogeyJhY2Nlc3NUb2tlbiI6ICJpbnRlcm5hbC1zeW50aGV0aWMtYWNjZXNzLXZhbHVlIiwgImV4cGlyZXNBdCI6IDEyMzQ1Njc4OTAxMjMuMCwgInNjb3BlcyI6IG51bGwsICJzdWJzY3JpcHRpb25UeXBlIjogbnVsbCwgInJhdGVMaW1pdFRpZXIiOiBudWxsLCAicmVmcmVzaFRva2VuIjogIiJ9fQ==",
+      "sha256": "dfbc6b45b5ae15124e217503274f76ac13a9e5ac664d72c7f6bf37a0ee1096e6",
+      "input_json": "{\"accessToken\": \"internal-synthetic-access-value\", \"expiresAt\": 1234567890123.0, \"scopes\": null, \"subscriptionType\": null, \"rateLimitTier\": null}"
+    },
+    {
+      "expiry_type": "float",
+      "optional_variant": 1,
+      "optional_mask": 0,
+      "bytes_base64": "eyJjbGF1ZGVBaU9hdXRoIjogeyJhY2Nlc3NUb2tlbiI6ICJpbnRlcm5hbC1zeW50aGV0aWMtYWNjZXNzLXZhbHVlIiwgImV4cGlyZXNBdCI6IDEyMzQ1Njc4OTAxMjMuMCwgInJlZnJlc2hUb2tlbiI6ICIifX0=",
+      "sha256": "2a17e22e8e6d071828bc4bf15b6cfca8b7abb2618318e8116872c3b1e36343cb",
+      "input_json": "{\"accessToken\": \"internal-synthetic-access-value\", \"expiresAt\": 1234567890123.0}"
+    },
+    {
+      "expiry_type": "float",
+      "optional_variant": 1,
+      "optional_mask": 1,
+      "bytes_base64": "eyJjbGF1ZGVBaU9hdXRoIjogeyJhY2Nlc3NUb2tlbiI6ICJpbnRlcm5hbC1zeW50aGV0aWMtYWNjZXNzLXZhbHVlIiwgImV4cGlyZXNBdCI6IDEyMzQ1Njc4OTAxMjMuMCwgInNjb3BlcyI6ICJcdTAwZTl0aXF1ZXR0ZSIsICJyZWZyZXNoVG9rZW4iOiAiIn19",
+      "sha256": "9c78594419f7f31aaf4d8697899aaa4924830bcadbd08053d61466b9211af37d",
+      "input_json": "{\"accessToken\": \"internal-synthetic-access-value\", \"expiresAt\": 1234567890123.0, \"scopes\": \"\\u00e9tiquette\"}"
+    },
+    {
+      "expiry_type": "float",
+      "optional_variant": 1,
+      "optional_mask": 2,
+      "bytes_base64": "eyJjbGF1ZGVBaU9hdXRoIjogeyJhY2Nlc3NUb2tlbiI6ICJpbnRlcm5hbC1zeW50aGV0aWMtYWNjZXNzLXZhbHVlIiwgImV4cGlyZXNBdCI6IDEyMzQ1Njc4OTAxMjMuMCwgInN1YnNjcmlwdGlvblR5cGUiOiAiXHUwMGU5dGlxdWV0dGUiLCAicmVmcmVzaFRva2VuIjogIiJ9fQ==",
+      "sha256": "7d4fd02dbf65ddd7261eda573f65fc435ac700f685af22918268fe79c5abddd9",
+      "input_json": "{\"accessToken\": \"internal-synthetic-access-value\", \"expiresAt\": 1234567890123.0, \"subscriptionType\": \"\\u00e9tiquette\"}"
+    },
+    {
+      "expiry_type": "float",
+      "optional_variant": 1,
+      "optional_mask": 3,
+      "bytes_base64": "eyJjbGF1ZGVBaU9hdXRoIjogeyJhY2Nlc3NUb2tlbiI6ICJpbnRlcm5hbC1zeW50aGV0aWMtYWNjZXNzLXZhbHVlIiwgImV4cGlyZXNBdCI6IDEyMzQ1Njc4OTAxMjMuMCwgInNjb3BlcyI6ICJcdTAwZTl0aXF1ZXR0ZSIsICJzdWJzY3JpcHRpb25UeXBlIjogIlx1MDBlOXRpcXVldHRlIiwgInJlZnJlc2hUb2tlbiI6ICIifX0=",
+      "sha256": "1750350672a90edbdffa3b2acd4fc1e77bc3b4d6014fb6bbffea479ee7866c00",
+      "input_json": "{\"accessToken\": \"internal-synthetic-access-value\", \"expiresAt\": 1234567890123.0, \"scopes\": \"\\u00e9tiquette\", \"subscriptionType\": \"\\u00e9tiquette\"}"
+    },
+    {
+      "expiry_type": "float",
+      "optional_variant": 1,
+      "optional_mask": 4,
+      "bytes_base64": "eyJjbGF1ZGVBaU9hdXRoIjogeyJhY2Nlc3NUb2tlbiI6ICJpbnRlcm5hbC1zeW50aGV0aWMtYWNjZXNzLXZhbHVlIiwgImV4cGlyZXNBdCI6IDEyMzQ1Njc4OTAxMjMuMCwgInJhdGVMaW1pdFRpZXIiOiAiXHUwMGU5dGlxdWV0dGUiLCAicmVmcmVzaFRva2VuIjogIiJ9fQ==",
+      "sha256": "afe1d6270545c5651b0414d922dbb13d63d63aca6a69996fd506e252aea7457d",
+      "input_json": "{\"accessToken\": \"internal-synthetic-access-value\", \"expiresAt\": 1234567890123.0, \"rateLimitTier\": \"\\u00e9tiquette\"}"
+    },
+    {
+      "expiry_type": "float",
+      "optional_variant": 1,
+      "optional_mask": 5,
+      "bytes_base64": "eyJjbGF1ZGVBaU9hdXRoIjogeyJhY2Nlc3NUb2tlbiI6ICJpbnRlcm5hbC1zeW50aGV0aWMtYWNjZXNzLXZhbHVlIiwgImV4cGlyZXNBdCI6IDEyMzQ1Njc4OTAxMjMuMCwgInNjb3BlcyI6ICJcdTAwZTl0aXF1ZXR0ZSIsICJyYXRlTGltaXRUaWVyIjogIlx1MDBlOXRpcXVldHRlIiwgInJlZnJlc2hUb2tlbiI6ICIifX0=",
+      "sha256": "c406224ac4ee06d9d6a37596d0490a94ce5779cdb8cfe64424d2004eac5685e8",
+      "input_json": "{\"accessToken\": \"internal-synthetic-access-value\", \"expiresAt\": 1234567890123.0, \"scopes\": \"\\u00e9tiquette\", \"rateLimitTier\": \"\\u00e9tiquette\"}"
+    },
+    {
+      "expiry_type": "float",
+      "optional_variant": 1,
+      "optional_mask": 6,
+      "bytes_base64": "eyJjbGF1ZGVBaU9hdXRoIjogeyJhY2Nlc3NUb2tlbiI6ICJpbnRlcm5hbC1zeW50aGV0aWMtYWNjZXNzLXZhbHVlIiwgImV4cGlyZXNBdCI6IDEyMzQ1Njc4OTAxMjMuMCwgInN1YnNjcmlwdGlvblR5cGUiOiAiXHUwMGU5dGlxdWV0dGUiLCAicmF0ZUxpbWl0VGllciI6ICJcdTAwZTl0aXF1ZXR0ZSIsICJyZWZyZXNoVG9rZW4iOiAiIn19",
+      "sha256": "1ec592a9734facf30820bc471d43606025c8dbf3a3276f40ad80c9a146e98d7b",
+      "input_json": "{\"accessToken\": \"internal-synthetic-access-value\", \"expiresAt\": 1234567890123.0, \"subscriptionType\": \"\\u00e9tiquette\", \"rateLimitTier\": \"\\u00e9tiquette\"}"
+    },
+    {
+      "expiry_type": "float",
+      "optional_variant": 1,
+      "optional_mask": 7,
+      "bytes_base64": "eyJjbGF1ZGVBaU9hdXRoIjogeyJhY2Nlc3NUb2tlbiI6ICJpbnRlcm5hbC1zeW50aGV0aWMtYWNjZXNzLXZhbHVlIiwgImV4cGlyZXNBdCI6IDEyMzQ1Njc4OTAxMjMuMCwgInNjb3BlcyI6ICJcdTAwZTl0aXF1ZXR0ZSIsICJzdWJzY3JpcHRpb25UeXBlIjogIlx1MDBlOXRpcXVldHRlIiwgInJhdGVMaW1pdFRpZXIiOiAiXHUwMGU5dGlxdWV0dGUiLCAicmVmcmVzaFRva2VuIjogIiJ9fQ==",
+      "sha256": "b65167fe78d68cc05e9af3bf757ecf60eac043681b5896a3c8abf73620f50c3e",
+      "input_json": "{\"accessToken\": \"internal-synthetic-access-value\", \"expiresAt\": 1234567890123.0, \"scopes\": \"\\u00e9tiquette\", \"subscriptionType\": \"\\u00e9tiquette\", \"rateLimitTier\": \"\\u00e9tiquette\"}"
+    },
+    {
+      "expiry_type": "float",
+      "optional_variant": 2,
+      "optional_mask": 0,
+      "bytes_base64": "eyJjbGF1ZGVBaU9hdXRoIjogeyJhY2Nlc3NUb2tlbiI6ICJpbnRlcm5hbC1zeW50aGV0aWMtYWNjZXNzLXZhbHVlIiwgImV4cGlyZXNBdCI6IDEyMzQ1Njc4OTAxMjMuMCwgInJlZnJlc2hUb2tlbiI6ICIifX0=",
+      "sha256": "2a17e22e8e6d071828bc4bf15b6cfca8b7abb2618318e8116872c3b1e36343cb",
+      "input_json": "{\"accessToken\": \"internal-synthetic-access-value\", \"expiresAt\": 1234567890123.0}"
+    },
+    {
+      "expiry_type": "float",
+      "optional_variant": 2,
+      "optional_mask": 1,
+      "bytes_base64": "eyJjbGF1ZGVBaU9hdXRoIjogeyJhY2Nlc3NUb2tlbiI6ICJpbnRlcm5hbC1zeW50aGV0aWMtYWNjZXNzLXZhbHVlIiwgImV4cGlyZXNBdCI6IDEyMzQ1Njc4OTAxMjMuMCwgInNjb3BlcyI6IFsib25lIiwgMiwgbnVsbF0sICJyZWZyZXNoVG9rZW4iOiAiIn19",
+      "sha256": "3123294a72ebbd373689fbb600558c68c19cd45e996fd515254425a9aa5ce16b",
+      "input_json": "{\"accessToken\": \"internal-synthetic-access-value\", \"expiresAt\": 1234567890123.0, \"scopes\": [\"one\", 2, null]}"
+    },
+    {
+      "expiry_type": "float",
+      "optional_variant": 2,
+      "optional_mask": 2,
+      "bytes_base64": "eyJjbGF1ZGVBaU9hdXRoIjogeyJhY2Nlc3NUb2tlbiI6ICJpbnRlcm5hbC1zeW50aGV0aWMtYWNjZXNzLXZhbHVlIiwgImV4cGlyZXNBdCI6IDEyMzQ1Njc4OTAxMjMuMCwgInN1YnNjcmlwdGlvblR5cGUiOiBbIm9uZSIsIDIsIG51bGxdLCAicmVmcmVzaFRva2VuIjogIiJ9fQ==",
+      "sha256": "0811160c8bc1126ab76421db75eb7806160c3c6f53ce86d75c8c5e05362e6d60",
+      "input_json": "{\"accessToken\": \"internal-synthetic-access-value\", \"expiresAt\": 1234567890123.0, \"subscriptionType\": [\"one\", 2, null]}"
+    },
+    {
+      "expiry_type": "float",
+      "optional_variant": 2,
+      "optional_mask": 3,
+      "bytes_base64": "eyJjbGF1ZGVBaU9hdXRoIjogeyJhY2Nlc3NUb2tlbiI6ICJpbnRlcm5hbC1zeW50aGV0aWMtYWNjZXNzLXZhbHVlIiwgImV4cGlyZXNBdCI6IDEyMzQ1Njc4OTAxMjMuMCwgInNjb3BlcyI6IFsib25lIiwgMiwgbnVsbF0sICJzdWJzY3JpcHRpb25UeXBlIjogWyJvbmUiLCAyLCBudWxsXSwgInJlZnJlc2hUb2tlbiI6ICIifX0=",
+      "sha256": "759ddfc914aa5a59351643f1ab855978b5b922f262c61bb6921b59faf2696963",
+      "input_json": "{\"accessToken\": \"internal-synthetic-access-value\", \"expiresAt\": 1234567890123.0, \"scopes\": [\"one\", 2, null], \"subscriptionType\": [\"one\", 2, null]}"
+    },
+    {
+      "expiry_type": "float",
+      "optional_variant": 2,
+      "optional_mask": 4,
+      "bytes_base64": "eyJjbGF1ZGVBaU9hdXRoIjogeyJhY2Nlc3NUb2tlbiI6ICJpbnRlcm5hbC1zeW50aGV0aWMtYWNjZXNzLXZhbHVlIiwgImV4cGlyZXNBdCI6IDEyMzQ1Njc4OTAxMjMuMCwgInJhdGVMaW1pdFRpZXIiOiBbIm9uZSIsIDIsIG51bGxdLCAicmVmcmVzaFRva2VuIjogIiJ9fQ==",
+      "sha256": "b9f6ad444572d350eb8f3b7a8b8981fa7e92731e70a5046ed549e9fa6f088b3a",
+      "input_json": "{\"accessToken\": \"internal-synthetic-access-value\", \"expiresAt\": 1234567890123.0, \"rateLimitTier\": [\"one\", 2, null]}"
+    },
+    {
+      "expiry_type": "float",
+      "optional_variant": 2,
+      "optional_mask": 5,
+      "bytes_base64": "eyJjbGF1ZGVBaU9hdXRoIjogeyJhY2Nlc3NUb2tlbiI6ICJpbnRlcm5hbC1zeW50aGV0aWMtYWNjZXNzLXZhbHVlIiwgImV4cGlyZXNBdCI6IDEyMzQ1Njc4OTAxMjMuMCwgInNjb3BlcyI6IFsib25lIiwgMiwgbnVsbF0sICJyYXRlTGltaXRUaWVyIjogWyJvbmUiLCAyLCBudWxsXSwgInJlZnJlc2hUb2tlbiI6ICIifX0=",
+      "sha256": "777a3ce5149e5a7e9b3d5875eb960d07cbc3bb0661deef1e6ea446566ecbd70b",
+      "input_json": "{\"accessToken\": \"internal-synthetic-access-value\", \"expiresAt\": 1234567890123.0, \"scopes\": [\"one\", 2, null], \"rateLimitTier\": [\"one\", 2, null]}"
+    },
+    {
+      "expiry_type": "float",
+      "optional_variant": 2,
+      "optional_mask": 6,
+      "bytes_base64": "eyJjbGF1ZGVBaU9hdXRoIjogeyJhY2Nlc3NUb2tlbiI6ICJpbnRlcm5hbC1zeW50aGV0aWMtYWNjZXNzLXZhbHVlIiwgImV4cGlyZXNBdCI6IDEyMzQ1Njc4OTAxMjMuMCwgInN1YnNjcmlwdGlvblR5cGUiOiBbIm9uZSIsIDIsIG51bGxdLCAicmF0ZUxpbWl0VGllciI6IFsib25lIiwgMiwgbnVsbF0sICJyZWZyZXNoVG9rZW4iOiAiIn19",
+      "sha256": "93a656a8238a1b64b96b2c0c8979bc218a4ca69d4bf8942d451f9662ccc88a94",
+      "input_json": "{\"accessToken\": \"internal-synthetic-access-value\", \"expiresAt\": 1234567890123.0, \"subscriptionType\": [\"one\", 2, null], \"rateLimitTier\": [\"one\", 2, null]}"
+    },
+    {
+      "expiry_type": "float",
+      "optional_variant": 2,
+      "optional_mask": 7,
+      "bytes_base64": "eyJjbGF1ZGVBaU9hdXRoIjogeyJhY2Nlc3NUb2tlbiI6ICJpbnRlcm5hbC1zeW50aGV0aWMtYWNjZXNzLXZhbHVlIiwgImV4cGlyZXNBdCI6IDEyMzQ1Njc4OTAxMjMuMCwgInNjb3BlcyI6IFsib25lIiwgMiwgbnVsbF0sICJzdWJzY3JpcHRpb25UeXBlIjogWyJvbmUiLCAyLCBudWxsXSwgInJhdGVMaW1pdFRpZXIiOiBbIm9uZSIsIDIsIG51bGxdLCAicmVmcmVzaFRva2VuIjogIiJ9fQ==",
+      "sha256": "db906c298a8451f6e127370b90ddcf046a0a0cd5551f9c51da5033c79a7604b7",
+      "input_json": "{\"accessToken\": \"internal-synthetic-access-value\", \"expiresAt\": 1234567890123.0, \"scopes\": [\"one\", 2, null], \"subscriptionType\": [\"one\", 2, null], \"rateLimitTier\": [\"one\", 2, null]}"
+    },
+    {
+      "expiry_type": "float",
+      "optional_variant": 3,
+      "optional_mask": 0,
+      "bytes_base64": "eyJjbGF1ZGVBaU9hdXRoIjogeyJhY2Nlc3NUb2tlbiI6ICJpbnRlcm5hbC1zeW50aGV0aWMtYWNjZXNzLXZhbHVlIiwgImV4cGlyZXNBdCI6IDEyMzQ1Njc4OTAxMjMuMCwgInJlZnJlc2hUb2tlbiI6ICIifX0=",
+      "sha256": "2a17e22e8e6d071828bc4bf15b6cfca8b7abb2618318e8116872c3b1e36343cb",
+      "input_json": "{\"accessToken\": \"internal-synthetic-access-value\", \"expiresAt\": 1234567890123.0}"
+    },
+    {
+      "expiry_type": "float",
+      "optional_variant": 3,
+      "optional_mask": 1,
+      "bytes_base64": "eyJjbGF1ZGVBaU9hdXRoIjogeyJhY2Nlc3NUb2tlbiI6ICJpbnRlcm5hbC1zeW50aGV0aWMtYWNjZXNzLXZhbHVlIiwgImV4cGlyZXNBdCI6IDEyMzQ1Njc4OTAxMjMuMCwgInNjb3BlcyI6IHsibmVzdGVkIjogW2ZhbHNlLCAiXHUwMGU5Il19LCAicmVmcmVzaFRva2VuIjogIiJ9fQ==",
+      "sha256": "f079b7ea090b16d89fd16d42929a4a94617440a290c3ee51faa4c3482a222de5",
+      "input_json": "{\"accessToken\": \"internal-synthetic-access-value\", \"expiresAt\": 1234567890123.0, \"scopes\": {\"nested\": [false, \"\\u00e9\"]}}"
+    },
+    {
+      "expiry_type": "float",
+      "optional_variant": 3,
+      "optional_mask": 2,
+      "bytes_base64": "eyJjbGF1ZGVBaU9hdXRoIjogeyJhY2Nlc3NUb2tlbiI6ICJpbnRlcm5hbC1zeW50aGV0aWMtYWNjZXNzLXZhbHVlIiwgImV4cGlyZXNBdCI6IDEyMzQ1Njc4OTAxMjMuMCwgInN1YnNjcmlwdGlvblR5cGUiOiB7Im5lc3RlZCI6IFtmYWxzZSwgIlx1MDBlOSJdfSwgInJlZnJlc2hUb2tlbiI6ICIifX0=",
+      "sha256": "0e996d591596b00ac1bedca0091ee58d73943f42171b33f57ac8331e796e010d",
+      "input_json": "{\"accessToken\": \"internal-synthetic-access-value\", \"expiresAt\": 1234567890123.0, \"subscriptionType\": {\"nested\": [false, \"\\u00e9\"]}}"
+    },
+    {
+      "expiry_type": "float",
+      "optional_variant": 3,
+      "optional_mask": 3,
+      "bytes_base64": "eyJjbGF1ZGVBaU9hdXRoIjogeyJhY2Nlc3NUb2tlbiI6ICJpbnRlcm5hbC1zeW50aGV0aWMtYWNjZXNzLXZhbHVlIiwgImV4cGlyZXNBdCI6IDEyMzQ1Njc4OTAxMjMuMCwgInNjb3BlcyI6IHsibmVzdGVkIjogW2ZhbHNlLCAiXHUwMGU5Il19LCAic3Vic2NyaXB0aW9uVHlwZSI6IHsibmVzdGVkIjogW2ZhbHNlLCAiXHUwMGU5Il19LCAicmVmcmVzaFRva2VuIjogIiJ9fQ==",
+      "sha256": "194f9a12c43def08a8865ddcc54ba5430162ef5ab48c98491db8c3b0d1ab9b46",
+      "input_json": "{\"accessToken\": \"internal-synthetic-access-value\", \"expiresAt\": 1234567890123.0, \"scopes\": {\"nested\": [false, \"\\u00e9\"]}, \"subscriptionType\": {\"nested\": [false, \"\\u00e9\"]}}"
+    },
+    {
+      "expiry_type": "float",
+      "optional_variant": 3,
+      "optional_mask": 4,
+      "bytes_base64": "eyJjbGF1ZGVBaU9hdXRoIjogeyJhY2Nlc3NUb2tlbiI6ICJpbnRlcm5hbC1zeW50aGV0aWMtYWNjZXNzLXZhbHVlIiwgImV4cGlyZXNBdCI6IDEyMzQ1Njc4OTAxMjMuMCwgInJhdGVMaW1pdFRpZXIiOiB7Im5lc3RlZCI6IFtmYWxzZSwgIlx1MDBlOSJdfSwgInJlZnJlc2hUb2tlbiI6ICIifX0=",
+      "sha256": "5e47ef8be6c80786c1c2961f0f055fba938a7c74de39e62c00d28a2d6344dfee",
+      "input_json": "{\"accessToken\": \"internal-synthetic-access-value\", \"expiresAt\": 1234567890123.0, \"rateLimitTier\": {\"nested\": [false, \"\\u00e9\"]}}"
+    },
+    {
+      "expiry_type": "float",
+      "optional_variant": 3,
+      "optional_mask": 5,
+      "bytes_base64": "eyJjbGF1ZGVBaU9hdXRoIjogeyJhY2Nlc3NUb2tlbiI6ICJpbnRlcm5hbC1zeW50aGV0aWMtYWNjZXNzLXZhbHVlIiwgImV4cGlyZXNBdCI6IDEyMzQ1Njc4OTAxMjMuMCwgInNjb3BlcyI6IHsibmVzdGVkIjogW2ZhbHNlLCAiXHUwMGU5Il19LCAicmF0ZUxpbWl0VGllciI6IHsibmVzdGVkIjogW2ZhbHNlLCAiXHUwMGU5Il19LCAicmVmcmVzaFRva2VuIjogIiJ9fQ==",
+      "sha256": "36bed20cfe225dc40360033da6809bfe5531460cea60680d4e9d46d4c733fa3c",
+      "input_json": "{\"accessToken\": \"internal-synthetic-access-value\", \"expiresAt\": 1234567890123.0, \"scopes\": {\"nested\": [false, \"\\u00e9\"]}, \"rateLimitTier\": {\"nested\": [false, \"\\u00e9\"]}}"
+    },
+    {
+      "expiry_type": "float",
+      "optional_variant": 3,
+      "optional_mask": 6,
+      "bytes_base64": "eyJjbGF1ZGVBaU9hdXRoIjogeyJhY2Nlc3NUb2tlbiI6ICJpbnRlcm5hbC1zeW50aGV0aWMtYWNjZXNzLXZhbHVlIiwgImV4cGlyZXNBdCI6IDEyMzQ1Njc4OTAxMjMuMCwgInN1YnNjcmlwdGlvblR5cGUiOiB7Im5lc3RlZCI6IFtmYWxzZSwgIlx1MDBlOSJdfSwgInJhdGVMaW1pdFRpZXIiOiB7Im5lc3RlZCI6IFtmYWxzZSwgIlx1MDBlOSJdfSwgInJlZnJlc2hUb2tlbiI6ICIifX0=",
+      "sha256": "ffdf0a5718c06fd0a9a67d0bd954671b252e4119f6ea94de12be3b1fb20ebf67",
+      "input_json": "{\"accessToken\": \"internal-synthetic-access-value\", \"expiresAt\": 1234567890123.0, \"subscriptionType\": {\"nested\": [false, \"\\u00e9\"]}, \"rateLimitTier\": {\"nested\": [false, \"\\u00e9\"]}}"
+    },
+    {
+      "expiry_type": "float",
+      "optional_variant": 3,
+      "optional_mask": 7,
+      "bytes_base64": "eyJjbGF1ZGVBaU9hdXRoIjogeyJhY2Nlc3NUb2tlbiI6ICJpbnRlcm5hbC1zeW50aGV0aWMtYWNjZXNzLXZhbHVlIiwgImV4cGlyZXNBdCI6IDEyMzQ1Njc4OTAxMjMuMCwgInNjb3BlcyI6IHsibmVzdGVkIjogW2ZhbHNlLCAiXHUwMGU5Il19LCAic3Vic2NyaXB0aW9uVHlwZSI6IHsibmVzdGVkIjogW2ZhbHNlLCAiXHUwMGU5Il19LCAicmF0ZUxpbWl0VGllciI6IHsibmVzdGVkIjogW2ZhbHNlLCAiXHUwMGU5Il19LCAicmVmcmVzaFRva2VuIjogIiJ9fQ==",
+      "sha256": "ad339e391500fbe650ce493b572950e1e2d9a31a7fd6a42fa48190db3ab6dca8",
+      "input_json": "{\"accessToken\": \"internal-synthetic-access-value\", \"expiresAt\": 1234567890123.0, \"scopes\": {\"nested\": [false, \"\\u00e9\"]}, \"subscriptionType\": {\"nested\": [false, \"\\u00e9\"]}, \"rateLimitTier\": {\"nested\": [false, \"\\u00e9\"]}}"
+    },
+    {
+      "expiry_type": "float",
+      "optional_variant": 4,
+      "optional_mask": 0,
+      "bytes_base64": "eyJjbGF1ZGVBaU9hdXRoIjogeyJhY2Nlc3NUb2tlbiI6ICJpbnRlcm5hbC1zeW50aGV0aWMtYWNjZXNzLXZhbHVlIiwgImV4cGlyZXNBdCI6IDEyMzQ1Njc4OTAxMjMuMCwgInJlZnJlc2hUb2tlbiI6ICIifX0=",
+      "sha256": "2a17e22e8e6d071828bc4bf15b6cfca8b7abb2618318e8116872c3b1e36343cb",
+      "input_json": "{\"accessToken\": \"internal-synthetic-access-value\", \"expiresAt\": 1234567890123.0}"
+    },
+    {
+      "expiry_type": "float",
+      "optional_variant": 4,
+      "optional_mask": 1,
+      "bytes_base64": "eyJjbGF1ZGVBaU9hdXRoIjogeyJhY2Nlc3NUb2tlbiI6ICJpbnRlcm5hbC1zeW50aGV0aWMtYWNjZXNzLXZhbHVlIiwgImV4cGlyZXNBdCI6IDEyMzQ1Njc4OTAxMjMuMCwgInNjb3BlcyI6IHRydWUsICJyZWZyZXNoVG9rZW4iOiAiIn19",
+      "sha256": "e62c67a0928ec393c9802dbe4e54ec3b06b6f9f8101097c504ac73836cfc61dd",
+      "input_json": "{\"accessToken\": \"internal-synthetic-access-value\", \"expiresAt\": 1234567890123.0, \"scopes\": true}"
+    },
+    {
+      "expiry_type": "float",
+      "optional_variant": 4,
+      "optional_mask": 2,
+      "bytes_base64": "eyJjbGF1ZGVBaU9hdXRoIjogeyJhY2Nlc3NUb2tlbiI6ICJpbnRlcm5hbC1zeW50aGV0aWMtYWNjZXNzLXZhbHVlIiwgImV4cGlyZXNBdCI6IDEyMzQ1Njc4OTAxMjMuMCwgInN1YnNjcmlwdGlvblR5cGUiOiB0cnVlLCAicmVmcmVzaFRva2VuIjogIiJ9fQ==",
+      "sha256": "fab943f4df3143b39294764d6d512ca3bef56e8b442f55c0d6c36d613f72ed4f",
+      "input_json": "{\"accessToken\": \"internal-synthetic-access-value\", \"expiresAt\": 1234567890123.0, \"subscriptionType\": true}"
+    },
+    {
+      "expiry_type": "float",
+      "optional_variant": 4,
+      "optional_mask": 3,
+      "bytes_base64": "eyJjbGF1ZGVBaU9hdXRoIjogeyJhY2Nlc3NUb2tlbiI6ICJpbnRlcm5hbC1zeW50aGV0aWMtYWNjZXNzLXZhbHVlIiwgImV4cGlyZXNBdCI6IDEyMzQ1Njc4OTAxMjMuMCwgInNjb3BlcyI6IHRydWUsICJzdWJzY3JpcHRpb25UeXBlIjogdHJ1ZSwgInJlZnJlc2hUb2tlbiI6ICIifX0=",
+      "sha256": "7bb7f2fe88a98ed7165a52b3326cf3fb9697847520d83dff4dff09bd300d0fc0",
+      "input_json": "{\"accessToken\": \"internal-synthetic-access-value\", \"expiresAt\": 1234567890123.0, \"scopes\": true, \"subscriptionType\": true}"
+    },
+    {
+      "expiry_type": "float",
+      "optional_variant": 4,
+      "optional_mask": 4,
+      "bytes_base64": "eyJjbGF1ZGVBaU9hdXRoIjogeyJhY2Nlc3NUb2tlbiI6ICJpbnRlcm5hbC1zeW50aGV0aWMtYWNjZXNzLXZhbHVlIiwgImV4cGlyZXNBdCI6IDEyMzQ1Njc4OTAxMjMuMCwgInJhdGVMaW1pdFRpZXIiOiB0cnVlLCAicmVmcmVzaFRva2VuIjogIiJ9fQ==",
+      "sha256": "06337834f1b31b953a06c48d4ba2b8d5f879897040fe3b9646f83eb1c06c0903",
+      "input_json": "{\"accessToken\": \"internal-synthetic-access-value\", \"expiresAt\": 1234567890123.0, \"rateLimitTier\": true}"
+    },
+    {
+      "expiry_type": "float",
+      "optional_variant": 4,
+      "optional_mask": 5,
+      "bytes_base64": "eyJjbGF1ZGVBaU9hdXRoIjogeyJhY2Nlc3NUb2tlbiI6ICJpbnRlcm5hbC1zeW50aGV0aWMtYWNjZXNzLXZhbHVlIiwgImV4cGlyZXNBdCI6IDEyMzQ1Njc4OTAxMjMuMCwgInNjb3BlcyI6IHRydWUsICJyYXRlTGltaXRUaWVyIjogdHJ1ZSwgInJlZnJlc2hUb2tlbiI6ICIifX0=",
+      "sha256": "1b1ec9b7866cd0dc9bef65215f0ce3cb060cf3a09701ec02241ffb5c051f9803",
+      "input_json": "{\"accessToken\": \"internal-synthetic-access-value\", \"expiresAt\": 1234567890123.0, \"scopes\": true, \"rateLimitTier\": true}"
+    },
+    {
+      "expiry_type": "float",
+      "optional_variant": 4,
+      "optional_mask": 6,
+      "bytes_base64": "eyJjbGF1ZGVBaU9hdXRoIjogeyJhY2Nlc3NUb2tlbiI6ICJpbnRlcm5hbC1zeW50aGV0aWMtYWNjZXNzLXZhbHVlIiwgImV4cGlyZXNBdCI6IDEyMzQ1Njc4OTAxMjMuMCwgInN1YnNjcmlwdGlvblR5cGUiOiB0cnVlLCAicmF0ZUxpbWl0VGllciI6IHRydWUsICJyZWZyZXNoVG9rZW4iOiAiIn19",
+      "sha256": "fe17de65f1799718dff73e71d90fcaa6082814a4e459538ad3abf95039ca0473",
+      "input_json": "{\"accessToken\": \"internal-synthetic-access-value\", \"expiresAt\": 1234567890123.0, \"subscriptionType\": true, \"rateLimitTier\": true}"
+    },
+    {
+      "expiry_type": "float",
+      "optional_variant": 4,
+      "optional_mask": 7,
+      "bytes_base64": "eyJjbGF1ZGVBaU9hdXRoIjogeyJhY2Nlc3NUb2tlbiI6ICJpbnRlcm5hbC1zeW50aGV0aWMtYWNjZXNzLXZhbHVlIiwgImV4cGlyZXNBdCI6IDEyMzQ1Njc4OTAxMjMuMCwgInNjb3BlcyI6IHRydWUsICJzdWJzY3JpcHRpb25UeXBlIjogdHJ1ZSwgInJhdGVMaW1pdFRpZXIiOiB0cnVlLCAicmVmcmVzaFRva2VuIjogIiJ9fQ==",
+      "sha256": "be8c54a906f76d958d5b7e56f1567d191ac0c9bd80386e723f21af1e7a1f937c",
+      "input_json": "{\"accessToken\": \"internal-synthetic-access-value\", \"expiresAt\": 1234567890123.0, \"scopes\": true, \"subscriptionType\": true, \"rateLimitTier\": true}"
+    },
+    {
+      "expiry_type": "float",
+      "optional_variant": 5,
+      "optional_mask": 0,
+      "bytes_base64": "eyJjbGF1ZGVBaU9hdXRoIjogeyJhY2Nlc3NUb2tlbiI6ICJpbnRlcm5hbC1zeW50aGV0aWMtYWNjZXNzLXZhbHVlIiwgImV4cGlyZXNBdCI6IDEyMzQ1Njc4OTAxMjMuMCwgInJlZnJlc2hUb2tlbiI6ICIifX0=",
+      "sha256": "2a17e22e8e6d071828bc4bf15b6cfca8b7abb2618318e8116872c3b1e36343cb",
+      "input_json": "{\"accessToken\": \"internal-synthetic-access-value\", \"expiresAt\": 1234567890123.0}"
+    },
+    {
+      "expiry_type": "float",
+      "optional_variant": 5,
+      "optional_mask": 1,
+      "bytes_base64": "eyJjbGF1ZGVBaU9hdXRoIjogeyJhY2Nlc3NUb2tlbiI6ICJpbnRlcm5hbC1zeW50aGV0aWMtYWNjZXNzLXZhbHVlIiwgImV4cGlyZXNBdCI6IDEyMzQ1Njc4OTAxMjMuMCwgInNjb3BlcyI6IE5hTiwgInJlZnJlc2hUb2tlbiI6ICIifX0=",
+      "sha256": "43a6b3e090f46d98f8c95d9821c8229169945e9d1b9fcef644fadffcf3dff873",
+      "input_json": "{\"accessToken\": \"internal-synthetic-access-value\", \"expiresAt\": 1234567890123.0, \"scopes\": NaN}"
+    },
+    {
+      "expiry_type": "float",
+      "optional_variant": 5,
+      "optional_mask": 2,
+      "bytes_base64": "eyJjbGF1ZGVBaU9hdXRoIjogeyJhY2Nlc3NUb2tlbiI6ICJpbnRlcm5hbC1zeW50aGV0aWMtYWNjZXNzLXZhbHVlIiwgImV4cGlyZXNBdCI6IDEyMzQ1Njc4OTAxMjMuMCwgInN1YnNjcmlwdGlvblR5cGUiOiBOYU4sICJyZWZyZXNoVG9rZW4iOiAiIn19",
+      "sha256": "040ceea249d3e1062c44cb4684538e4319bc366d6dd3beebb6bb2adc80464fbd",
+      "input_json": "{\"accessToken\": \"internal-synthetic-access-value\", \"expiresAt\": 1234567890123.0, \"subscriptionType\": NaN}"
+    },
+    {
+      "expiry_type": "float",
+      "optional_variant": 5,
+      "optional_mask": 3,
+      "bytes_base64": "eyJjbGF1ZGVBaU9hdXRoIjogeyJhY2Nlc3NUb2tlbiI6ICJpbnRlcm5hbC1zeW50aGV0aWMtYWNjZXNzLXZhbHVlIiwgImV4cGlyZXNBdCI6IDEyMzQ1Njc4OTAxMjMuMCwgInNjb3BlcyI6IE5hTiwgInN1YnNjcmlwdGlvblR5cGUiOiBOYU4sICJyZWZyZXNoVG9rZW4iOiAiIn19",
+      "sha256": "9f93b22ef070e9678822efc168a89e429b29aabee88a2c17dc0640ddd1613fd2",
+      "input_json": "{\"accessToken\": \"internal-synthetic-access-value\", \"expiresAt\": 1234567890123.0, \"scopes\": NaN, \"subscriptionType\": NaN}"
+    },
+    {
+      "expiry_type": "float",
+      "optional_variant": 5,
+      "optional_mask": 4,
+      "bytes_base64": "eyJjbGF1ZGVBaU9hdXRoIjogeyJhY2Nlc3NUb2tlbiI6ICJpbnRlcm5hbC1zeW50aGV0aWMtYWNjZXNzLXZhbHVlIiwgImV4cGlyZXNBdCI6IDEyMzQ1Njc4OTAxMjMuMCwgInJhdGVMaW1pdFRpZXIiOiBOYU4sICJyZWZyZXNoVG9rZW4iOiAiIn19",
+      "sha256": "f7c203aa282af8f49c6623c4fbb583fbb618a6f85fd4f5244dabbe344ae31883",
+      "input_json": "{\"accessToken\": \"internal-synthetic-access-value\", \"expiresAt\": 1234567890123.0, \"rateLimitTier\": NaN}"
+    },
+    {
+      "expiry_type": "float",
+      "optional_variant": 5,
+      "optional_mask": 5,
+      "bytes_base64": "eyJjbGF1ZGVBaU9hdXRoIjogeyJhY2Nlc3NUb2tlbiI6ICJpbnRlcm5hbC1zeW50aGV0aWMtYWNjZXNzLXZhbHVlIiwgImV4cGlyZXNBdCI6IDEyMzQ1Njc4OTAxMjMuMCwgInNjb3BlcyI6IE5hTiwgInJhdGVMaW1pdFRpZXIiOiBOYU4sICJyZWZyZXNoVG9rZW4iOiAiIn19",
+      "sha256": "bb2caea13b242508c81c07b0cf447a97f5a13d0c709176392131fdc5e612e9c9",
+      "input_json": "{\"accessToken\": \"internal-synthetic-access-value\", \"expiresAt\": 1234567890123.0, \"scopes\": NaN, \"rateLimitTier\": NaN}"
+    },
+    {
+      "expiry_type": "float",
+      "optional_variant": 5,
+      "optional_mask": 6,
+      "bytes_base64": "eyJjbGF1ZGVBaU9hdXRoIjogeyJhY2Nlc3NUb2tlbiI6ICJpbnRlcm5hbC1zeW50aGV0aWMtYWNjZXNzLXZhbHVlIiwgImV4cGlyZXNBdCI6IDEyMzQ1Njc4OTAxMjMuMCwgInN1YnNjcmlwdGlvblR5cGUiOiBOYU4sICJyYXRlTGltaXRUaWVyIjogTmFOLCAicmVmcmVzaFRva2VuIjogIiJ9fQ==",
+      "sha256": "32bf4700b3dc369f9fa09d4ea55eec8a4da7f263857296a3654b3d5c68165f61",
+      "input_json": "{\"accessToken\": \"internal-synthetic-access-value\", \"expiresAt\": 1234567890123.0, \"subscriptionType\": NaN, \"rateLimitTier\": NaN}"
+    },
+    {
+      "expiry_type": "float",
+      "optional_variant": 5,
+      "optional_mask": 7,
+      "bytes_base64": "eyJjbGF1ZGVBaU9hdXRoIjogeyJhY2Nlc3NUb2tlbiI6ICJpbnRlcm5hbC1zeW50aGV0aWMtYWNjZXNzLXZhbHVlIiwgImV4cGlyZXNBdCI6IDEyMzQ1Njc4OTAxMjMuMCwgInNjb3BlcyI6IE5hTiwgInN1YnNjcmlwdGlvblR5cGUiOiBOYU4sICJyYXRlTGltaXRUaWVyIjogTmFOLCAicmVmcmVzaFRva2VuIjogIiJ9fQ==",
+      "sha256": "037ccb6a7f954e4be00c1df03102fa4c3e7b3ebdc98b0b9b9e8919c341ee301c",
+      "input_json": "{\"accessToken\": \"internal-synthetic-access-value\", \"expiresAt\": 1234567890123.0, \"scopes\": NaN, \"subscriptionType\": NaN, \"rateLimitTier\": NaN}"
+    }
+  ]
+}

@@ -14,10 +14,12 @@ from laomedo.github.interface.pull_requests.client import pr_request
 from laomedo.github.contract import repository_from_url
 from laomedo.github.pull_requests.contract import ERROR_CODES
 from laomedo.github.pull_requests.contract import PRE_DISPATCH_ERRORS
-from laomedo.agents.feedback.pr import feedback_edge
-from laomedo.agents.feedback.pr import agent_operation
-from laomedo.agents.feedback.pr import bind_feedback_parameters, exclude_feedback_agent
-from laomedo.github.pull_requests.context import context_value, task_text
+from laomedo.integrations.langflow.feedback.pr import feedback_edge
+from laomedo.integrations.langflow.feedback.pr import agent_operation
+from laomedo.integrations.langflow.feedback.pr import bind_feedback_parameters
+from laomedo.integrations.langflow.feedback.pr import exclude_feedback_agent
+from laomedo.github.pull_requests.context import context_value
+from laomedo.github.pull_requests.context import task_text
 from laomedo.github.pull_requests.models import PRContextOperation
 
 
@@ -84,6 +86,65 @@ class LaomedoGitHubPR(Component):
     def set_vertex(self, vertex):
         super().set_vertex(vertex)
         bind_feedback_parameters(vertex)
+
+    async def context_output(self) -> Data:
+        """Return one complete read/modify outcome; feedback completes only once."""
+        if feedback_edge(self) is not None:
+            await self._completed_roundtrip()
+        return Data(data=self._execution())
+
+    async def update_build_config(self, build_config, field_value, field_name=None):
+        for item in self.inputs:
+            build_config.setdefault(item.name, item.to_dict())
+        build_config["state"].update(
+            advanced=False, options=["open", "closed", "merged", "all"]
+        )
+        for name in ("labels", "pr_choice"):
+            build_config[name]["combobox"] = False
+        old = build_config.get(field_name, {}).get("value")
+        if field_name in {"repository_url", "labels", "state", "pr_choice"}:
+            build_config[field_name]["value"] = field_value
+        if old != field_value:
+            if field_name == "repository_url":
+                build_config["labels"].update(value=[], options=[])
+                build_config["pr_choice"].update(value="", options=[])
+            elif field_name in {"labels", "state"}:
+                build_config["pr_choice"].update(value="", options=[])
+        repository = build_config["repository_url"].get("value", "")
+        if not repository:
+            build_config["discovery_status"]["value"] = "Supply a repository URL."
+            return build_config
+        try:
+            found = await asyncio.to_thread(
+                pr_request,
+                "discover",
+                repository_url=repository,
+                labels=build_config["labels"].get("value", []),
+                state=build_config["state"].get("value", "open"),
+            )
+            build_config["labels"]["options"] = found["labels"]
+            choices = [pr["choice"] for pr in found["prs"]]
+            build_config["pr_choice"]["options"] = choices
+            selected = str(build_config["pr_choice"].get("value") or "")
+            identity = re.match(r"^#([1-9][0-9]*) ", selected)
+            build_config["pr_choice"]["value"] = next(
+                (
+                    choice
+                    for choice in choices
+                    if identity and choice.startswith("#" + identity.group(1) + " ")
+                ),
+                "",
+            )
+            build_config["discovery_status"]["value"] = (
+                f"{len(choices)} matching PRs." if choices else "No matching PRs."
+            )
+        except ValueError:
+            build_config["labels"]["options"] = []
+            build_config["pr_choice"].update(value="", options=[])
+            build_config["discovery_status"][
+                "value"
+            ] = "GitHub discovery failed. Check connection and refresh."
+        return build_config
 
     def _pre_run_setup(self):
         self._pr_execution_cache = None
@@ -166,12 +227,6 @@ class LaomedoGitHubPR(Component):
             self._pr_roundtrip_task = asyncio.create_task(self._roundtrip())
         return await self._pr_roundtrip_task
 
-    async def context_output(self) -> Data:
-        """Return one complete read/modify outcome; feedback completes only once."""
-        if feedback_edge(self) is not None:
-            await self._completed_roundtrip()
-        return Data(data=self._execution())
-
     def _execution(self):
         cached = getattr(self, "_pr_execution_cache", None)
         if cached is not None:
@@ -228,56 +283,3 @@ class LaomedoGitHubPR(Component):
         self._pr_execution_cache = result
         self.status = result["operation"]["status"]
         return result
-
-    async def update_build_config(self, build_config, field_value, field_name=None):
-        for item in self.inputs:
-            build_config.setdefault(item.name, item.to_dict())
-        build_config["state"].update(
-            advanced=False, options=["open", "closed", "merged", "all"]
-        )
-        for name in ("labels", "pr_choice"):
-            build_config[name]["combobox"] = False
-        old = build_config.get(field_name, {}).get("value")
-        if field_name in {"repository_url", "labels", "state", "pr_choice"}:
-            build_config[field_name]["value"] = field_value
-        if old != field_value:
-            if field_name == "repository_url":
-                build_config["labels"].update(value=[], options=[])
-                build_config["pr_choice"].update(value="", options=[])
-            elif field_name in {"labels", "state"}:
-                build_config["pr_choice"].update(value="", options=[])
-        repository = build_config["repository_url"].get("value", "")
-        if not repository:
-            build_config["discovery_status"]["value"] = "Supply a repository URL."
-            return build_config
-        try:
-            found = await asyncio.to_thread(
-                pr_request,
-                "discover",
-                repository_url=repository,
-                labels=build_config["labels"].get("value", []),
-                state=build_config["state"].get("value", "open"),
-            )
-            build_config["labels"]["options"] = found["labels"]
-            choices = [pr["choice"] for pr in found["prs"]]
-            build_config["pr_choice"]["options"] = choices
-            selected = str(build_config["pr_choice"].get("value") or "")
-            identity = re.match(r"^#([1-9][0-9]*) ", selected)
-            build_config["pr_choice"]["value"] = next(
-                (
-                    choice
-                    for choice in choices
-                    if identity and choice.startswith("#" + identity.group(1) + " ")
-                ),
-                "",
-            )
-            build_config["discovery_status"]["value"] = (
-                f"{len(choices)} matching PRs." if choices else "No matching PRs."
-            )
-        except ValueError:
-            build_config["labels"]["options"] = []
-            build_config["pr_choice"].update(value="", options=[])
-            build_config["discovery_status"][
-                "value"
-            ] = "GitHub discovery failed. Check connection and refresh."
-        return build_config

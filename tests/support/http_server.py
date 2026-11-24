@@ -1,6 +1,8 @@
 """Own the lifecycle of one loopback HTTP server for internal controls."""
 
 from threading import Thread
+from http.server import BaseHTTPRequestHandler
+import json
 
 
 class RunningHTTPServer:
@@ -29,3 +31,31 @@ class RunningHTTPServer:
                 self.thread.join(timeout=3)
         if self.thread.is_alive():
             raise RuntimeError("Owned HTTP server thread did not stop")
+
+
+class RecordingJSONHandler(BaseHTTPRequestHandler):
+    """Return caller-supplied internal test data; record no headers or secrets."""
+
+    def do_GET(self):
+        length = int(self.headers.get("Content-Length", "0"))
+        if not 0 <= length <= 1024 * 1024:
+            self.send_error(413)
+            return
+        if length:
+            self.rfile.read(length)
+        self.server.requests.append((self.command, self.path))
+        if self.server.redirect:
+            self.send_response(302)
+            self.send_header("Location", self.server.redirect)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+            return
+        self.send_response(getattr(self.server, "response_status", 200))
+        self.send_header("Content-Type", "application/json")
+        self.end_headers()
+        self.wfile.write(json.dumps(self.server.payload).encode())
+
+    do_POST = do_GET
+
+    def log_message(self, *_):
+        pass

@@ -75,14 +75,27 @@ class LaomedoBoundedController(Component):
         ),
     ]
 
+    async def execution_output(self) -> Data:
+        result = await self._result()
+        self.status = result["stop_reason"]
+        return Data(data=result)
+
+    async def answer_output(self) -> Message:
+        result = await self._result()
+        transitions = result["transitions"]
+        run = transitions[-1].get("run") if transitions else None
+        return Message(text=(run or {}).get("answer") or "")
+
     def _pre_run_setup(self):
         self._dispatch_task = None
         self._controller = None
 
     async def _result(self):
         if getattr(self, "_dispatch_task", None) is None:
-            from laomedo.agents.handoffs.controller import BoundedController
-            from laomedo.agents.handoffs.transport import RunnerAdapter
+            from laomedo.agents.orchestration.controller import (
+                AgentHandoffController as BoundedController,
+            )
+            from laomedo.agents.interface.bridge import HttpAgentBridge as RunnerAdapter
 
             targets = json.loads(self.targets_json)
             if not isinstance(targets, list) or not 1 <= len(targets) <= 16:
@@ -135,14 +148,3 @@ class LaomedoBoundedController(Component):
             if self._controller is not None:
                 await asyncio.to_thread(self._controller.cancel)
             raise
-
-    async def execution_output(self) -> Data:
-        result = await self._result()
-        self.status = result["stop_reason"]
-        return Data(data=result)
-
-    async def answer_output(self) -> Message:
-        result = await self._result()
-        transitions = result["transitions"]
-        run = transitions[-1].get("run") if transitions else None
-        return Message(text=(run or {}).get("answer") or "")

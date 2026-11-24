@@ -84,6 +84,11 @@ class GitCommandRunner:
         """Project the native invocation without ever placing a token in argv."""
         arguments = ["git"]
         configuration = list(command.configuration)
+        if (
+            os.name == "nt"
+            and command.context.profile == GitEnvironmentProfile.WORKSPACE
+        ):
+            configuration.insert(0, ("core.longpaths", "true"))
         if command.context.hardened:
             configuration = [
                 ("core.fsmonitor", "false"),
