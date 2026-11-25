@@ -7,6 +7,11 @@ import sys
 
 database = Path(sys.argv[1]).resolve()
 with sqlite3.connect(database.as_uri() + "?mode=ro", uri=True) as connection:
+    for message in connection.execute(
+        "SELECT state, error_code, run_id FROM laomedo_assistant_message WHERE text LIKE ?",
+        ("Validate and propose a run of the existing 'AS311 Orchard Receipt'%",),
+    ):
+        print(json.dumps({"chat_state": message[0], "error_code": message[1], "run_id": message[2]}))
     rows = connection.execute(
         "SELECT id, name, data FROM flow WHERE name = ?",
         ("AS311 Orchard Receipt",),
