@@ -23,11 +23,11 @@ Claude reserves its external tab during that click, then navigates it only after
 the native client supplies a validated URL. Blocked popups retain a manual link.
 No mount, Refresh or polling operation creates an authentication tab.
 
-Codex uses app-owned Sign in with ChatGPT, Claude uses its native sign-in, and
+Codex uses the official native ChatGPT device sign-in, Claude uses its native sign-in, and
 OpenCode Go uses an explicit subscription key. No ambient-login or API-billing
-fallback is offered. A pending opaque attempt ID may survive same-tab native navigation;
-OAuth state, URLs and credentials never enter browser storage. Native completion
-returns to the original Settings origin. User-facing errors use the shared
+fallback is offered. A pending opaque attempt ID may survive a Settings reload;
+OAuth state, URLs and credentials never enter browser storage. Settings observes
+native completion and presents the verified account for confirmation. User-facing errors use the shared
 catalogue. Disconnect and consumer binding require the matching host runtime
 integration; do not present unavailable operations as working.
 
