@@ -79,18 +79,22 @@ index 65f806c..d612348 100644
  import type { UseMutationResult } from "@tanstack/react-query";
  import { cloneDeep, debounce, isEqual } from "lodash";
  import { SAVE_DEBOUNCE_TIME } from "@/constants/constants";
-@@ -95,6 +96,10 @@ const keepUserEdits = (
+@@ -95,6 +96,14 @@ const keepUserEdits = (
        baseline && fieldName in baseline
          ? baseline[fieldName]
          : requestedField.value;
 +    const skillNode = useFlowStore.getState().nodes.find((entry) => entry.id === nodeId);
++    if (nodeKind(skillNode?.data.type ?? "") === "LaomedoSkill" &&
++        currentTemplate.github_connection?.value && ["skill_id", "revision_id"].includes(fieldName)) {
++      incomingField.options = cloneDeep(currentField.options);
++    }
 +    if ((nodeKind(skillNode?.data.type ?? "") === "LaomedoSkill" &&
 +        ["resolved_skill_id", "resolved_revision_id", "resolved_selection", "discovery_status"].includes(fieldName)) ||
 +        (["LaomedoGitHubIssue", "LaomedoGitHubPR"].includes(nodeKind(skillNode?.data.type ?? "")) && fieldName === "discovery_status")) continue;
      if (!isEqual(currentField.value, appliedValue)) {
        incomingField.value = cloneDeep(currentField.value);
      }
-@@ -107,7 +112,18 @@ const keepUserEdits = (
+@@ -107,7 +116,18 @@ const keepUserEdits = (
  const isStaleForNode = (
    nodeId: string,
    requestedNode: APIClassType,
@@ -109,7 +113,7 @@ index 65f806c..d612348 100644
    const requestedCode = requestedNode.template?.code?.value;
    if (requestedCode === undefined) return false;
    const currentCode = getNodeCode(nodeId);
-@@ -163,7 +179,7 @@ export const mutateTemplate = async (
+@@ -163,7 +183,7 @@ export const mutateTemplate = async (
                tool_mode: toolMode ?? node.tool_mode,
                is_refresh: isRefresh ?? false,
              });
