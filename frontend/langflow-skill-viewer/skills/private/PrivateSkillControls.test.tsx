@@ -45,10 +45,10 @@ test("source suggestions show the selected connection's repositories and saved s
   ] } }] });
   render(<SkillSourceSuggestions data={{ id: "skill", node: { template: { github_connection: { value: "selected" } } } }} />);
   fireEvent.click(screen.getByRole("button", { name: "Show sources and repositories" }));
-  fireEvent.click(await screen.findByRole("option", { name: "https://github.com/synthetic/private" }));
+  fireEvent.click(await screen.findByRole("option", { name: "synthetic/private" }));
   expect(mockSourceChange).toHaveBeenCalledWith({ value: "https://github.com/synthetic/private" });
   fireEvent.click(screen.getByRole("button", { name: "Show sources and repositories" }));
-  expect(await screen.findByRole("option", { name: "https://github.com/synthetic/earlier" })).toBeVisible();
+  expect(await screen.findByRole("option", { name: "synthetic/earlier" })).toBeVisible();
   expect(screen.queryByText("https://github.com/other/private")).toBeNull();
 });
 
@@ -72,7 +72,7 @@ test("opening a populated source shows the other repositories without clearing t
   (api.get as jest.Mock).mockResolvedValue({ data: [] });
   render(<SkillSourceSuggestions data={{ id: "skill", node: { template: { github_connection: { value: "selected" }, source: { value: "https://github.com/synthetic/old" } } } }} />);
   fireEvent.click(screen.getByRole("button", { name: "Show sources and repositories" }));
-  expect(await screen.findByRole("option", { name: "https://github.com/synthetic/private" })).toBeVisible();
+  expect(await screen.findByRole("option", { name: "synthetic/private" })).toBeVisible();
   expect(mockSourceChange).not.toHaveBeenCalled();
 });
 

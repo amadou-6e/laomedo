@@ -79,7 +79,7 @@ export function SkillSourceSuggestions({ data, onUseVariable }: { data: any; onU
       {onUseVariable && <button type="button" aria-label="Use a global variable" title="Use a global variable" onClick={onUseVariable} className="px-2"><Globe className="h-4 w-4" /></button>}
     </div>
     {open && <div id={listId} className="mt-1 max-h-40 overflow-auto rounded border bg-background" role="listbox" aria-label="Saved sources and repositories">
-      {matches.map((item, index) => <div key={item} id={`${listId}-${index}`} role="option" aria-selected={activeIndex === index} className="w-full cursor-pointer truncate px-2 py-1 text-left hover:bg-muted" title={item} onMouseDown={(event) => event.preventDefault()} onClick={() => choose(item)}>{item}</div>)}
+      {matches.map((item, index) => <div key={item} id={`${listId}-${index}`} role="option" aria-selected={activeIndex === index} className="w-full cursor-pointer truncate px-2 py-1 text-left hover:bg-muted" title={item} onMouseDown={(event) => event.preventDefault()} onClick={() => choose(item)}>{item.replace(/^https:\/\/github\.com\//i, "")}</div>)}
       {!matches.length && <p className="px-2 py-1 text-muted-foreground">{loading ? "Loading sources…" : error ? "Some sources could not be loaded." : "No matching sources or repositories."}</p>}
       {error && matches.length > 0 && <p className="px-2 py-1 text-muted-foreground">Some sources could not be loaded.</p>}
     </div>}
