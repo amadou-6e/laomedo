@@ -207,7 +207,10 @@ class WorkflowRunResult(BaseModel):
     action_id: UUID = ModelField(description="Exact approved action.")
     workflow_id: UUID = ModelField(description="Owned executed graph.")
     revision: str = ModelField(description="Exact executed snapshot revision.")
-    run_id: UUID = ModelField(description="Execution-owner run identifier.")
+    run_id: UUID | None = ModelField(
+        default=None,
+        description="Execution-owner run identifier, absent before approval.",
+    )
     state: str = ModelField(
         description="Observed action outcome, never inferred from outputs."
     )

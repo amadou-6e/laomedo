@@ -36,12 +36,12 @@ def apply_assistant(checkout: Path, source: Path):
     )
     logout = frontend / "controllers/API/queries/auth/use-post-logout.ts"
     signout = logout.read_text(encoding="utf-8")
-    anchor = "    if (autoLogin) {"
+    anchor = "  async function logoutUser(): Promise<unknown> {"
     if signout.count(anchor) != 1:
         raise SystemExit("assistant_logout_anchor_missing")
     signout = (
         'import { lockAssistant } from "@/components/laomedoAssistant/api";\n'
-        + signout.replace(anchor, "    await lockAssistant();\n" + anchor)
+        + signout.replace(anchor, anchor + "\n    await lockAssistant();")
     )
     editor = frontend / "pages/FlowPage/index.tsx"
     editor_content = editor.read_text(encoding="utf-8")

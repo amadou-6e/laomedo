@@ -30,6 +30,8 @@ class WorkflowRunEvidence:
         )
         from sqlmodel import select
 
+        if action["run_id"] is None:
+            return []
         try:
             job = await get_job_service().get_job_by_job_id(
                 UUID(action["run_id"]), user_id=context.owner_id
@@ -222,7 +224,7 @@ class WorkflowRunEvidence:
                 "run_id": action["run_id"],
                 "state": action["state"],
                 "error_code": action["error_code"],
-                "output_available": record is not None,
+                "output_available": bool(record and record.outputs),
                 "outputs": values[cursor : cursor + 20],
                 "next_cursor": cursor + 20 if len(values) > cursor + 20 else None,
                 "truncated": record.truncated if record else False,

@@ -203,6 +203,25 @@ class GraphActionTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(ValueError):
             WorkflowRunEvidence.safe_value("x" * 65537)
 
+    async def test_pending_run_has_no_execution_identity_or_invented_output(self):
+        from laomedo.integrations.langflow.assistant.evidence import WorkflowRunEvidence
+
+        request = GraphActionRequest(
+            operation_key="pending-output",
+            kind="run",
+            workflow_id=self.flow_id,
+            expected_revision=self.revision,
+        )
+        proposal = await self.actions.propose(self.context, request)
+        observed = await WorkflowRunEvidence(self.actions).read(
+            self.context, UUID(proposal["id"])
+        )
+        self.assertEqual(observed["state"], "pending")
+        self.assertIsNone(observed["run_id"])
+        self.assertFalse(observed["output_available"])
+        self.assertFalse(observed["node_status_available"])
+        self.assertEqual(observed["outputs"], [])
+
     async def decide(self, proposal, decision="approve", key="fixture"):
         return await self.actions.decide(
             self.owner,
