@@ -10,6 +10,7 @@ import tempfile
 import time
 import unittest
 import asyncio
+from contextvars import ContextVar
 from fastapi import HTTPException
 from unittest.mock import AsyncMock, Mock, patch
 from uuid import UUID, uuid4
@@ -63,7 +64,232 @@ class RunnerObservation:
         return self.settled
 
 
+class GraphAuthorityObservation:
+    """Observe the real native owner check inside a scheduled graph task, without dispatch."""
+
+    def __init__(self, owner, sentinel):
+        self.owner = owner
+        self.sentinel = sentinel
+        self.observed = None
+
+    async def execute(self, result, snapshot, actor, check_session, *, entered):
+        from langflow.services.auth.context import get_current_auth_context
+        from laomedo.integrations.langflow.provider_connections.bindings import (
+            ProviderGraphBindings,
+        )
+
+        entered.set()
+        self.observed = (
+            ProviderGraphBindings.owner(SimpleNamespace(user_id=self.owner)),
+            get_current_auth_context().method,
+            self.sentinel.get(None),
+        )
+
+
 class RuntimeTests(unittest.IsolatedAsyncioTestCase):
+    async def test_automatic_graph_uses_only_its_verified_browser_metadata(self):
+        from langflow.services.auth.context import (
+            AuthCredentialContext,
+            get_current_auth_context,
+            set_current_auth_context,
+        )
+        from laomedo.agents.connections.models import BrowserProviderSession
+        from laomedo.integrations.langflow.assistant.models import GraphActionDecision
+        from laomedo.integrations.langflow.provider_connections.bindings import (
+            ProviderGraphBindings,
+        )
+
+        context = AuthoringContext(
+            owner_id=self.owner,
+            conversation_id=self.identifier,
+            message_id=self.message_id,
+            attempt_id=self.message["attempt_id"],
+            session_key="fixture",
+        )
+        self.runtime.contexts[context.message_id] = context
+        service = SimpleNamespace(revoked_leases=set(), check_lease=Mock())
+        self.runtime.provider_connections = service
+        sentinel = ContextVar("graph-authority-unrelated-context", default=None)
+        marker = sentinel.set("chat-only")
+        previous_auth = get_current_auth_context()
+        token = ProviderGraphBindings.session.set(
+            BrowserProviderSession(profile_id=self.owner, lease_hash="fixture")
+        )
+        try:
+            with patch.object(ProviderGraphBindings, "service", service):
+                set_current_auth_context(AuthCredentialContext(method="jwt"))
+                self.runtime._capture_graph_authority(context)
+                self.assertEqual(
+                    self.runtime.graph_authorities[self.message_id].model_dump(), {}
+                )
+                ProviderGraphBindings.session.set(None)
+                set_current_auth_context(None)
+                sentinel.set("mcp-only")
+                identifier = uuid4()
+                observation = GraphAuthorityObservation(self.owner, sentinel)
+                actions = SimpleNamespace(
+                    read=AsyncMock(return_value={"kind": "run"}),
+                    decide=AsyncMock(
+                        return_value=(
+                            {"id": str(identifier)},
+                            object(),
+                            SimpleNamespace(id=self.owner),
+                        )
+                    ),
+                    execute=observation.execute,
+                )
+                self.runtime.graph_actions = AsyncMock(return_value=actions)
+                await self.runtime.decide_graph_action(
+                    self.owner,
+                    "fixture",
+                    self.identifier,
+                    identifier,
+                    GraphActionDecision(decision="approve", digest="a" * 64),
+                    context=context,
+                )
+                await self.runtime.graph_jobs[identifier].task
+                self.assertEqual(observation.observed, (self.owner, "jwt", None))
+                self.assertIsNone(ProviderGraphBindings.session.get())
+                self.assertIsNone(get_current_auth_context())
+                self.assertEqual(sentinel.get(), "mcp-only")
+                human_identifier = uuid4()
+                actions.decide.return_value = (
+                    {"id": str(human_identifier)},
+                    object(),
+                    SimpleNamespace(id=self.owner),
+                )
+                ProviderGraphBindings.session.set(
+                    BrowserProviderSession(profile_id=self.owner, lease_hash="fixture")
+                )
+                set_current_auth_context(AuthCredentialContext(method="jwt"))
+                sentinel.set("human-decision")
+                await self.runtime.decide_graph_action(
+                    self.owner,
+                    "fixture",
+                    self.identifier,
+                    human_identifier,
+                    GraphActionDecision(decision="approve", digest="a" * 64),
+                )
+                await self.runtime.graph_jobs[human_identifier].task
+                self.assertEqual(
+                    observation.observed, (self.owner, "jwt", "human-decision")
+                )
+                await self.runtime._close_tools(context, None, None, "unused")
+                self.assertNotIn(self.message_id, self.runtime.graph_authorities)
+        finally:
+            ProviderGraphBindings.session.reset(token)
+            set_current_auth_context(previous_auth)
+            sentinel.reset(marker)
+            self.runtime.provider_connections = None
+
+    async def test_missing_foreign_or_revoked_graph_capture_refuses_before_admission(
+        self,
+    ):
+        from langflow.services.auth.context import (
+            AuthCredentialContext,
+            get_current_auth_context,
+            set_current_auth_context,
+        )
+        from laomedo.agents.connections.models import BrowserProviderSession
+        from laomedo.integrations.langflow.assistant.models import GraphActionDecision
+        from laomedo.integrations.langflow.provider_connections.bindings import (
+            ProviderGraphBindings,
+        )
+
+        context = AuthoringContext(
+            owner_id=self.owner,
+            conversation_id=self.identifier,
+            message_id=self.message_id,
+            attempt_id=self.message["attempt_id"],
+            session_key="fixture",
+        )
+        self.runtime.contexts[context.message_id] = context
+        service = SimpleNamespace(revoked_leases=set(), check_lease=Mock())
+        self.runtime.provider_connections = service
+        actions = SimpleNamespace(
+            read=AsyncMock(return_value={"kind": "run"}), decide=AsyncMock()
+        )
+        self.runtime.graph_actions = AsyncMock(return_value=actions)
+        previous_auth = get_current_auth_context()
+        token = ProviderGraphBindings.session.set(
+            BrowserProviderSession(profile_id=self.owner, lease_hash="fixture")
+        )
+        try:
+            with patch.object(ProviderGraphBindings, "service", service):
+                set_current_auth_context(AuthCredentialContext(method="jwt"))
+                self.runtime._capture_graph_authority(context)
+                captured = self.runtime.graph_authorities[self.message_id]
+                for failure in (
+                    "missing",
+                    "foreign-conversation",
+                    "revoked",
+                    "logout",
+                    "api-key",
+                    "other-browser",
+                ):
+                    with self.subTest(failure=failure):
+                        self.runtime.contexts[self.message_id] = context
+                        self.runtime.graph_authorities[self.message_id] = captured
+                        self.runtime.revoked_sessions.clear()
+                        service.revoked_leases.clear()
+                        if failure == "missing":
+                            self.runtime.graph_authorities.pop(self.message_id)
+                        elif failure == "foreign-conversation":
+                            self.runtime.graph_authorities[self.message_id] = (
+                                captured.model_copy(
+                                    update={
+                                        "authoring": context.model_copy(
+                                            update={"conversation_id": uuid4()}
+                                        )
+                                    }
+                                )
+                            )
+                        elif failure == "revoked":
+                            service.revoked_leases.add("fixture")
+                        elif failure == "logout":
+                            self.runtime._fence_session_contexts({"fixture"})
+                            self.assertNotIn(
+                                self.message_id, self.runtime.graph_authorities
+                            )
+                        elif failure == "api-key":
+                            set_current_auth_context(
+                                AuthCredentialContext(method="api_key")
+                            )
+                            self.runtime._capture_graph_authority(context)
+                            self.assertNotIn(
+                                self.message_id, self.runtime.graph_authorities
+                            )
+                        else:
+                            set_current_auth_context(
+                                AuthCredentialContext(method="jwt")
+                            )
+                            ProviderGraphBindings.session.set(
+                                BrowserProviderSession(
+                                    profile_id=self.owner, lease_hash="other-browser"
+                                )
+                            )
+                            self.runtime._capture_graph_authority(context)
+                            self.assertNotIn(
+                                self.message_id, self.runtime.graph_authorities
+                            )
+                        with self.assertRaises(AssistantError):
+                            await self.runtime.decide_graph_action(
+                                self.owner,
+                                "fixture",
+                                self.identifier,
+                                uuid4(),
+                                GraphActionDecision(
+                                    decision="approve", digest="a" * 64
+                                ),
+                                context=context,
+                            )
+                        actions.decide.assert_not_awaited()
+                        self.assertFalse(self.runtime.graph_jobs)
+        finally:
+            ProviderGraphBindings.session.reset(token)
+            set_current_auth_context(previous_auth)
+            self.runtime.provider_connections = None
+
     async def test_cancel_before_execute_enters_settles_without_dispatch(self):
         from laomedo.integrations.langflow.assistant.models import GraphExecution
 

@@ -10,12 +10,15 @@ from pydantic import (
     ConfigDict,
     Field as ModelField,
     JsonValue,
+    InstanceOf,
     SecretStr,
     model_validator,
 )
 from sqlalchemy import Column, JSON, UniqueConstraint, Text
 from sqlmodel import SQLModel, Field
 from laomedo.agents.agents.base.models import ModelCatalog, NativeCommandInvocation
+from laomedo.agents.connections.models import BrowserProviderSession
+from langflow.services.auth.context import AuthCredentialContext, AUTH_METHOD_JWT
 
 
 class FlowDiagnostic(BaseModel):
@@ -338,6 +341,27 @@ class AuthoringContext(BaseModel):
         repr=False,
         description="Host-only session fingerprint, never forwarded to the provider.",
     )
+
+
+class GraphBrowserAuthority(BaseModel):
+    """In-memory verified browser metadata for one turn; never an exported credential."""
+
+    model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True)
+    authoring: AuthoringContext = ModelField(exclude=True, repr=False)
+    authentication: InstanceOf[AuthCredentialContext] = ModelField(
+        exclude=True, repr=False
+    )
+    provider_session: BrowserProviderSession = ModelField(exclude=True, repr=False)
+
+    @model_validator(mode="after")
+    def require_matching_browser(self):
+        """Reject non-browser or foreign-profile metadata rather than synthesizing authority."""
+        if (
+            self.authentication.method != AUTH_METHOD_JWT
+            or self.provider_session.profile_id != self.authoring.owner_id
+        ):
+            raise ValueError("assistant_tool_authority_revoked")
+        return self
 
 
 class IdleAssistantTools(BaseModel):

@@ -2,6 +2,7 @@
 
 import asyncio
 from contextlib import asynccontextmanager
+from contextvars import Context
 from functools import partial
 import hashlib
 import json
@@ -26,6 +27,7 @@ from laomedo.integrations.langflow.assistant.models import (
     AuthoringContext,
     AssistantSession,
     GraphExecution,
+    GraphBrowserAuthority,
     WorkflowCancelResult,
 )
 from laomedo.integrations.langflow.assistant.persistence import AssistantStore
@@ -56,6 +58,7 @@ class AssistantRuntime:
         self.contexts, self.host_tokens, self.tool_tasks = {}, {}, {}
         self.save_locks, self.uncertain_saves = {}, {}
         self.graph_jobs = {}
+        self.graph_authorities = {}
         self.graph_settlements = set()
         from laomedo.integrations.langflow.assistant.configuration import (
             WorkflowConfiguration,
@@ -133,6 +136,7 @@ class AssistantRuntime:
                         await asyncio.gather(idle_reaper, return_exceptions=True)
                     self.ready = False
                     self.host_tokens.clear()
+                    self.graph_authorities.clear()
                     for idle in list(self.idle_tools.values()):
                         await self.release_idle_session(
                             idle.context.owner_id, idle.context.conversation_id
@@ -479,6 +483,7 @@ class AssistantRuntime:
         ]
         for context in affected:
             self.contexts.pop(context.message_id, None)
+            self.graph_authorities.pop(context.message_id, None)
         for token, binding in list(self.host_tokens.items()):
             if binding.session_key in keys:
                 self.host_tokens.pop(token, None)
@@ -634,15 +639,32 @@ class AssistantRuntime:
         """Admit only an authenticated human decision; never let MCP grant this authority."""
         await self.check_session(owner, key)
         actions = await self.graph_actions(owner)
+        dispatch_context = None
+        if context is not None:
+            await self.authorize(context)
+            if (context.owner_id, context.session_key, context.conversation_id) != (
+                owner,
+                key,
+                conversation,
+            ):
+                raise AssistantError("assistant_tool_authority_revoked", 403)
+            action = await actions.read(
+                owner, conversation, identifier, session_key=key
+            )
+            if action["kind"] == "run":
+                dispatch_context = self._graph_execution_context(context)
         result, snapshot, actor = await actions.decide(
             owner, key, conversation, identifier, decision, context=context
         )
         if snapshot is not None:
             entered = asyncio.Event()
-            task = asyncio.create_task(
-                actions.execute(
-                    result, snapshot, actor, self.check_session, entered=entered
-                )
+            execution_coroutine = actions.execute(
+                result, snapshot, actor, self.check_session, entered=entered
+            )
+            task = (
+                dispatch_context.run(asyncio.create_task, execution_coroutine)
+                if dispatch_context is not None
+                else asyncio.create_task(execution_coroutine)
             )
             execution = GraphExecution(task=task, entered=entered)
             self.graph_jobs[identifier] = execution
@@ -650,6 +672,63 @@ class AssistantRuntime:
                 partial(self._graph_finished, identifier, actions, execution)
             )
         return result
+
+    def _capture_graph_authority(self, context):
+        """Capture only actual verified browser metadata at the authenticated turn boundary."""
+        from langflow.services.auth.context import (
+            AUTH_METHOD_JWT,
+            get_current_auth_context,
+        )
+        from laomedo.integrations.langflow.provider_connections.bindings import (
+            ProviderGraphBindings,
+        )
+
+        authentication = get_current_auth_context()
+        session = ProviderGraphBindings.session.get()
+        self.graph_authorities.pop(context.message_id, None)
+        if (
+            self.provider_connections is not None
+            and ProviderGraphBindings.service is self.provider_connections
+            and authentication is not None
+            and authentication.method == AUTH_METHOD_JWT
+            and session is not None
+            and session.profile_id == context.owner_id
+            and self.session_aliases.get(session.lease_hash, session.lease_hash)
+            == context.session_key
+            and session.lease_hash not in self.provider_connections.revoked_leases
+        ):
+            self.graph_authorities[context.message_id] = GraphBrowserAuthority(
+                authoring=context,
+                authentication=authentication,
+                provider_session=session.model_copy(deep=True),
+            )
+
+    def _graph_execution_context(self, context):
+        """Use an exact active turn's narrow browser capture, never the MCP caller's context."""
+        from langflow.services.auth.context import set_current_auth_context
+        from laomedo.integrations.langflow.provider_connections.bindings import (
+            ProviderGraphBindings,
+        )
+
+        authority = self.graph_authorities.get(context.message_id)
+        if (
+            authority is None
+            or authority.authoring != context
+            or self.provider_connections is None
+            or ProviderGraphBindings.service is not self.provider_connections
+            or self.session_aliases.get(
+                authority.provider_session.lease_hash,
+                authority.provider_session.lease_hash,
+            )
+            != context.session_key
+            or authority.provider_session.lease_hash
+            in self.provider_connections.revoked_leases
+        ):
+            raise AssistantError("assistant_tool_authority_revoked", 403)
+        dispatch = Context()
+        dispatch.run(set_current_auth_context, authority.authentication)
+        dispatch.run(ProviderGraphBindings.session.set, authority.provider_session)
+        return dispatch
 
     def _graph_finished(self, identifier, actions, execution, completed):
         """Settle a task cancelled before its first instruction without inventing dispatch."""
@@ -857,6 +936,7 @@ class AssistantRuntime:
             session_key=key,
         )
         self.contexts[context.message_id] = context
+        self._capture_graph_authority(context)
         task = asyncio.create_task(
             self._job(context), name="laomedo-assistant-" + str(context.message_id)
         )
@@ -1004,6 +1084,7 @@ class AssistantRuntime:
     async def _close_tools(self, context, registration, client, token, *, retain=False):
         """Revoke first, then drain actual host tool tasks before permitting another message."""
         self.contexts.pop(context.message_id, None)
+        self.graph_authorities.pop(context.message_id, None)
         if self.host_tokens.get(token) is context:
             self.host_tokens.pop(token, None)
         if retain and registration is not None:

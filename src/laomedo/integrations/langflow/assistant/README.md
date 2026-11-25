@@ -40,6 +40,15 @@ the exact local task with its entry fence: cancellation before dispatch records
 by the runtime callback. After dispatch, only execution-owner observations settle
 the outcome. Shutdown waits for task settlement callbacks before releasing owners.
 
+`GraphBrowserAuthority` retains only the verified JWT authentication metadata and
+provider browser-session metadata for one active `AuthoringContext`. Automatic
+run admission uses a fresh context containing those two values; it never inherits
+the private MCP request or chat runner's other context variables. Missing,
+mismatched or revoked captures refuse before admission. Human approvals retain
+normal request inheritance. Captures are removed on turn release, session
+revocation and shutdown. An admitted graph remains independent of chat Stop, while
+dispatch still checks the current app session and native endpoints recheck leases.
+
 Explicit human-entered Claude `/usage`, without arguments and advertised as
 non-model work, uses the existing atomic decision/dispatch path immediately.
 Assistant-proposed usage still requires human approval; other commands retain
