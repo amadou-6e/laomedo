@@ -8,7 +8,8 @@ This package supplements upstream authentication with the revocable private
 browser lease required by SC01 of the GitHub account-connection contract. It
 does not authenticate passwords or validate upstream JWTs. The opt-in native
 runtime installs the upstream login, refresh and logout adapter. GitHub connection
-and private content integration remain unfinished.
+and private content integration are implemented for the opt-in local pilot;
+live private Skill acceptance remains pending.
 
 `models.py` defines `PrivateSession` (owner and lifetime) and
 `IssuedPrivateSession` (the session plus a masked, nonserializable cookie).
@@ -98,7 +99,8 @@ The shared commit lock orders these checks against logout and connection changes
 
 `connections.py` owns the authenticated connection HTTP adapter. `connection_index`
 returns only the current profile/lease's broker metadata; `connection_action`
-dispatches the fixed setup/begin/token/confirm/cancel/refresh/disconnect/cleanup
+dispatches the fixed setup/provision/begin/edit/inventory/token/confirm/cancel/
+refresh/verify/disconnect/cleanup
 actions after browser admission and CSRF verification. `_body` bounds JSON before
 manual Pydantic validation, so validation errors never echo a token or app secret.
 `connection_callback` admits the fixed top-level OAuth return, consumes its bound

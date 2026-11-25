@@ -62,7 +62,8 @@ GitHub or browser authority. The namespace is private owner/connection/repositor
 no public service or Agent dispatcher constructs it. See its README for methods
 and response-release guarantees.
 The authenticated browser integration supplies the verified local profile and
-private lease; browser JSON cannot choose an owner. This feature is in progress.
+private lease; browser JSON cannot choose an owner. The local pilot remains subject
+to the live acceptance work recorded in the PR.
 
 `settings.py` defines init-only `GitHubAppSettings`: an explicitly configured app
 identity, masked client secret and exact fixed native callback. Its
@@ -147,10 +148,10 @@ Pending attempts remain in memory and expire; restart invalidates them while the
 durable journal retains any provisional vault cleanup responsibility.
 
 `repository.py` defines `GitHubRepositoryReader`, a nonexecuting snapshot reader
-constructed only after `authorize_read`. `refs` admits at most32 complete heads
+constructed only after `authorize_read`. `refs` admits at most 32 complete heads
 and tags from the documented complete matching-refs arrays; any advertised
 unfinished pagination is refused rather than silently hiding choices. It peels
-tags with a16-object visited bound. `entries` binds exact commit/tree SHA identities,
+tags with a 16-object visited bound. `entries` binds exact commit/tree SHA identities,
 refuses recursive-tree truncation and admits only portable regular file entries.
 `read_blob` checks mode, size, base64 and Git blob identity. `discover` reuses
 canonical Skill name/choice validation; `revisions` collects complete validated
@@ -179,6 +180,7 @@ Current verification also requires the stored repository location to match its
 verified numeric identity. A rename or transfer fails closed and needs deliberate
 reconnection and fresh repository consent. The owner explicitly selected this
 policy on 2026-11-11; consent binds both numeric identity and confirmed location.
-Renewal requires reauthorization of the connection if any consented repository
-cannot be verified at that location. No automatic redirect or consent migration
-is permitted. Reviewer finding T1 awaits a focused contract recheck.
+Renewal requires reauthorization when GitHub confirms a changed identity or
+location. Temporary and ambiguous verification failures stay fenced and can be
+retried without another sign-in. No automatic redirect or consent migration is
+permitted.
