@@ -53,4 +53,3 @@ test("account chooser exposes connected accounts and clears the previous reposit
   expect(mockNode.data.node.template.github_connection.value).toBe("account-1");
   expect(mockNode.data.node.template.repository_url.value).toBe("");
 });
-
