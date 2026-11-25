@@ -346,3 +346,7 @@ collapse. Model labels omit the OpenCode Go prefix while retaining exact IDs at
 the selection, accessibility and provider boundaries.
 The Claude monochrome mark reuses the pinned upstream vector without its colored
 background tile; provider names remain available to screen readers.
+
+The assistant overlay installs after the local-profile overlay. Its logout hook
+locks assistant execution before the profile-aware auto-login guard, preserving
+server logout and profile-cookie expiry.
