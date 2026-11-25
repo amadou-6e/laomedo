@@ -8,16 +8,30 @@ import BaseModal from "@/modals/baseModal";
 import type { NodeTemplate as Template } from "../models";
 import type { Snapshot } from "./models";
 import { prSelection, safeLink } from "./selection";
+import { connectionRequest } from "@/components/laomedoGitHubConnections/api";
+import { readPrivatePR } from "./PRAccountControls";
+import { subscribePrivateInvalidation } from "@/modals/skillFilesModal/private/api";
 
 export default function PRViewerModal({ template, open, setOpen }: { template: Template; open: boolean; setOpen: (open:boolean)=>void }) {
   const selection = prSelection(template);const key=JSON.stringify(selection);
   const [snapshot,setSnapshot]=useState<Snapshot|null>(null);const [loading,setLoading]=useState(false);const [error,setError]=useState<NodeFailure|null>(null);const [reload,setReload]=useState(0);
+  useEffect(() => subscribePrivateInvalidation(() => { if (selection.account) { setSnapshot(null); setReload(value => value + 1); } }), [selection.account]);
   useEffect(()=>{
     const controller=new AbortController();setSnapshot(null);setError(null);setLoading(false);
     if(!open)return()=>controller.abort();
     if(!selection.url){setError(describeNodeFailure("selected_pr_required", undefined));return()=>controller.abort();}
     setLoading(true);
-    api.post<Snapshot>(`${getBaseUrl()}laomedo/github-prs/inspect`,{repository_url:selection.repository_url,pr_number:selection.pr_number,labels:selection.labels,state:selection.state},{signal:controller.signal}).then(({data})=>{
+    const read = async () => {
+      if (!selection.account) return (await api.post<Snapshot>(`${getBaseUrl()}laomedo/github-prs/inspect`,{repository_url:selection.repository_url,pr_number:selection.pr_number,labels:selection.labels,state:selection.state},{signal:controller.signal})).data;
+      const index = (await connectionRequest()).index;
+      const account = index.connections.find(entry => entry.connection.id === selection.account && entry.connection.state === "ready");
+      const name = selection.repository_url.slice("https://github.com/".length).replace(/\/$/, "");
+      const repository = account?.connection.repositories.find(entry => entry.full_name.toLowerCase() === name.toLowerCase());
+      if (!repository) throw Error("Account repository unavailable");
+      const result = await readPrivatePR(selection.account, repository.id, selection.pr_number, controller.signal);
+      return { schema_version: "laomedo.pr-inspection.v1", pr: result.pr, fetched_at: result.fetched_at } as Snapshot;
+    };
+    read().then((data)=>{
       if(controller.signal.aborted)return;
       if(data.schema_version!=="laomedo.pr-inspection.v1" || data.pr.number!==selection.pr_number || data.pr.url.toLowerCase()!==selection.url.toLowerCase())throw Error("identity mismatch");
       setSnapshot(data);

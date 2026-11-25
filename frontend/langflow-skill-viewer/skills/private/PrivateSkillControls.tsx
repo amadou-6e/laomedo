@@ -13,7 +13,7 @@ import { privateSkillRequest, subscribePrivateInvalidation } from "./api";
 import type { PrivateDiscovery, PrivateOrigin } from "./models";
 
 /** Select a previously saved source or a repository available to the chosen connection. */
-export function SkillSourceSuggestions({ data, onUseVariable }: { data: any; onUseVariable?: () => void }) {
+export function SkillSourceSuggestions({ data, onUseVariable, fieldName = "source" }: { data: any; onUseVariable?: () => void; fieldName?: string }) {
   const [open, setOpen] = useState(false);
   const [sources, setSources] = useState<string[]>([]);
   const [error, setError] = useState(false);
@@ -26,8 +26,8 @@ export function SkillSourceSuggestions({ data, onUseVariable }: { data: any; onU
   const currentFlow = useFlowStore((state) => state.currentFlow);
   const connectionId = String(data.node?.template?.github_connection?.value || "");
   const nodeType = data.node?.name || data.node?.type || data.type;
-  const source = String(data.node?.template?.source?.value || "");
-  const { handleOnNewValue } = useHandleOnNewValue({ node: data.node, nodeId: data.id, name: "source" });
+  const source = String(data.node?.template?.[fieldName]?.value || "");
+  const { handleOnNewValue } = useHandleOnNewValue({ node: data.node, nodeId: data.id, name: fieldName });
 
   useEffect(() => {
     if (!open) return;
@@ -37,7 +37,7 @@ export function SkillSourceSuggestions({ data, onUseVariable }: { data: any; onU
     const load = async () => {
       try {
         const [response, connections] = await Promise.allSettled([
-          queryClient.fetchQuery({ queryKey: ["skill-source-history", profileId, nodeType, currentFlow?.id, currentFlow?.updated_at], staleTime: 30000, queryFn: async () => {
+          queryClient.fetchQuery({ queryKey: ["skill-source-history", profileId, nodeType, fieldName, currentFlow?.id, currentFlow?.updated_at], staleTime: 30000, queryFn: async () => {
             if (!profileId) return [];
             const result = (await api.get(`${getURL("FLOWS")}/?get_all=true&remove_example_flows=true`)).data;
             const flows = Array.isArray(result) ? result : result?.items || [];
@@ -45,7 +45,7 @@ export function SkillSourceSuggestions({ data, onUseVariable }: { data: any; onU
             for (const flow of flows) if (flow.user_id === profileId) for (const node of flow.data?.nodes || []) {
               const value = node.data?.node?.template;
               const type = node.data?.node?.name || node.data?.node?.type || node.data?.type;
-              if (type === nodeType && typeof value?.source?.value === "string" && value.source.value.trim()) saved.push({ connection: String(value?.github_connection?.value || ""), source: value.source.value });
+              if (type === nodeType && typeof value?.[fieldName]?.value === "string" && value[fieldName].value.trim()) saved.push({ connection: String(value?.github_connection?.value || ""), source: value[fieldName].value });
             }
             return saved;
           } }),
@@ -64,14 +64,14 @@ export function SkillSourceSuggestions({ data, onUseVariable }: { data: any; onU
     };
     void load();
     return () => { active = false; abort.abort(); };
-  }, [open, connectionId, nodeType, profileId, currentFlow?.id, currentFlow?.updated_at, queryClient]);
+  }, [open, connectionId, nodeType, fieldName, profileId, currentFlow?.id, currentFlow?.updated_at, queryClient]);
 
   const matches = sources.filter((item) => !filter || item.toLowerCase().includes(filter.toLowerCase()));
   const choose = (value: string) => { handleOnNewValue({ value }); setOpen(false); setActiveIndex(-1); setFilter(null); };
   const listId = `source-options-${data.id}`;
   const helpId = `source-help-${data.id}`;
   const sourceLabel = nodeType === "LaomedoLocalSkill" ? "Local folder" : "Repository";
-  const sourceHelp = nodeType === "LaomedoLocalSkill" ? "Enter an allowed local folder." : "Enter a GitHub or public GitLab repository URL, or select a connected repository.";
+  const sourceHelp = nodeType === "LaomedoLocalSkill" ? "Enter an allowed local folder." : fieldName === "repository_url" ? "Enter a GitHub repository URL or select a connected repository." : "Enter a GitHub or public GitLab repository URL, or select a connected repository.";
   return <div className="nodrag nopan px-5 pb-2 text-sm" onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) { setOpen(false); setActiveIndex(-1); setEditing(false); } }}>
     <label htmlFor={`source-${data.id}`} className="mb-2 block">{sourceLabel} <span aria-hidden="true" title={sourceHelp}>ⓘ</span></label>
     <span id={helpId} className="sr-only">{sourceHelp}</span>

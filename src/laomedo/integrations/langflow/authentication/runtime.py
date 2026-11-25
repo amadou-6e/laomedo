@@ -113,9 +113,27 @@ class PrivateBrowserRuntime:
         app.state.private_skill_access = PrivateSkillAccess(
             connections, PrivateSkillStore(self.root / "skills")
         )
+        from laomedo.github.connections.pull_requests.service import (
+            PrivatePullRequestAccess,
+        )
+        from laomedo.integrations.langflow.authentication.private_pull_requests import (
+            private_pull_request_router,
+        )
+
+        app.state.private_pull_request_access = PrivatePullRequestAccess(connections)
         app.include_router(router)
         app.include_router(connection_router)
         app.include_router(private_skill_router)
+        app.include_router(private_pull_request_router)
+        from laomedo.integrations.langflow.authentication.graph_bindings import (
+            PrivateGraphBoundary,
+        )
+
+        app.add_middleware(
+            PrivateGraphBoundary,
+            policy=self.policy,
+            access=app.state.private_pull_request_access,
+        )
         app.add_middleware(PrivateSessionAdapter, store=store, policy=self.policy)
         app.add_middleware(
             PrivateResponseBoundary,

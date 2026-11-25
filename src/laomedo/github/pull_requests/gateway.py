@@ -188,6 +188,8 @@ class GitHubPRGateway:
                     "number": item["number"],
                     "choice": "#" + str(item["number"]) + " " + item["title"],
                     "title": item["title"],
+                    "state": "merged" if item.get("merged") else item["state"],
+                    "labels": item["labels"],
                 }
                 for item in prs
                 if matches_state(item, state)

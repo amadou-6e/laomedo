@@ -63,6 +63,32 @@ class NativeGitHubPRTests(unittest.TestCase):
         self.assertEqual(self.mock.call_count, 1)
         self.assertEqual(len(self.case.provider.writes), 1)
 
+    def test_selected_account_reads_without_host_credential_fallback(self):
+        from unittest.mock import AsyncMock
+
+        self.component.set(github_connection="selected-account", pr_choice="#1")
+        payload = {"pr": {"number": 1}, "operation": {"status": "not_requested"}}
+        with patch(
+            "laomedo.integrations.langflow.authentication.graph_bindings.PrivateGraphBindings.read_pr",
+            new=AsyncMock(return_value=payload),
+        ) as read:
+            result = asyncio.run(self.component.context_output()).data
+        self.assertEqual(result["pr"]["number"], 1)
+        read.assert_awaited_once()
+        self.mock.assert_not_called()
+
+    def test_selected_account_failure_never_uses_host_credential(self):
+        from unittest.mock import AsyncMock
+
+        self.component.set(github_connection="selected-account", pr_choice="#1")
+        with patch(
+            "laomedo.integrations.langflow.authentication.graph_bindings.PrivateGraphBindings.read_pr",
+            new=AsyncMock(side_effect=ValueError("revoked")),
+        ):
+            result = asyncio.run(self.component.context_output()).data
+        self.assertEqual(result["operation"]["status"], "failed")
+        self.mock.assert_not_called()
+
     def test_reference_conflict_never_dispatches(self):
         self.component.set(
             pr_context=Data(data={"pr": {"repository": "owner/repo", "number": 2}})
@@ -143,19 +169,18 @@ class NativeGitHubPRTests(unittest.TestCase):
             self.assertEqual(result["operation"]["status"], "failed")
             self.assertEqual(self.case.provider.writes, [])
 
-    def test_filters_clear_selection_and_refresh_preserves_number(self):
+    def test_search_options_include_states_and_labels_and_refresh_preserves_number(
+        self,
+    ):
         config = {item.name: item.to_dict() for item in self.component.inputs}
         config = asyncio.run(
             self.component.update_build_config(config, self.case.url, "repository_url")
         )
-        self.assertEqual(len(config["pr_choice"]["options"]), 2)
-        config = asyncio.run(
-            self.component.update_build_config(
-                config, ["research", "backend"], "labels"
-            )
-        )
-        self.assertEqual(config["pr_choice"]["options"], ["#1 Change 1"])
-        self.assertEqual(config["pr_choice"]["value"], "")
+        self.assertEqual(len(config["pr_choice"]["options"]), 3)
+        metadata = config["pr_choice"]["options_metadata"]
+        self.assertEqual(len(metadata), 3)
+        self.assertTrue(all(item["laomedo_pr_search"] for item in metadata))
+        self.assertTrue(any(item["state"] == "closed" for item in metadata))
         config["pr_choice"]["value"] = "#1 Change 1"
         self.case.provider.prs[1]["title"] = "New title"
         config = asyncio.run(

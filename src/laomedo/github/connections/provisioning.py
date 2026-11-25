@@ -139,7 +139,11 @@ class GitHubAppProvisioner:
                         "url": "https://github.com/amadou-6e/laomedo",
                         "active": False,
                     },
-                    "default_permissions": {"contents": "read", "metadata": "read"},
+                    "default_permissions": {
+                        "contents": "read",
+                        "metadata": "read",
+                        "pull_requests": "read",
+                    },
                     "request_oauth_on_install": False,
                     "setup_on_update": False,
                 },

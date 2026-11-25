@@ -13,9 +13,10 @@ import NodeInputField from "../NodeInputField";
 import { findPrimaryInput } from "./utils";
 import AgentAdvancedControls, { advancedAgentFields, isAgentControlHidden } from "./AgentAdvancedControls";
 import { advancedSkillFields, isConnectedSkillSetting, isGitHubSkillNode, isSkillControlHidden, isSkillNode, skillFieldInfo, skillSourceError, SKILL_SOURCE_ERROR_CODE } from "./SkillNodeControls";
-import { isPRControlHidden, isVisiblePRState, prFieldRank, prFeedback, PR_DISCOVERY_ERROR_CODE } from "./PRNodeControls";
+import { isPRNode, isPRControlHidden, isVisiblePRState, prFieldRank, prFeedback, PR_DISCOVERY_ERROR_CODE } from "./PRNodeControls";
 import NodeErrorNotice from "@/components/laomedoErrors/NodeErrorNotice";
 import PrivateSkillControls, { SkillSourceSuggestions } from "@/modals/skillFilesModal/private/PrivateSkillControls";
+import PRAccountControls from "@/modals/github/pull_requests/PRAccountControls";
 
 const RenderInputParameters = ({
   data,
@@ -131,7 +132,8 @@ const RenderInputParameters = ({
 
       return (
         <Fragment key={memoizedKey}>
-        {showNode && isSkillNode(data) && templateField === "source" && !(displayHandleMap.get(templateField) ?? false) && !template.load_from_db && !nativeSource ? <SkillSourceSuggestions data={data} onUseVariable={() => setNativeSource(true)} /> : <NodeInputField
+        {showNode && isPRNode(data) && templateField === "repository_url" && <PRAccountControls data={data} />}
+        {showNode && ((isSkillNode(data) && templateField === "source") || (isPRNode(data) && templateField === "repository_url")) && !(displayHandleMap.get(templateField) ?? false) && !template.load_from_db && !nativeSource ? <SkillSourceSuggestions data={data} fieldName={templateField} onUseVariable={() => setNativeSource(true)} /> : <NodeInputField
           lastInput={
             !(shownOutputs.length > 0 || showHiddenOutputs || (!advanced && advancedFields.length > 0)) &&
             idx === fields.length - 1

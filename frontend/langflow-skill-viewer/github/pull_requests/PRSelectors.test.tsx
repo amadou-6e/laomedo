@@ -4,6 +4,17 @@ import { useDropdownOptions } from "@/components/core/dropdownComponent/hooks/us
 import { isValidConnection } from "@/utils/reactflowUtils";
 import Dropdown from "@/components/core/dropdownComponent";
 const mockData = { type: "LaomedoGitHubPR", node: { template: { repository_url: { value: "https://github.com/owner/repo" }, labels: { options: ["backend", "research"] } } } };
+
+test("PR dropdown filters by state and label without changing PR identity", async () => {
+  const options = ["#1 Fix login", "#2 Fix tests"];
+  const optionsMetaData = [
+    { id: options[0], state: "open", labels: ["bug"], laomedo_pr_search: true },
+    { id: options[1], state: "closed", labels: ["bug"], laomedo_pr_search: true },
+  ];
+  const { result } = renderHook(() => useDropdownOptions({ value: "", options, validOptions: options, optionsMetaData, combobox: false, hasChildren: false, onSelect: jest.fn() }));
+  await act(async () => { await result.current.searchRoleByTerm({ target: { value: "state:closed label:bug" } } as any); });
+  expect(result.current.filteredOptions).toEqual([options[1]]);
+});
 jest.mock("@/stores/flowStore", () => ({ __esModule: true, default: (select: any) => select({ nodes: [{ id: "pr", data: mockData }] }) }));
 jest.mock("@/components/common/genericIconComponent", () => ({ __esModule: true, default: () => null }));
 jest.mock("react-i18next", () => ({ ...jest.requireActual("react-i18next"), useTranslation: () => ({ t: (value: string) => value }) }));

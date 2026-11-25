@@ -36,7 +36,7 @@ test("viewer reads without an operation, renders safe Markdown and links the sel
   const { container } = render(<PRViewerModal template={template()} open setOpen={() => {}} />);
   await screen.findByTestId("pr-viewer-content");
   expect(post.mock.calls[0][0]).toBe("/api/v1/laomedo/github-prs/inspect");
-  expect(post.mock.calls[0][1]).toEqual({ repository_url: "https://github.com/owner/repo", pr_number: 1, labels: [], state: "open" });
+  expect(post.mock.calls[0][1]).toEqual({ repository_url: "https://github.com/owner/repo", pr_number: 1, labels: [], state: "all" });
   expect(container.querySelector("strong")?.textContent).toBe("Rendered markdown");
   expect(container.querySelectorAll("img, script")).toHaveLength(0);
   expect(container.querySelector('a[href^="javascript:"]')).toBeNull();

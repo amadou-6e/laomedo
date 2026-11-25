@@ -67,7 +67,7 @@ class GitHubReadClient:
             or not re.fullmatch(
                 r"/(?:user(?:/repos|/installations(?:/[1-9][0-9]*/repositories)?)?"
                 r"|repos/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+"
-                r"(?:/branches|/git/(?:matching-refs/(?:heads|tags)/|"
+                r"(?:/branches|/pulls(?:/[1-9][0-9]*)?|/git/(?:matching-refs/(?:heads|tags)/|"
                 r"(?:commits|trees|blobs|tags)/[0-9a-f]{40}))?)",
                 path,
             )
