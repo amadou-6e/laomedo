@@ -56,13 +56,12 @@ Subscription allowances are distinct from run tokens and estimated cost. The
 Codex ACP adapter provides a bounded account/rateLimits/read projection; unsupported providers show unavailable,
 never infer remaining hourly/weekly/monthly allowances from run activity.
 
-The quota adapter is a draft integration: current saved Codex connections use
-Sign in with ChatGPT token sharing through a custom Responses provider. That
-configuration does not establish the native Codex account authentication required
-by the pinned quota RPC. Renewing the token-sharing login alone does not fix this.
-An explicit authentication-method decision and real account acceptance are still
-required; fixture responses do not establish live quota support. No host login
-import or undocumented backend endpoint is an acceptable fallback.
+Saved Codex connections use one official native ChatGPT sign-in for execution
+and quota. Sign in again stages a verified native account and requires explicit
+replacement confirmation while preserving the connection ID and graph selections.
+Claude reads limits through its existing native saved profile. OpenCode Go limits
+remain unavailable pending a working supported usage read. No host login import
+or exported-token fallback is offered; fixture responses are not live acceptance.
 
 Graph settings follow GitHub Primer's plain, left-aligned settings sections:
 headings with dividers, bounded form widths and consistent vertical spacing.
