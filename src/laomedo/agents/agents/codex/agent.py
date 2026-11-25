@@ -699,7 +699,7 @@ class CodexAgent(BaseAgent):
         ):
             split = (
                 SplitPolicy(
-                    managed_credential=bool(self.auth),
+                    managed_credential=bool(self.auth and not self.native_auth),
                     provider_config=self.split_provider_config,
                     access_token=(
                         access_token

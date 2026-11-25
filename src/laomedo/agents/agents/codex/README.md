@@ -238,3 +238,7 @@ expiry and shutdown release it only after attempting exact controller cleanup.
 Existing native connections resolve their saved immutable image ID directly during
 preflight; a changed default tag cannot rebind or invalidate their recorded image.
 New connections use the current registered recipe.
+
+Native-volume connections do not enable the host-updated bearer-file capability.
+That capability belongs only to retained token-sharing credentials; native OAuth
+refresh remains inside the official client and saved volume.

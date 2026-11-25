@@ -43,6 +43,13 @@ class RunnerSandboxPolicyTests(unittest.TestCase):
             self.assertEqual(runner.image, image)
             self.assertEqual(runner.image_id, image)
             self.assertEqual(runner.profile, "owned-volume")
+            with patch(
+                "laomedo.agents.agents.codex.runtime.CodexAgentRuntime.__init__",
+                return_value=None,
+            ) as launch:
+                runner._open_server(root)
+            self.assertFalse(launch.call_args.kwargs["split"].managed_credential)
+            self.assertIsNone(launch.call_args.kwargs["split"].access_token)
 
     def test_saved_account_uses_fixed_command_auth_without_environment_key(self):
         from unittest.mock import Mock
