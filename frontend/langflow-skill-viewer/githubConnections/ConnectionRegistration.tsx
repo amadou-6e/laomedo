@@ -118,7 +118,9 @@ export default function ConnectionRegistration({
             <h3>Approve the connection</h3>
             <p className="gc-muted">
               Continue to the prefilled setup on GitHub. Check the account shown
-              as the owner before approving.
+              as the owner before approving. The App requests read access to
+              repository contents and read and write access to pull requests,
+              including creation, for the repositories you select.
             </p>
           </li>
         </ol>

@@ -27,23 +27,25 @@ these dependencies does not configure an app or connect an account. Core Python
 
 ## Registration configuration to review
 
-| GitHub setting | Required value for this local source-read increment |
+| GitHub setting | Required value for the connected App |
 | --- | --- |
 | App name | An available name identifying this local Laomedo installation |
 | Homepage | The supported local app URL or a maintainer documentation URL |
 | Callback | Exact fixed loopback callback displayed by the configured local app, ending `/api/v1/laomedo/github-connections/callback` |
-| Repository permissions | Contents: read-only; Metadata: GitHub-required read-only |
+| Repository permissions | Contents: read-only; Metadata: GitHub-required read-only; Pull requests: read and write |
 | Organization/account permissions | None additionally requested for this feature |
 | Webhooks | Disabled for this local polling/revalidation increment |
 | User access token expiration | Enabled; retain supported refresh semantics |
 | Device flow | Disabled; not an implicit fallback |
-| Installation scope | Only the repository or repositories selected for Skill reads |
+| Installation scope | Only the repositories selected for source and PR access |
 | App slug | Non-secret name from the registered app URL; validate before deriving its GitHub installation link |
 | Client secret | Returned directly to the host by manifest conversion and stored in Windows vault; never copied into chat or the browser UI |
 
 GitHub account authorization and app installation are different. Private repository
-access requires both the user and app installation to have access. No Issues,
-Pull requests, Workflows or Contents write permission is needed for discovery.
+access requires both the user and app installation to have access. The App requests Pull requests read and write access, including PR creation,
+for selected repositories. Issues, Workflows and Contents write permission are
+not requested. A connected account does not itself grant a graph permission to
+perform a write; application operations still require their own authorization.
 GitHub manifest conversion also returns signing material and a webhook secret.
 Neither is used by this user-token flow; they are discarded, never persisted or
 returned to the browser. The webhook is disabled. Expiring user tokens are required;

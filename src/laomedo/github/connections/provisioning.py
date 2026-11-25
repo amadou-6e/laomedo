@@ -103,7 +103,7 @@ class GitHubAppProvisioner:
         self.lock = asyncio.Lock()
 
     async def begin(self, scope):
-        """Prepare a personal, read-only App manifest after explicit Add action."""
+        """Prepare a personal App manifest with source reads and pull-request writes."""
         async with self.lock, self.service.commit_lock:
             await scope.revalidate()
             self.pending = {
@@ -129,7 +129,7 @@ class GitHubAppProvisioner:
                 "manifest": {
                     "name": "Laomedo Local " + secrets.token_hex(4),
                     "url": "https://github.com/amadou-6e/laomedo",
-                    "description": "Private Skill source reads for this local Laomedo deployment.",
+                    "description": "Repository sources and pull requests for this local Laomedo deployment.",
                     "redirect_url": origin + GITHUB_PROVISION_CALLBACK_PATH,
                     "callback_urls": [callback],
                     "setup_url": origin + "/settings/github",
@@ -142,7 +142,7 @@ class GitHubAppProvisioner:
                     "default_permissions": {
                         "contents": "read",
                         "metadata": "read",
-                        "pull_requests": "read",
+                        "pull_requests": "write",
                     },
                     "request_oauth_on_install": False,
                     "setup_on_update": False,
