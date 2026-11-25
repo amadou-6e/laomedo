@@ -24,6 +24,7 @@ class SkillComponent(Component):
     description = "Use and edit versioned skill files."
     icon = "BookOpen"
     name = "LaomedoSkill"
+    select_current_revision = False
     inputs = [
         StrInput(
             name="source",
@@ -164,6 +165,16 @@ class SkillComponent(Component):
 
     def skill_output(self) -> Data:
         self._validate_source(str(getattr(self, "source", "") or ""))
+        if self.select_current_revision:
+            if not getattr(self, "source", ""):
+                raise ValueError("local_skill_source_required")
+            versions = source_request(
+                "revisions", source=str(self.source), skill=str(self.skill_id)
+            )
+            current = versions.get("current")
+            if not current:
+                raise ValueError("local_skill_unavailable")
+            self.revision_id = current["choice"]
         if getattr(self, "github_connection", ""):
             raise ValueError("private_skill_execution_unsupported")
         if getattr(self, "source", ""):
@@ -315,6 +326,12 @@ class SkillComponent(Component):
             )
             options = [v["choice"] for v in versions["revisions"]]
             build_config["revision_id"]["options"] = options
+            if self.select_current_revision:
+                current = versions.get("current")
+                if not current:
+                    raise ValueError("local_skill_unavailable")
+                revision = current["choice"]
+                build_config["revision_id"]["value"] = revision
             if revision:
                 if revision not in options:
                     raise ValueError("discovered_revision_required")

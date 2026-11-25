@@ -21,6 +21,7 @@ from lfx.custom.custom_component.component import Component
 from lfx.custom.utils import build_custom_component_template
 
 from support.paths import repository_root
+from laomedo.skills.sources.service import SkillSources
 
 ROOT = repository_root()
 
@@ -110,3 +111,42 @@ def test_invalid_repository_clears_previous_private_selection():
     config["private_repository_id"]["value"] = "previous-repository"
     result = asyncio.run(node.update_build_config(config, "C:/local", "source"))
     assert result["private_repository_id"]["value"] == ""
+
+
+def test_local_skill_uses_current_files_without_revision_selection(tmp_path):
+    source = tmp_path / "source"
+    folder = source / "sample"
+    folder.mkdir(parents=True)
+    skill_file = folder / "SKILL.md"
+    skill_file.write_text("---\nname: sample\n---\nfirst", encoding="utf-8")
+    resolver = SkillSources(tmp_path / "registry", tmp_path / "state", [source])
+    node = component("skill.py")
+    config = {item.name: item.to_dict() for item in node.inputs}
+    assert not config["revision_id"]["show"]
+    assert not config["commit_id"]["show"]
+
+    def request(action, **values):
+        if action == "discover":
+            return resolver.discover(values["source"])
+        if action == "revisions":
+            return resolver.revisions(values["source"], values["skill"])
+        return resolver.resolve(values["source"], values["skill"], values["revision"])
+
+    with patch(
+        "laomedo.skills.interface.langflow.component.source_request",
+        side_effect=request,
+    ):
+        config = asyncio.run(node.update_build_config(config, str(source), "source"))
+        choice = config["skill_id"]["options"][0]
+        config = asyncio.run(node.update_build_config(config, choice, "skill_id"))
+        node.set(source=str(source), skill_id=choice)
+        first = node.skill_output().data
+        skill_file.write_text("---\nname: sample\n---\nsecond", encoding="utf-8")
+        second = node.skill_output().data
+        skill_file.write_text("---\nname: sample\n---\nfirst", encoding="utf-8")
+        reverted = node.skill_output().data
+        skill_file.unlink()
+        with pytest.raises(ValueError):
+            node.skill_output()
+    assert first["revision_id"] != second["revision_id"]
+    assert reverted == first

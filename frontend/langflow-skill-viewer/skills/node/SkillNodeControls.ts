@@ -25,7 +25,8 @@ export function skillFieldTemplate(data: any, name: string, template: any): any 
 }
 
 export function isSkillControlHidden(data: any, name: string): boolean {
-  return isSkillNode(data) && ["edit_request", "discovery_status", "github_connection", "private_repository_id"].includes(name);
+  return isSkillNode(data) && (["edit_request", "discovery_status", "github_connection", "private_repository_id"].includes(name) ||
+    (!isGitHubSkillNode(data) && ["revision_id", "commit_id"].includes(name)));
 }
 
 export const SKILL_SOURCE_ERROR_CODE = "source_discovery_failed";
@@ -54,7 +55,7 @@ export function advancedSkillFields(data: any, fields: string[], edges: any[], t
   if (!isSkillNode(data)) return [];
   return fields.filter(name => {
     const field = data.node?.template?.[name];
-    return SETTINGS.has(name) && field?.show && field.type !== "other" &&
+    return !isSkillControlHidden(data, name) && SETTINGS.has(name) && field?.show && field.type !== "other" &&
       !(toolMode && field.tool_mode) && !isConnectedSkillSetting(data, name, edges);
   });
 }
@@ -62,7 +63,7 @@ export function advancedSkillFields(data: any, fields: string[], edges: any[], t
 export function skillFieldInfo(data: any, name: string): string {
   if (isSkillNode(data) && name === "source") return isGitHubSkillNode(data)
     ? "A GitHub or public GitLab repository URL. Select a GitHub connection for private repositories."
-    : "An allowed local folder. Leave empty to use a saved local registry reference.";
+    : "An allowed local folder containing Skills.";
   return (isSkillNode(data) && HELP[name] ? HELP[name] : data.node?.template?.[name]?.info) || "";
 }
 

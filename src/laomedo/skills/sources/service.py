@@ -207,6 +207,7 @@ class SkillSources:
                     raise SourceError("source_bundle_unsafe") from None
             options = dict(cached.get("revisions", {}).get(choice, {}))
             pending = []
+            current_revision = None
 
             def offer(files, label, origin):
                 """Validate collected bytes and queue their exact revision/provenance before publication."""
@@ -255,6 +256,7 @@ class SkillSources:
                     }
                 if skill_name(files["SKILL.md"], folder.name) == skill["name"]:
                     revision = tree_hash(validate_bundle(files))
+                    current_revision = revision
                     if not any(
                         value["revision_id"] == revision for value in options.values()
                     ):
@@ -325,12 +327,22 @@ class SkillSources:
                 self._register(skill["name"], candidate.files, candidate.origin)
             cached.setdefault("revisions", {})[choice] = options
             self._save()
-            return {
+            result = {
                 "revisions": [
                     {"choice": key, **value}
                     for key, value in sorted(options.items(), reverse=True)
                 ]
             }
+            if admitted.kind == "local":
+                result["current"] = next(
+                    (
+                        entry
+                        for entry in result["revisions"]
+                        if entry["revision_id"] == current_revision
+                    ),
+                    None,
+                )
+            return result
 
     def resolve(self, source, choice, revision):
         """Verify and return a previously offered immutable source reference."""

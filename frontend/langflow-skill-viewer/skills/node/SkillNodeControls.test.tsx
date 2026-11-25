@@ -26,6 +26,14 @@ test("skill choices display paths while retaining their exact discovery identifi
   ]);
   expect(skillFieldTemplate(data, "revision_id", original)).toBe(original);
 });
+
+test("local Skills never expose revision or commit controls", () => {
+  const local = { ...data, type: "LaomedoLocalSkill" };
+  expect(isSkillControlHidden(local, "revision_id")).toBe(true);
+  expect(isSkillControlHidden(local, "commit_id")).toBe(true);
+  expect(advancedSkillFields(local, ["revision_id", "commit_id"], [], false)).toEqual([]);
+  expect(isSkillControlHidden(data, "revision_id")).toBe(false);
+});
 jest.mock("@xyflow/react", () => ({ useUpdateNodeInternals: () => update }));
 jest.mock("@/CustomNodes/hooks/use-handle-new-value", () => ({ __esModule: true, default: () => ({ handleOnNewValue: jest.fn() }) }));
 jest.mock("@/stores/authStore", () => ({ __esModule: true, default: (select: any) => select({ userData: { id: "profile" } }) }));
