@@ -339,6 +339,15 @@ class ComponentCatalog:
                 raise AssistantError("assistant_field_type_invalid", 422)
         return deepcopy(value)
 
+    def _set_resolved_value(self, identity, name, field, value):
+        """Present only the verified selected string, never a cached account catalogue."""
+        field["value"] = value
+        field["show"] = True
+        if name in self.resolution_fields(identity) and isinstance(value, str):
+            field["options"] = [value] if value else []
+            if "options_metadata" in field:
+                field["options_metadata"] = [{}] if value else []
+
     def update_saved_fields(self, node, identity, values, *, resolved=None):
         """Change only explicit writable values, retaining saved code, secrets and schema."""
         metadata = self.template(identity)
@@ -374,6 +383,8 @@ class ComponentCatalog:
                 + json.dumps(checked, ensure_ascii=False)
             )
             original["value"] = checked
+            if resolved is not None and name in resolved.fields:
+                self._set_resolved_value(identity, name, original, checked)
             if not self._writable(name, field):
                 original["show"] = True
         if resolved is not None:
@@ -390,7 +401,12 @@ class ComponentCatalog:
                 invalidated.update(dependents)
             for name in sorted(invalidated - set(resolved.fields)):
                 if isinstance(saved.get(name), dict):
-                    saved[name]["value"] = None
+                    saved[name]["value"] = (
+                        "" if saved[name].get("type") == "str" else None
+                    )
+                    saved[name]["options"] = []
+                    if "options_metadata" in saved[name]:
+                        saved[name]["options_metadata"] = []
                     preview.append("Clear " + node["id"] + "." + name)
         return preview
 
@@ -439,7 +455,15 @@ class ComponentCatalog:
                             + name
                             + ": private or unsupported installed value omitted"
                         )
-                    field["value"] = None
+                    dynamic = name in self.resolution_fields(definition.component_type)
+                    field["value"] = (
+                        "" if dynamic and field.get("type") == "str" else None
+                    )
+                    if dynamic:
+                        if "options" in field:
+                            field["options"] = []
+                        if "options_metadata" in field:
+                            field["options_metadata"] = []
                 elif "value" in field:
                     try:
                         field["value"] = self._value(name, field, field["value"])
@@ -463,7 +487,9 @@ class ComponentCatalog:
                     name, field, value, definition.component_type, resolved=resolved
                 )
                 if resolved is not None and name in resolved.fields:
-                    field["show"] = True
+                    self._set_resolved_value(
+                        definition.component_type, name, field, field["value"]
+                    )
             component_name = definition.component_type.split("/", 1)[1]
             identifier = component_name + "-" + definition.key
             node = {

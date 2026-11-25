@@ -70,6 +70,10 @@ class ConfigurationTests(unittest.IsolatedAsyncioTestCase):
                                 "type": "str",
                                 "real_time_refresh": True,
                                 "value": "PRIVATE_CACHED_CANARY",
+                                "options": ["PRIVATE_CACHED_CANARY"],
+                                "options_metadata": [
+                                    {"label": "PRIVATE_CACHED_CANARY"}
+                                ],
                                 "show": False,
                             },
                             "model": {
@@ -113,6 +117,8 @@ class ConfigurationTests(unittest.IsolatedAsyncioTestCase):
         template = data["nodes"][0]["data"]["node"]["template"]
         self.assertEqual(template["model"]["value"], "observed-model")
         self.assertEqual(template["provider_connection"]["value"], str(self.connection))
+        for name in ("provider_connection", "model", "effort"):
+            self.assertEqual(template[name]["options"], [template[name]["value"]])
         self.assertNotIn("PRIVATE_CACHED_CANARY", str(data))
         self.assertTrue(all(text.startswith("warning: ") for text in messages))
         self.runtime.models.assert_awaited_once_with(
@@ -161,12 +167,33 @@ class ConfigurationTests(unittest.IsolatedAsyncioTestCase):
                 )
                 template = changed["nodes"][0]["data"]["node"]["template"]
                 for name in missing:
-                    self.assertIsNone(template[name]["value"])
+                    self.assertEqual(template[name]["value"], "")
+                    self.assertEqual(template[name]["options"], [])
+                self.assertEqual(
+                    template["provider_connection"]["options"], [str(self.connection)]
+                )
+                if "model" in fields:
+                    self.assertEqual(template["model"]["options"], ["observed-model"])
                 self.assertEqual(template["task"]["value"], "test")
                 self.assertEqual(
                     data["nodes"][0]["data"]["node"]["template"]["effort"]["value"],
                     "low",
                 )
+
+    async def test_unresolved_selectors_are_empty_native_strings_without_cached_choices(
+        self,
+    ):
+        data, _ = self.catalog.compile(
+            DraftGraph(
+                nodes=[DraftNode(key="agent", component_type=self.identity)],
+                allow_incomplete=True,
+            )
+        )
+        template = data["nodes"][0]["data"]["node"]["template"]
+        for name in ("provider_connection", "model", "effort"):
+            self.assertEqual(template[name]["value"], "")
+            self.assertFalse(template[name].get("options"))
+        self.assertNotIn("PRIVATE_CACHED_CANARY", str(data))
 
     async def test_namespaced_installed_adapter_resolves_with_its_exact_source_digest(
         self,
