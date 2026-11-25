@@ -84,7 +84,7 @@ test("opening a populated source shows the other repositories without clearing t
 
 test("selecting a connection clears the old anonymous error and discovers private skills", async () => {
   render(<Harness initialConnection="" />);
-  const select = await screen.findByLabelText("Connection");
+  const select = await screen.findByLabelText("Account");
   fireEvent.focus(select);
   await screen.findByText("Account (token)");
   fireEvent.change(select, { target: { value: "selected" } });
@@ -112,7 +112,7 @@ test("changing connection clears pins and rejects late discovery", async () => {
   await waitFor(() => expect(privateSkillRequest).toHaveBeenCalled());
   // Busy controls intentionally prevent changing authority until the request ends;
   // a programmatic context change still has to invalidate the epoch.
-  fireEvent.change(screen.getByLabelText("Connection"), { target: { value: "" } });
+  fireEvent.change(screen.getByLabelText("Account"), { target: { value: "" } });
   await act(async () => finish({ skills: [{ choice: chosen }] }));
   await waitFor(() => expect(template().github_connection.value).toBe(""));
   expect(template().skill_id.value).toBe("");

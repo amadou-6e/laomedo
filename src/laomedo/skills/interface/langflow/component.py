@@ -76,7 +76,7 @@ class SkillComponent(Component):
         ),
         StrInput(
             name="github_connection",
-            display_name="Connection",
+            display_name="Account",
             value="",
             show=False,
             track_in_telemetry=False,

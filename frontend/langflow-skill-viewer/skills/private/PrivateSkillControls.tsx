@@ -90,7 +90,7 @@ export function SkillSourceSuggestions({ data, onUseVariable }: { data: any; onU
   </div>;
 }
 
-/** Populate the existing searchable Skill/Revision fields; Connection stays Advanced. */
+/** Populate the existing searchable Skill/Revision fields; Account stays Advanced. */
 export default function PrivateSkillControls({ data }: { data: any }) {
   const template = data.node?.template || {};
   const connectionId = String(template.github_connection?.value || "");
@@ -174,7 +174,7 @@ export default function PrivateSkillControls({ data }: { data: any }) {
   if (!enabled && !connectionId) return null;
   return <section className="nodrag nopan grid gap-2 px-5 py-3 text-sm" aria-label="Private Skill source">
     <div className="flex items-center gap-2">
-      <label htmlFor={`connection-${data.id}`}>Connection</label>
+      <label htmlFor={`connection-${data.id}`}>Account</label>
       {connectionId && <details className="relative"><summary aria-label="Private source information" className="cursor-pointer list-none rounded p-1 focus-visible:outline focus-visible:outline-2"><Info className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" /></summary><p className="absolute z-50 w-48 rounded border bg-popover p-2 text-xs shadow-md">Private files are read only. Agent execution is unavailable.</p></details>}
       <button type="button" className="rounded p-1 focus-visible:outline focus-visible:outline-2" aria-label="Refresh private source" title="Refresh private source" disabled={busy || !enabled || !connectionId || !source} onClick={() => void load("skills")}><RefreshCw className="h-3.5 w-3.5" aria-hidden="true" /></button>
       <a className="rounded p-1 focus-visible:outline focus-visible:outline-2" aria-label="Manage GitHub connections" title="Manage GitHub connections" href="/settings/github" target="_blank" rel="noreferrer"><ExternalLink className="h-3.5 w-3.5" aria-hidden="true" /></a>
