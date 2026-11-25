@@ -1,7 +1,7 @@
 --- a/src/frontend/src/CustomNodes/helpers/mutate-template.ts
 +++ b/src/frontend/src/CustomNodes/helpers/mutate-template.ts
 @@ -100,6 +100,9 @@
-     if ((nodeKind(skillNode?.data.type ?? "") === "LaomedoSkill" &&
+     if ((["LaomedoLocalSkill", "LaomedoGitHubSkill"].includes(nodeKind(skillNode?.data.type ?? "")) &&
          ["resolved_skill_id", "resolved_revision_id", "resolved_selection", "discovery_status"].includes(fieldName)) ||
          (["LaomedoGitHubIssue", "LaomedoGitHubPR"].includes(nodeKind(skillNode?.data.type ?? "")) && fieldName === "discovery_status")) continue;
 +    if (["LaomedoCodexAgent", "LaomedoClaudeAgent", "LaomedoOpenCodeAgent"].includes(nodeKind(skillNode?.data.type ?? "") ?? "") &&
@@ -12,7 +12,7 @@
      }
 @@ -120,6 +123,13 @@
      const current = getNodeTemplate(nodeId);
-     const selectors = nodeKind(skillNode?.data.type ?? "") === "LaomedoSkill" ? ["source", "skill_id", "revision_id"] : ["repository_url", "labels", "state", nodeKind(skillNode?.data.type ?? "") === "LaomedoGitHubPR" ? "pr_choice" : "issue_choice"];
+     const selectors = ["LaomedoLocalSkill", "LaomedoGitHubSkill"].includes(nodeKind(skillNode?.data.type ?? "")) ? ["source", "skill_id", "revision_id", "github_connection"] : ["repository_url", "labels", "state", nodeKind(skillNode?.data.type ?? "") === "LaomedoGitHubPR" ? "pr_choice" : "issue_choice"];
      for (const name of selectors) {
 +      const expected = name === parameterName ? newValue : requestedNode.template?.[name]?.value;
 +      if (!isEqual(current?.[name]?.value, expected)) return true;

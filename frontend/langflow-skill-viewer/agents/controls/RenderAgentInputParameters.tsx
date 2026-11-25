@@ -12,7 +12,7 @@ import { scapedJSONStringfy } from "@/utils/reactflowUtils";
 import NodeInputField from "../NodeInputField";
 import { findPrimaryInput } from "./utils";
 import AgentAdvancedControls, { advancedAgentFields, isAgentControlHidden } from "./AgentAdvancedControls";
-import { advancedSkillFields, isConnectedSkillSetting, isSkillControlHidden, isSkillNode, skillFieldInfo, skillSourceError, SKILL_SOURCE_ERROR_CODE } from "./SkillNodeControls";
+import { advancedSkillFields, isConnectedSkillSetting, isGitHubSkillNode, isSkillControlHidden, isSkillNode, skillFieldInfo, skillSourceError, SKILL_SOURCE_ERROR_CODE } from "./SkillNodeControls";
 import { isPRControlHidden, isVisiblePRState, prFieldRank, prFeedback, PR_DISCOVERY_ERROR_CODE } from "./PRNodeControls";
 import NodeErrorNotice from "@/components/laomedoErrors/NodeErrorNotice";
 import PrivateSkillControls, { SkillSourceSuggestions } from "@/modals/skillFilesModal/private/PrivateSkillControls";
@@ -168,7 +168,7 @@ const RenderInputParameters = ({
         {showNode && templateField === "source" && skillSourceError(data) && (
           <div role="alert" data-testid="skill-source-error" className="px-5 pb-2 text-sm text-destructive">
             <NodeErrorNotice message={SKILL_SOURCE_ERROR_CODE} label={skillSourceError(data)}
-              context={{ nodeId: data.id, nodeType: "LaomedoSkill" }} />
+              context={{ nodeId: data.id, nodeType: data.type }} />
           </div>
         )}
         {showNode && templateField === "repository_url" && feedback && (
@@ -201,7 +201,7 @@ const RenderInputParameters = ({
       {renderInputParameters(shownTemplateFields)}
       {advancedFields.length > 0 && <AgentAdvancedControls nodeId={data.id} visible={showNode}
         label={isSkillNode(data) ? "Advanced settings" : "Advanced controls"}>
-        {isSkillNode(data) && <PrivateSkillControls data={data} />}
+        {isGitHubSkillNode(data) && <PrivateSkillControls data={data} />}
         {renderInputParameters(advancedFields, true)}
       </AgentAdvancedControls>}
     </>

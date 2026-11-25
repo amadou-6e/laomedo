@@ -29,14 +29,14 @@ test('runner change invalidates in-flight model discovery',async()=>{
  expect(apply).not.toHaveBeenCalled();
 });
 test('selecting a private connection invalidates an in-flight anonymous Skill refresh',async()=>{
- mockType='LaomedoSkill';
+ mockType='LaomedoGitHubSkill';
  const requested={code:{value:'source'},source:{value:'https://github.com/owner/repo'},skill_id:{value:''},revision_id:{value:''},github_connection:{value:''}};
  mockTemplate=requested;
  const apply=await deferredRequest(requested,requested,()=>{mockTemplate={...requested,github_connection:{value:'private-connection'}}},'source',requested.source.value);
  expect(apply).not.toHaveBeenCalled();
 });
 test('a late private template refresh preserves discovered Skill options',async()=>{
- mockType='LaomedoSkill';
+ mockType='LaomedoGitHubSkill';
  const requested={code:{value:'source'},source:{value:'https://github.com/owner/repo'},skill_id:{value:'',options:[]},revision_id:{value:'',options:[]},github_connection:{value:'private-connection'}};
  mockTemplate=requested;
  const apply=await deferredRequest(requested,requested,()=>{mockTemplate={...requested,skill_id:{value:'',options:['discovered-skill']}}},'source',requested.source.value);

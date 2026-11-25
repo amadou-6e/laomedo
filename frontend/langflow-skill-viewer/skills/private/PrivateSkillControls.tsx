@@ -25,6 +25,7 @@ export function SkillSourceSuggestions({ data, onUseVariable }: { data: any; onU
   const profileId = useAuthStore((state) => state.userData?.id);
   const currentFlow = useFlowStore((state) => state.currentFlow);
   const connectionId = String(data.node?.template?.github_connection?.value || "");
+  const nodeType = data.node?.name || data.node?.type || data.type;
   const source = String(data.node?.template?.source?.value || "");
   const { handleOnNewValue } = useHandleOnNewValue({ node: data.node, nodeId: data.id, name: "source" });
 
@@ -36,7 +37,7 @@ export function SkillSourceSuggestions({ data, onUseVariable }: { data: any; onU
     const load = async () => {
       try {
         const [response, connections] = await Promise.allSettled([
-          queryClient.fetchQuery({ queryKey: ["skill-source-history", profileId, currentFlow?.id, currentFlow?.updated_at], staleTime: 30000, queryFn: async () => {
+          queryClient.fetchQuery({ queryKey: ["skill-source-history", profileId, nodeType, currentFlow?.id, currentFlow?.updated_at], staleTime: 30000, queryFn: async () => {
             if (!profileId) return [];
             const result = (await api.get(`${getURL("FLOWS")}/?get_all=true&remove_example_flows=true`)).data;
             const flows = Array.isArray(result) ? result : result?.items || [];
@@ -44,7 +45,7 @@ export function SkillSourceSuggestions({ data, onUseVariable }: { data: any; onU
             for (const flow of flows) if (flow.user_id === profileId) for (const node of flow.data?.nodes || []) {
               const value = node.data?.node?.template;
               const type = node.data?.node?.name || node.data?.node?.type || node.data?.type;
-              if (type === "LaomedoSkill" && typeof value?.source?.value === "string" && value.source.value.trim()) saved.push({ connection: String(value?.github_connection?.value || ""), source: value.source.value });
+              if (type === nodeType && typeof value?.source?.value === "string" && value.source.value.trim()) saved.push({ connection: String(value?.github_connection?.value || ""), source: value.source.value });
             }
             return saved;
           } }),
@@ -63,15 +64,17 @@ export function SkillSourceSuggestions({ data, onUseVariable }: { data: any; onU
     };
     void load();
     return () => { active = false; abort.abort(); };
-  }, [open, connectionId, profileId, currentFlow?.id, currentFlow?.updated_at, queryClient]);
+  }, [open, connectionId, nodeType, profileId, currentFlow?.id, currentFlow?.updated_at, queryClient]);
 
   const matches = sources.filter((item) => !filter || item.toLowerCase().includes(filter.toLowerCase()));
   const choose = (value: string) => { handleOnNewValue({ value }); setOpen(false); setActiveIndex(-1); setFilter(null); };
   const listId = `source-options-${data.id}`;
   const helpId = `source-help-${data.id}`;
+  const sourceLabel = nodeType === "LaomedoLocalSkill" ? "Local folder" : "Repository";
+  const sourceHelp = nodeType === "LaomedoLocalSkill" ? "Enter an allowed local folder." : "Enter a GitHub or public GitLab repository URL, or select a connected repository.";
   return <div className="nodrag nopan px-5 pb-2 text-sm" onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) { setOpen(false); setActiveIndex(-1); setEditing(false); } }}>
-    <label htmlFor={`source-${data.id}`} className="mb-2 block">Source or Repository <span aria-hidden="true" title="Enter a public repository URL or an allowed local folder, or select a connected repository.">ⓘ</span></label>
-    <span id={helpId} className="sr-only">Enter a public repository URL or an allowed local folder, or select a connected repository.</span>
+    <label htmlFor={`source-${data.id}`} className="mb-2 block">{sourceLabel} <span aria-hidden="true" title={sourceHelp}>ⓘ</span></label>
+    <span id={helpId} className="sr-only">{sourceHelp}</span>
     <div className="flex rounded border bg-background">
       <input id={`source-${data.id}`} role="combobox" aria-describedby={helpId} aria-expanded={open} aria-controls={listId} aria-autocomplete="list" aria-activedescendant={activeIndex >= 0 ? `${listId}-${activeIndex}` : undefined}
         className="min-w-0 flex-1 bg-transparent p-2 outline-none" value={editing ? source : source.replace(/^https:\/\/github\.com\//i, "")} onFocus={() => { setEditing(true); setFilter(null); setOpen(true); }} onBlur={() => setEditing(false)} onChange={(event) => { const value = event.target.value; handleOnNewValue({ value }); setFilter(value); setOpen(true); setActiveIndex(-1); }}
@@ -186,6 +189,6 @@ export default function PrivateSkillControls({ data }: { data: any }) {
     {busy && <p role="status">Checking access…</p>}
     {error && <div role="alert" className="text-destructive"><NodeErrorNotice message={error}
       label="Access to this repository could not be confirmed."
-      context={{ nodeId: data.id, nodeType: "LaomedoSkill", operation: "Private source" }} /></div>}
+      context={{ nodeId: data.id, nodeType: data.type, operation: "Private source" }} /></div>}
   </section>;
 }

@@ -26,12 +26,13 @@ ROOT = repository_root()
 class NativeSkillSourceTests(unittest.TestCase):
     def setUp(self):
         spec = importlib.util.spec_from_file_location(
-            "source_skill_component", ROOT / "components/laomedo/skill.py"
+            "source_skill_component",
+            ROOT / "src/laomedo/skills/interface/langflow/component.py",
         )
         self.module = importlib.util.module_from_spec(spec)
         sys.modules[spec.name] = self.module
         spec.loader.exec_module(self.module)
-        self.component = self.module.LaomedoSkill()
+        self.component = self.module.SkillComponent()
         self.config = {item.name: item.to_dict() for item in self.component.inputs}
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)

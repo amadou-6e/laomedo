@@ -1,6 +1,6 @@
 import { fireEvent, render, renderHook, screen } from "@testing-library/react";
 import RenderInputParameters from "./index";
-import { advancedSkillFields, isSkillControlHidden, skillFieldInfo, skillNodeDescription, skillSourceError, skillChoicePlaceholder, SKILL_SOURCE_ERROR_CODE } from "./SkillNodeControls";
+import { advancedSkillFields, isSkillControlHidden, skillFieldInfo, skillFieldTemplate, skillNodeDescription, skillSourceError, skillChoicePlaceholder, SKILL_SOURCE_ERROR_CODE } from "./SkillNodeControls";
 import { isKnownNodeError } from "@/components/laomedoErrors/nodeErrors";
 import useRowData from "@/modals/editNodeModal/hooks/use-row-data";
 import InspectionPanelFields from "@/pages/FlowPage/components/InspectionPanel/components/InspectionPanelFields";
@@ -8,18 +8,29 @@ import InspectionPanelFields from "@/pages/FlowPage/components/InspectionPanel/c
 const update = jest.fn();
 let edges: any[] = [];
 const scalar = { show: true, type: "str", advanced: false, value: "" };
-const data = { id: "skill", type: "LaomedoSkill", node: { description: "Read an immutable skill or propose a traceable, atomic multi-file revision.", template: {
+const data = { id: "skill", type: "LaomedoGitHubSkill", node: { description: "Read an immutable skill or propose a traceable, atomic multi-file revision.", template: {
   source: scalar, skill_id: { ...scalar, value: "real-skill" },
   revision_id: { ...scalar, value: "sha256:saved-pin" },
   commit_id: { ...scalar, value: "saved-parent", advanced: true },
   discovery_status: scalar, edit_request: { ...scalar, value: "saved request" },
   operation: { ...scalar, type: "other" },
 } } };
+
+test("skill choices display paths while retaining their exact discovery identifiers", () => {
+  const original = { options: ["name | skills/name", "registry-skill"] };
+  const result = skillFieldTemplate(data, "skill_id", original);
+  expect(result.options).toEqual(original.options);
+  expect(result.options_metadata).toEqual([
+    { id: "name | skills/name", display_name: "skills/name", laomedo_skill_path: true },
+    { id: "registry-skill", display_name: "registry-skill", laomedo_skill_path: true },
+  ]);
+  expect(skillFieldTemplate(data, "revision_id", original)).toBe(original);
+});
 jest.mock("@xyflow/react", () => ({ useUpdateNodeInternals: () => update }));
 jest.mock("@/CustomNodes/hooks/use-handle-new-value", () => ({ __esModule: true, default: () => ({ handleOnNewValue: jest.fn() }) }));
 jest.mock("@/stores/authStore", () => ({ __esModule: true, default: (select: any) => select({ userData: { id: "profile" } }) }));
 jest.mock("@tanstack/react-query", () => ({ useQueryClient: () => ({ fetchQuery: jest.fn() }) }));
-jest.mock("@/stores/flowStore", () => ({ __esModule: true, default: (select: any) => select({ edges, nodes: [{ id: "skill", data: { type: "LaomedoSkill" } }] }) }));
+jest.mock("@/stores/flowStore", () => ({ __esModule: true, default: (select: any) => select({ edges, nodes: [{ id: "skill", data: { type: "LaomedoGitHubSkill" } }] }) }));
 jest.mock("@/CustomNodes/helpers/get-node-input-colors", () => ({ getNodeInputColors: () => [] }));
 jest.mock("@/CustomNodes/helpers/get-node-input-colors-name", () => ({ getNodeInputColorsName: () => [] }));
 jest.mock("@/CustomNodes/helpers/sort-tool-mode-field", () => ({ sortToolModeFields: () => 0 }));
@@ -75,7 +86,7 @@ test("source picker can switch to the native global-variable control and back", 
   fireEvent.click(screen.getByRole("button", { name: "Use a global variable" }));
   expect(screen.getByRole("textbox", { name: "source" })).toBeVisible();
   fireEvent.click(screen.getByRole("button", { name: "Browse sources" }));
-  expect(screen.getByRole("combobox", { name: "Source or Repository" })).toBeVisible();
+  expect(screen.getByRole("combobox", { name: "Repository" })).toBeVisible();
 });
 
 test("Source failures are inline without a Discovery row; empty and successful sources are quiet", () => {
@@ -90,7 +101,7 @@ test("Source failures are inline without a Discovery row; empty and successful s
   expect(error).toHaveTextContent("Check source access and refresh.");
   expect(error.querySelector("button")).toHaveAttribute("data-code", SKILL_SOURCE_ERROR_CODE);
   expect(isKnownNodeError(SKILL_SOURCE_ERROR_CODE, true)).toBe(true);
-  expect(screen.getByRole("combobox", { name: "Source or Repository" }).closest(".nodrag")?.nextElementSibling).toBe(error);
+  expect(screen.getByRole("combobox", { name: "Repository" }).closest(".nodrag")?.nextElementSibling).toBe(error);
   view.rerender(renderNode(node("https://github.com/owner/repo", "2 skills found. Choose a Skill.")));
   expect(screen.queryByRole("alert")).toBeNull();
   view.rerender(renderNode(node("https://github.com/owner/repo", "Discovery failed. Check source access and refresh."), false));
@@ -129,5 +140,6 @@ test("minimized node hides settings; unrelated nodes and custom descriptions are
   expect(skillNodeDescription(data)).toBe("Use and edit versioned skill files.");
   expect(skillNodeDescription({ ...data, node: { ...data.node, description: "My own explanation" } })).toBe("My own explanation");
   expect(skillFieldInfo(data, "discovery_status")).toMatch(/never runs a Skill/);
-  expect(skillFieldInfo(data, "source")).toMatch(/host source service/);
+  expect(skillFieldInfo(data, "source")).toMatch(/GitHub or public GitLab/);
+  expect(skillFieldInfo({ ...data, type: "LaomedoLocalSkill" }, "source")).toMatch(/local folder/);
 });

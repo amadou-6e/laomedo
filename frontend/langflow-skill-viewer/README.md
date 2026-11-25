@@ -134,7 +134,7 @@ Markdown and dialog packages. Monaco and workers are bundled locally, without
 a CDN. Retain [Monaco's MIT license](skills/assets/MONACO-LICENSE.txt) with distributed builds;
 the upstream Langflow license also applies to its patched files.
 
-The selected LaomedoSkill node exposes Skill files instead of primary Code.
+The selected Local Skill or GitHub Skill node exposes Skill files instead of primary Code.
 The Monaco workspace includes nested folder navigation, open-file tabs,
 source search, Markdown preview and binary metadata. The panel snapshots the
 selected ID/revision, clears old data while loading, and handles fixed errors

@@ -8,7 +8,20 @@ const HELP: Record<string, string> = {
 };
 
 export function isSkillNode(data: any): boolean {
-  return (data.node?.name || data.node?.type || data.type) === "LaomedoSkill";
+  return ["LaomedoLocalSkill", "LaomedoGitHubSkill"].includes(data?.node?.name || data?.node?.type || data?.type);
+}
+
+export function isGitHubSkillNode(data: any): boolean {
+  return (data.node?.name || data.node?.type || data.type) === "LaomedoGitHubSkill";
+}
+
+/** Show the source-relative folder while retaining the exact discovery identity. */
+export function skillFieldTemplate(data: any, name: string, template: any): any {
+  if (!isSkillNode(data) || name !== "skill_id" || !Array.isArray(template?.options)) return template;
+  return { ...template, options_metadata: template.options.map((option: string) => {
+    const separator = option.indexOf(" | ");
+    return { id: option, display_name: separator < 0 ? option : option.slice(separator + 3), laomedo_skill_path: true };
+  }) };
 }
 
 export function isSkillControlHidden(data: any, name: string): boolean {
@@ -47,6 +60,9 @@ export function advancedSkillFields(data: any, fields: string[], edges: any[], t
 }
 
 export function skillFieldInfo(data: any, name: string): string {
+  if (isSkillNode(data) && name === "source") return isGitHubSkillNode(data)
+    ? "A GitHub or public GitLab repository URL. Select a GitHub connection for private repositories."
+    : "An allowed local folder. Leave empty to use a saved local registry reference.";
   return (isSkillNode(data) && HELP[name] ? HELP[name] : data.node?.template?.[name]?.info) || "";
 }
 

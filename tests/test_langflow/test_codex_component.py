@@ -836,7 +836,7 @@ class CodexComponentTests(unittest.IsolatedAsyncioTestCase):
         )
 
     async def test_skill_node_validates_and_agent_consumes_reference(self):
-        skill = skill_module.LaomedoSkill()
+        skill = skill_module.LaomedoLocalSkill()
         skill.skill_id, skill.revision_id = "fixture", HASH
         ref = skill.skill_output()
         node = component(skill_id="", revision_id="", skill_reference=ref)

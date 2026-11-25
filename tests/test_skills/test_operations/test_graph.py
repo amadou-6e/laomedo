@@ -44,7 +44,7 @@ class NativeSkillOperationTests(unittest.IsolatedAsyncioTestCase):
             return getattr(self.control.service, action)(**body)
 
         self.client = patch(
-            "laomedo.skills.interface.operations.client.skill_request",
+            "laomedo.skills.interface.langflow.component.skill_request",
             side_effect=service,
         )
         self.client.start()
@@ -170,7 +170,7 @@ class LaomedoCodexAgent(Component):
             return value
 
         with patch(
-            "laomedo.skills.interface.operations.client.skill_request",
+            "laomedo.skills.interface.langflow.component.skill_request",
             side_effect=lost_reply,
         ):
             result = await asyncio.wait_for(

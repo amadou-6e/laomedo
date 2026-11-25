@@ -40,10 +40,10 @@ beforeEach(() => { jest.clearAllMocks(); (connectionRequest as jest.Mock).mockRe
 
 test("source suggestions show the selected connection's repositories and saved sources for that connection", async () => {
   (api.get as jest.Mock).mockResolvedValue({ data: [{ user_id: "profile", data: { nodes: [
-    { data: { type: "LaomedoSkill", node: { template: { github_connection: { value: "selected" }, source: { value: "https://github.com/synthetic/earlier" } } } } },
-    { data: { type: "LaomedoSkill", node: { template: { github_connection: { value: "other" }, source: { value: "https://github.com/other/private" } } } } },
+    { data: { type: "LaomedoGitHubSkill", node: { template: { github_connection: { value: "selected" }, source: { value: "https://github.com/synthetic/earlier" } } } } },
+    { data: { type: "LaomedoGitHubSkill", node: { template: { github_connection: { value: "other" }, source: { value: "https://github.com/other/private" } } } } },
   ] } }] });
-  render(<SkillSourceSuggestions data={{ id: "skill", node: { template: { github_connection: { value: "selected" } } } }} />);
+  render(<SkillSourceSuggestions data={{ id: "skill", type: "LaomedoGitHubSkill", node: { template: { github_connection: { value: "selected" } } } }} />);
   fireEvent.click(screen.getByRole("button", { name: "Show sources and repositories" }));
   fireEvent.click(await screen.findByRole("option", { name: "synthetic/private" }));
   expect(mockSourceChange).toHaveBeenCalledWith({ value: "https://github.com/synthetic/private" });
@@ -54,11 +54,11 @@ test("source suggestions show the selected connection's repositories and saved s
 
 test("source combobox supports keyboard selection and ignores other profiles' saved workflows", async () => {
   (api.get as jest.Mock).mockResolvedValue({ data: [
-    { user_id: "other-profile", data: { nodes: [{ data: { type: "LaomedoSkill", node: { template: { source: { value: "/other-user" } } } } }] } },
-    { user_id: "profile", data: { nodes: [{ data: { type: "LaomedoSkill", node: { template: { source: { value: "/my-source" } } } } }] } },
+    { user_id: "other-profile", data: { nodes: [{ data: { type: "LaomedoGitHubSkill", node: { template: { source: { value: "/other-user" } } } } }] } },
+    { user_id: "profile", data: { nodes: [{ data: { type: "LaomedoGitHubSkill", node: { template: { source: { value: "/my-source" } } } } }] } },
   ] });
-  render(<SkillSourceSuggestions data={{ id: "skill", node: { template: {} } }} />);
-  const input = screen.getByRole("combobox", { name: "Source or Repository" });
+  render(<SkillSourceSuggestions data={{ id: "skill", type: "LaomedoGitHubSkill", node: { template: {} } }} />);
+  const input = screen.getByRole("combobox", { name: "Repository" });
   fireEvent.focus(input);
   expect(await screen.findByRole("option", { name: "/my-source" })).toBeVisible();
   expect(screen.queryByText("/other-user")).toBeNull();
@@ -70,8 +70,8 @@ test("source combobox supports keyboard selection and ignores other profiles' sa
 
 test("opening a populated source shows the other repositories without clearing the selection", async () => {
   (api.get as jest.Mock).mockResolvedValue({ data: [] });
-  render(<SkillSourceSuggestions data={{ id: "skill", node: { template: { github_connection: { value: "selected" }, source: { value: "https://github.com/synthetic/old" } } } }} />);
-  const input = screen.getByRole("combobox", { name: "Source or Repository" });
+  render(<SkillSourceSuggestions data={{ id: "skill", type: "LaomedoGitHubSkill", node: { template: { github_connection: { value: "selected" }, source: { value: "https://github.com/synthetic/old" } } } }} />);
+  const input = screen.getByRole("combobox", { name: "Repository" });
   expect(input).toHaveValue("synthetic/old");
   fireEvent.focus(input);
   expect(input).toHaveValue("https://github.com/synthetic/old");

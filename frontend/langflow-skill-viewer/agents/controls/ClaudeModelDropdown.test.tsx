@@ -19,6 +19,20 @@ jest.mock("react-i18next",()=>({useTranslation:()=>({t:(key:string)=>key})}));
 
 const metadata=[{id:'sonnet',laomedo_native_model:true,display_name:'Sonnet test',resolved_model:'claude-sonnet-test'}];
 
+test('Skill paths are shown in both dropdown states while the original identity is submitted',()=>{
+ const choice='skill-name | skills/example', entry={id:choice,laomedo_skill_path:true,display_name:'skills/example'};
+ const select=jest.fn();
+ const list=render(<DropdownOptionsList {...({filteredOptions:[choice],filteredMetadata:[entry],firstWord:'Skill',value:choice,
+  onSelect:select,setOpen:jest.fn(),setWaitingForResponse:jest.fn(),sourceOptions:{},
+  handleSourceOptions:jest.fn(),handleRefreshButtonPress:jest.fn(),openDialog:false,setOpenDialog:jest.fn(),setPendingSelect:jest.fn()} as any)}/>);
+ expect(screen.getByText('skills/example')).toBeVisible();
+ fireEvent.click(screen.getByTestId(`${choice}-0-option`));
+ expect(select).toHaveBeenCalledWith(choice,undefined,undefined,entry);
+ list.unmount();
+ render(<DropdownTrigger {...({validOptions:[choice],open:false,id:'skill',value:choice,options:[choice],filteredOptions:[choice],filteredMetadata:[entry],refButton:{current:null}} as any)}/>);
+ expect(screen.getByRole('combobox')).toHaveTextContent('skills/example');
+});
+
 test('native model labels and IDs are separate; selection submits the original ID',()=>{
  const select=jest.fn();
  render(<DropdownOptionsList {...({filteredOptions:['sonnet'],filteredMetadata:metadata,firstWord:'Model',value:'sonnet',

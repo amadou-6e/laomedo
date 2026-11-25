@@ -273,13 +273,18 @@ def apply(checkout):
         checkout / "src/frontend/src/components/core/parameterRenderComponent/index.tsx"
     )
     source = (
-        'import { skillChoicePlaceholder } from "@/CustomNodes/GenericNode/components/RenderInputParameters/SkillNodeControls";\n'
+        'import { skillChoicePlaceholder, skillFieldTemplate } from "@/CustomNodes/GenericNode/components/RenderInputParameters/SkillNodeControls";\n'
         + parameter.read_text(encoding="utf-8")
     )
     source = replace_once(
         source,
         "      placeholder: placeholder || templateData?.placeholder,",
         "      placeholder: skillChoicePlaceholder(useFlowStore.getState().nodes.find(node => node.id === nodeId)?.data, name, placeholder || templateData?.placeholder),",
+    )
+    source = replace_once(
+        source,
+        "  const { t } = useTranslation();",
+        "  templateData = skillFieldTemplate(useFlowStore.getState().nodes.find(node => node.id === nodeId)?.data, name, templateData);\n  const { t } = useTranslation();",
     )
     parameter.write_text(source, encoding="utf-8")
     edit_rows = checkout / "src/frontend/src/modals/editNodeModal/hooks/use-row-data.ts"
@@ -679,6 +684,45 @@ def apply(checkout):
     from apply_langflow_assistant import apply_assistant
 
     apply_assistant(checkout, overlay)
+    dropdown_options = (
+        checkout
+        / "src/frontend/src/components/core/dropdownComponent/components/DropdownOptionsList.tsx"
+    )
+    source = dropdown_options.read_text(encoding="utf-8")
+    source = replace_once(
+        source,
+        "filteredMetadata?.[index]?.laomedo_connection === true ?",
+        "(filteredMetadata?.[index]?.laomedo_connection === true || filteredMetadata?.[index]?.laomedo_skill_path === true) ?",
+    )
+    source = replace_once(
+        source,
+        "filteredMetadata[index]?.laomedo_connection !== true && (",
+        "filteredMetadata[index]?.laomedo_connection !== true && filteredMetadata[index]?.laomedo_skill_path !== true && (",
+    )
+    dropdown_options.write_text(source, encoding="utf-8")
+    dropdown_trigger = (
+        checkout
+        / "src/frontend/src/components/core/dropdownComponent/components/DropdownTrigger.tsx"
+    )
+    source = dropdown_trigger.read_text(encoding="utf-8")
+    source = replace_once(
+        source,
+        "selectedMetadata?.laomedo_connection === true)",
+        "selectedMetadata?.laomedo_connection === true || selectedMetadata?.laomedo_skill_path === true)",
+    )
+    dropdown_trigger.write_text(source, encoding="utf-8")
+    dropdown_search = (
+        checkout
+        / "src/frontend/src/components/core/dropdownComponent/hooks/useDropdownOptions.ts"
+    )
+    source = dropdown_search.read_text(encoding="utf-8")
+    if source.count("item?.laomedo_connection === true)") != 2:
+        raise SystemExit("skill_path_search_anchor_missing")
+    source = source.replace(
+        "item?.laomedo_connection === true)",
+        "item?.laomedo_connection === true || item?.laomedo_skill_path === true)",
+    )
+    dropdown_search.write_text(source, encoding="utf-8")
     print("pinned_skill_viewer_overlay_applied")
 
 
