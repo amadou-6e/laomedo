@@ -16,6 +16,7 @@ const data = { id: "skill", type: "LaomedoSkill", node: { description: "Read an 
   operation: { ...scalar, type: "other" },
 } } };
 jest.mock("@xyflow/react", () => ({ useUpdateNodeInternals: () => update }));
+jest.mock("@/CustomNodes/hooks/use-handle-new-value", () => ({ __esModule: true, default: () => ({ handleOnNewValue: jest.fn() }) }));
 jest.mock("@/stores/flowStore", () => ({ __esModule: true, default: (select: any) => select({ edges, nodes: [{ id: "skill", data: { type: "LaomedoSkill" } }] }) }));
 jest.mock("@/CustomNodes/helpers/get-node-input-colors", () => ({ getNodeInputColors: () => [] }));
 jest.mock("@/CustomNodes/helpers/get-node-input-colors-name", () => ({ getNodeInputColorsName: () => [] }));

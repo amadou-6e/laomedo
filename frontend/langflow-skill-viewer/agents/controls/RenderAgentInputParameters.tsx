@@ -15,7 +15,7 @@ import AgentAdvancedControls, { advancedAgentFields, isAgentControlHidden } from
 import { advancedSkillFields, isConnectedSkillSetting, isSkillControlHidden, isSkillNode, skillFieldInfo, skillSourceError, SKILL_SOURCE_ERROR_CODE } from "./SkillNodeControls";
 import { isPRControlHidden, isVisiblePRState, prFieldRank, prFeedback, PR_DISCOVERY_ERROR_CODE } from "./PRNodeControls";
 import NodeErrorNotice from "@/components/laomedoErrors/NodeErrorNotice";
-import PrivateSkillControls from "@/modals/skillFilesModal/private/PrivateSkillControls";
+import PrivateSkillControls, { SkillSourceSuggestions } from "@/modals/skillFilesModal/private/PrivateSkillControls";
 
 const RenderInputParameters = ({
   data,
@@ -138,7 +138,7 @@ const RenderInputParameters = ({
           key={memoizedKey}
           data={data}
           colors={memoizedColor.colors}
-          title={getFieldTitle(data.node?.template!, templateField)}
+          title={isSkillNode(data) && templateField === "source" ? "Source or Repository" : getFieldTitle(data.node?.template!, templateField)}
           info={skillFieldInfo(data, templateField)}
           name={templateField}
           tooltipTitle={template.input_types?.join("\n") ?? template.type}
@@ -169,6 +169,7 @@ const RenderInputParameters = ({
               context={{ nodeId: data.id, nodeType: "LaomedoSkill" }} />
           </div>
         )}
+        {showNode && isSkillNode(data) && templateField === "source" && <SkillSourceSuggestions data={data} />}
         {showNode && templateField === "repository_url" && feedback && (
           <div role={feedback.error ? "alert" : "status"} data-testid="pr-source-feedback"
             className={`px-5 pb-2 text-sm ${feedback.error ? "text-destructive" : "text-muted-foreground"}`}>

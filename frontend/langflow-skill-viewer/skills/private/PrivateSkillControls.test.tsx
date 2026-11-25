@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import PrivateSkillControls from "./PrivateSkillControls";
+import PrivateSkillControls, { SkillSourceSuggestions } from "./PrivateSkillControls";
+import { api } from "@/controllers/API/api";
 import { connectionRequest } from "@/components/laomedoGitHubConnections/api";
 import { privateSkillRequest } from "./api";
 
@@ -9,6 +10,10 @@ jest.mock("@/stores/flowStore", () => {
   const apply = (...args: any[]) => setNode(...args);
   return { __esModule: true, default: (select: any) => select({ setNode: apply }) };
 });
+const mockSourceChange = jest.fn();
+jest.mock("@/CustomNodes/hooks/use-handle-new-value", () => ({ __esModule: true, default: () => ({ handleOnNewValue: mockSourceChange }) }));
+jest.mock("@/controllers/API/api", () => ({ api: { get: jest.fn() } }));
+jest.mock("@/controllers/API/helpers/constants", () => ({ getURL: () => "/api/v1/flows" }));
 jest.mock("@/components/laomedoGitHubConnections/api", () => ({ connectionCapability: async () => true, connectionRequest: jest.fn(), ConnectionFailure: class extends Error { constructor(public code: string) { super(code); } } }));
 jest.mock("./api", () => ({ privateSkillRequest: jest.fn(), subscribePrivateInvalidation: () => () => {} }));
 jest.mock("@/components/laomedoErrors/ErrorExplanation", () => ({ __esModule: true, default: () => <p>Access refused</p> }));
@@ -29,6 +34,20 @@ function Harness({ initialConnection = "selected", initialSkill = "" }) {
 const template = () => JSON.parse(screen.getByTestId("template").textContent || "{}");
 beforeEach(() => { jest.clearAllMocks(); (connectionRequest as jest.Mock).mockResolvedValue({ index });
   (privateSkillRequest as jest.Mock).mockImplementation((action: string) => Promise.resolve(action === "discover" ? { skills: [{ choice: chosen }] } : { revisions: [origin] })); });
+
+test("source suggestions show the selected connection's repositories and saved sources for that connection", async () => {
+  (api.get as jest.Mock).mockResolvedValue({ data: [{ data: { nodes: [
+    { data: { type: "LaomedoSkill", node: { template: { github_connection: { value: "selected" }, source: { value: "https://github.com/synthetic/earlier" } } } } },
+    { data: { type: "LaomedoSkill", node: { template: { github_connection: { value: "other" }, source: { value: "https://github.com/other/private" } } } } },
+  ] } }] });
+  render(<SkillSourceSuggestions data={{ id: "skill", node: { template: { github_connection: { value: "selected" } } } }} />);
+  fireEvent.click(screen.getByRole("button", { name: "Choose a saved source or repository" }));
+  fireEvent.click(await screen.findByRole("button", { name: "https://github.com/synthetic/private" }));
+  expect(mockSourceChange).toHaveBeenCalledWith({ value: "https://github.com/synthetic/private" });
+  fireEvent.click(screen.getByRole("button", { name: "Choose a saved source or repository" }));
+  expect(await screen.findByRole("button", { name: "https://github.com/synthetic/earlier" })).toBeVisible();
+  expect(screen.queryByText("https://github.com/other/private")).toBeNull();
+});
 
 test("selecting a connection clears the old anonymous error and discovers private skills", async () => {
   render(<Harness initialConnection="" />);
