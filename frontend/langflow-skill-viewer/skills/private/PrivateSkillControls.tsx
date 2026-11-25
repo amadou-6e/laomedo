@@ -20,6 +20,7 @@ export function SkillSourceSuggestions({ data, onUseVariable }: { data: any; onU
   const [loading, setLoading] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
   const [filter, setFilter] = useState<string | null>(null);
+  const [editing, setEditing] = useState(false);
   const queryClient = useQueryClient();
   const profileId = useAuthStore((state) => state.userData?.id);
   const currentFlow = useFlowStore((state) => state.currentFlow);
@@ -68,12 +69,12 @@ export function SkillSourceSuggestions({ data, onUseVariable }: { data: any; onU
   const choose = (value: string) => { handleOnNewValue({ value }); setOpen(false); setActiveIndex(-1); setFilter(null); };
   const listId = `source-options-${data.id}`;
   const helpId = `source-help-${data.id}`;
-  return <div className="nodrag nopan px-5 pb-2 text-sm" onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) { setOpen(false); setActiveIndex(-1); } }}>
+  return <div className="nodrag nopan px-5 pb-2 text-sm" onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) { setOpen(false); setActiveIndex(-1); setEditing(false); } }}>
     <label htmlFor={`source-${data.id}`} className="mb-2 block">Source or Repository <span aria-hidden="true" title="Enter a public repository URL or an allowed local folder, or select a connected repository.">ⓘ</span></label>
     <span id={helpId} className="sr-only">Enter a public repository URL or an allowed local folder, or select a connected repository.</span>
     <div className="flex rounded border bg-background">
       <input id={`source-${data.id}`} role="combobox" aria-describedby={helpId} aria-expanded={open} aria-controls={listId} aria-autocomplete="list" aria-activedescendant={activeIndex >= 0 ? `${listId}-${activeIndex}` : undefined}
-        className="min-w-0 flex-1 bg-transparent p-2 outline-none" value={source} onFocus={() => { setFilter(null); setOpen(true); }} onChange={(event) => { const value = event.target.value; handleOnNewValue({ value }); setFilter(value); setOpen(true); setActiveIndex(-1); }}
+        className="min-w-0 flex-1 bg-transparent p-2 outline-none" value={editing ? source : source.replace(/^https:\/\/github\.com\//i, "")} onFocus={() => { setEditing(true); setFilter(null); setOpen(true); }} onBlur={() => setEditing(false)} onChange={(event) => { const value = event.target.value; handleOnNewValue({ value }); setFilter(value); setOpen(true); setActiveIndex(-1); }}
         onKeyDown={(event) => { if (event.key === "ArrowDown" && matches.length) { event.preventDefault(); setOpen(true); setActiveIndex((i) => Math.min(i + 1, matches.length - 1)); } else if (event.key === "ArrowUp" && matches.length) { event.preventDefault(); setActiveIndex((i) => Math.max(0, i - 1)); } else if (event.key === "Enter" && open && matches[activeIndex]) { event.preventDefault(); choose(matches[activeIndex]); } else if (event.key === "Escape") { event.stopPropagation(); setOpen(false); setActiveIndex(-1); } }} />
       <button type="button" aria-label="Show sources and repositories" aria-expanded={open} onClick={() => { setFilter(null); setOpen(!open); }} className="px-2"><ChevronDown className="h-4 w-4" /></button>
       {onUseVariable && <button type="button" aria-label="Use a global variable" title="Use a global variable" onClick={onUseVariable} className="px-2"><Globe className="h-4 w-4" /></button>}

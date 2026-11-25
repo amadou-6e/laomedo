@@ -71,6 +71,12 @@ test("source combobox supports keyboard selection and ignores other profiles' sa
 test("opening a populated source shows the other repositories without clearing the selection", async () => {
   (api.get as jest.Mock).mockResolvedValue({ data: [] });
   render(<SkillSourceSuggestions data={{ id: "skill", node: { template: { github_connection: { value: "selected" }, source: { value: "https://github.com/synthetic/old" } } } }} />);
+  const input = screen.getByRole("combobox", { name: "Source or Repository" });
+  expect(input).toHaveValue("synthetic/old");
+  fireEvent.focus(input);
+  expect(input).toHaveValue("https://github.com/synthetic/old");
+  fireEvent.blur(input);
+  expect(input).toHaveValue("synthetic/old");
   fireEvent.click(screen.getByRole("button", { name: "Show sources and repositories" }));
   expect(await screen.findByRole("option", { name: "synthetic/private" })).toBeVisible();
   expect(mockSourceChange).not.toHaveBeenCalled();
