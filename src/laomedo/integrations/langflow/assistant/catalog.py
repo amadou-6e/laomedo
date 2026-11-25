@@ -374,6 +374,22 @@ class ComponentCatalog:
             original["value"] = checked
             if not self._writable(name, field):
                 original["show"] = True
+        if resolved is not None:
+            dependencies = self.resolution_fields(identity)
+            invalidated = set(resolved.fields)
+            while True:
+                dependents = {
+                    name
+                    for name, parents in dependencies.items()
+                    if name not in invalidated and invalidated.intersection(parents)
+                }
+                if not dependents:
+                    break
+                invalidated.update(dependents)
+            for name in sorted(invalidated - set(resolved.fields)):
+                if isinstance(saved.get(name), dict):
+                    saved[name]["value"] = None
+                    preview.append("Clear " + node["id"] + "." + name)
         return preview
 
     def compile(self, graph):

@@ -198,7 +198,9 @@ export default function MessageRow({
         onFailure={onFailure}
       />
       <NativeActions conversation={conversation} provider={provider} actions={nativeActions} onFailure={onFailure} />
-      {receipts.map((receipt) => (
+      {receipts.map((receipt) => {
+        const incomplete = receipt.diagnostics.some((item) => !item.startsWith("warning: "));
+        return (
         <article
           key={receipt.id}
           className="rounded-xl border bg-muted/30 p-4"
@@ -214,7 +216,7 @@ export default function MessageRow({
                 title={receipt.revision}
               >
                 Saved revision {receipt.revision.slice(7, 19)} ·{" "}
-                {receipt.diagnostics.length
+                {incomplete
                   ? "Incomplete draft"
                   : "Structural checks passed"}
               </p>
@@ -231,7 +233,7 @@ export default function MessageRow({
           {receipt.diagnostics.length > 0 && (
             <details className="mt-3 text-xs text-muted-foreground">
               <summary className="cursor-pointer">
-                Settings to finish in the editor ({receipt.diagnostics.length})
+                {incomplete ? "Settings to complete" : "Configuration notes"} ({receipt.diagnostics.length})
               </summary>
               <ul className="mt-2 list-disc space-y-1 pl-5">
                 {receipt.diagnostics.map((item, index) => (
@@ -245,7 +247,8 @@ export default function MessageRow({
             editor work stays in its tab.
           </p>
         </article>
-      ))}
+        );
+      })}
       {(items.length > 0 || message.response || receipts.length > 0 || actions.length > 0 || nativeActions.length > 0) && (
         <CopyAnswer disabled={!page && !hasNativeCommandOutcome(message, provider)} text={responseTranscript(page, message, receipts, actions, nativeActions, provider)} />
       )}

@@ -119,6 +119,55 @@ class ConfigurationTests(unittest.IsolatedAsyncioTestCase):
             self.owner, "codex", self.connection, 1
         )
 
+    async def test_partial_resolution_clears_unresolved_dependent_selectors(self):
+        from laomedo.integrations.langflow.assistant.graph import GraphEditor
+        from laomedo.integrations.langflow.assistant.models import (
+            GraphChanges,
+            GraphFieldUpdate,
+        )
+
+        complete = await self.resolved()
+        node = DraftNode(
+            key="agent",
+            component_type=self.identity,
+            fields=complete["fields"],
+            resolution_id=UUID(complete["resolution_id"]),
+        )
+        await self.configuration.prepare(self.context, self.catalog, [node])
+        data, _ = self.catalog.compile(DraftGraph(nodes=[node]))
+        for fields, missing in (
+            ({}, {"model", "effort"}),
+            ({"model": "observed-model"}, {"effort"}),
+        ):
+            with self.subTest(fields=fields):
+                partial = await self.configuration.resolve(
+                    self.context,
+                    self.catalog,
+                    ConfigurationRequest(
+                        component_type=self.identity,
+                        connection_id=self.connection,
+                        connection_generation=1,
+                        fields=fields,
+                    ),
+                )
+                update = GraphFieldUpdate(
+                    node_id="LaomedoCodexAgent-agent",
+                    fields=partial["fields"],
+                    resolution_id=UUID(partial["resolution_id"]),
+                )
+                await self.configuration.prepare(self.context, self.catalog, [update])
+                changed, _ = GraphEditor(self.catalog).apply(
+                    data, GraphChanges(updates=[update])
+                )
+                template = changed["nodes"][0]["data"]["node"]["template"]
+                for name in missing:
+                    self.assertIsNone(template[name]["value"])
+                self.assertEqual(template["task"]["value"], "test")
+                self.assertEqual(
+                    data["nodes"][0]["data"]["node"]["template"]["effort"]["value"],
+                    "low",
+                )
+
     async def test_missing_account_never_discovers_models_or_selects_an_ambient_default(
         self,
     ):
