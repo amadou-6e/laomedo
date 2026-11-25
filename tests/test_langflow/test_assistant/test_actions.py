@@ -730,6 +730,34 @@ class GraphActionTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(observed["state"], "not_dispatched")
 
+    async def test_cancellation_before_dispatch_is_definitely_not_started(self):
+        request = GraphActionRequest(
+            operation_key="cancel-before-dispatch",
+            kind="run",
+            workflow_id=self.flow_id,
+            expected_revision=self.revision,
+        )
+        proposal = await self.actions.propose(self.context, request)
+        result, snapshot, actor = await self.decide(proposal)
+        with patch(
+            "langflow.api.v1.endpoints.simple_run_flow", new=AsyncMock()
+        ) as execute:
+            with self.assertRaises(asyncio.CancelledError):
+                await self.actions.execute(
+                    result,
+                    snapshot,
+                    actor,
+                    AsyncMock(
+                        side_effect=asyncio.CancelledError("LANGFLOW_USER_CANCELLED")
+                    ),
+                )
+            execute.assert_not_called()
+        observed = await self.actions.read(
+            self.owner, self.conversation, UUID(result["id"])
+        )
+        self.assertEqual(observed["state"], "not_dispatched")
+        self.assertEqual(observed["error_code"], "assistant_action_not_dispatched")
+
     async def test_edit_can_repair_a_graph_without_using_its_stale_run_binding(self):
         from types import SimpleNamespace
 

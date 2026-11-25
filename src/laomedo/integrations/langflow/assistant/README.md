@@ -31,6 +31,13 @@ selector is resolved at execution by the installed component's owner-scoped
 `get_server` lookup; embedded configuration and headers are never accepted.
 Portable exports clear machine-local MCP selectors as well as provider accounts.
 
+The owner permits assistant-requested cancellation of previously approved runs
+in the same conversation, without a second approval. `GraphExecution` couples
+the exact local task with its entry fence: cancellation before dispatch records
+`not_dispatched`; cancellation before the coroutine's first instruction is settled
+by the runtime callback. After dispatch, only execution-owner observations settle
+the outcome. Shutdown waits for task settlement callbacks before releasing owners.
+
 Explicit human-entered Claude `/usage`, without arguments and advertised as
 non-model work, uses the existing atomic decision/dispatch path immediately.
 Assistant-proposed usage still requires human approval; other commands retain

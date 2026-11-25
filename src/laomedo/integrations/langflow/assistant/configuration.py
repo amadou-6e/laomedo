@@ -29,6 +29,13 @@ class WorkflowConfiguration:
         self.runtime = runtime
         self.resolutions = OrderedDict()
 
+    def required_fields(self, catalog, identity):
+        """Add audited runtime requirements absent from installed editor metadata."""
+        fields = set(catalog.resolution_fields(identity))
+        if catalog.audited_family(identity) in AUDITED_AGENT_COMPONENTS:
+            fields.add("task")
+        return fields
+
     async def resolve(self, context, catalog, request: ConfigurationRequest):
         """Resolve only supported families using explicitly authorized resource owners."""
         await self.runtime.authorize(context)
@@ -171,6 +178,33 @@ class WorkflowConfiguration:
         while len(self.resolutions) > RESOLUTION_LIMIT:
             self.resolutions.popitem(last=False)
         await self.runtime.authorize(context)
+        required = self.required_fields(catalog, identity)
+        required.update(
+            name
+            for name, field in template.items()
+            if isinstance(field, dict)
+            and field.get("required")
+            and name != "code"
+            and not (name == "tool" and catalog.audited_family(identity) == "MCPTools")
+        )
+        missing = []
+        for name in sorted(required):
+            value = values.get(name)
+            field = template.get(name, {})
+            if (
+                name not in values
+                and name not in dynamic
+                and catalog._writable(name, field)
+            ):
+                value = field.get("value")
+            if value in (None, "", [], {}):
+                missing.append(
+                    FlowDiagnostic(
+                        code="configuration_missing",
+                        field=name,
+                        message="Select a value or connect a compatible output.",
+                    )
+                )
         return ConfigurationResult(
             resolution_id=resolved.id,
             component_type=identity,
@@ -178,6 +212,7 @@ class WorkflowConfiguration:
             fields=values,
             options=options,
             expires_at=resolved.expires_at,
+            remaining_requirements=missing,
             provenance={
                 name: (
                     "resolved_owner"
@@ -509,15 +544,8 @@ class WorkflowConfiguration:
                     )
                 )
                 continue
-            required = (
-                {"task", "model", "effort", "provider_connection"}
-                if identity["component_type"].split("/", 1)[-1]
-                in AUDITED_AGENT_COMPONENTS
-                else (
-                    {"mcp_server"}
-                    if identity["component_type"].split("/", 1)[-1] == "MCPTools"
-                    else set()
-                )
+            required = self.required_fields(
+                workflows.catalog, identity["component_type"]
             )
             for field, metadata in (
                 node.get("data", {}).get("node", {}).get("template", {}).items()

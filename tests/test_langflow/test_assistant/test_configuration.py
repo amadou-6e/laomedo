@@ -128,6 +128,10 @@ class ConfigurationTests(unittest.IsolatedAsyncioTestCase):
             ConfigurationRequest(component_type=self.identity),
         )
         self.assertNotIn("provider_connection", result["fields"])
+        self.assertEqual(
+            {issue["field"] for issue in result["remaining_requirements"]},
+            {"provider_connection", "model", "effort", "task"},
+        )
         self.runtime.models.assert_not_awaited()
 
     async def test_unknown_model_and_unsupported_effort_refuse(self):

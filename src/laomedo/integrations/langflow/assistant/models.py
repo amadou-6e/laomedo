@@ -1,6 +1,7 @@
 """Assistant requests, declarative graphs and app-database-owned retained rows."""
 
 import time
+from asyncio import Event, Task
 from typing import Any, Literal
 from uuid import UUID, uuid4
 
@@ -170,6 +171,9 @@ class ConfigurationResult(BaseModel):
     expires_at: float = ModelField(
         description="Candidate expiry, not authority to execute."
     )
+    remaining_requirements: list[FlowDiagnostic] = ModelField(
+        description="Required choices still missing from this candidate."
+    )
 
 
 class WorkflowValidationResult(BaseModel):
@@ -185,6 +189,34 @@ class WorkflowValidationResult(BaseModel):
     ready: bool = ModelField(description="No blocking metadata or binding diagnostic.")
     diagnostics: list[FlowDiagnostic] = ModelField(
         description="Bounded safe issues, without running nodes."
+    )
+
+
+class GraphExecution(BaseModel):
+    """One local action task and its first-instruction fence, never persisted or serialized."""
+
+    model_config = ConfigDict(arbitrary_types_allowed=True, frozen=True)
+    task: Task = ModelField(
+        exclude=True, repr=False, description="Exact locally owned coroutine."
+    )
+    entered: Event = ModelField(
+        exclude=True,
+        repr=False,
+        description="Whether execute entered its cancellation handler.",
+    )
+
+
+class WorkflowCancelResult(BaseModel):
+    """Cancellation request receipt, separate from execution-owner settlement."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    action_id: UUID = ModelField(description="Previously approved owned action.")
+    run_id: UUID | None = ModelField(
+        description="Execution-owner run identity, when admitted."
+    )
+    state: str = ModelField(description="Previously observed settlement state.")
+    cancellation: Literal["requested", "already_settled", "unavailable"] = ModelField(
+        description="Local request outcome, never a claim of cancellation settlement."
     )
 
 

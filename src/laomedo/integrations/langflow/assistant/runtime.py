@@ -2,6 +2,7 @@
 
 import asyncio
 from contextlib import asynccontextmanager
+from functools import partial
 import hashlib
 import json
 import logging
@@ -24,6 +25,8 @@ from laomedo.integrations.langflow.assistant.models import (
     IdleAssistantTools,
     AuthoringContext,
     AssistantSession,
+    GraphExecution,
+    WorkflowCancelResult,
 )
 from laomedo.integrations.langflow.assistant.persistence import AssistantStore
 from laomedo.integrations.langflow.assistant.runner import AssistantRunner
@@ -53,6 +56,7 @@ class AssistantRuntime:
         self.contexts, self.host_tokens, self.tool_tasks = {}, {}, {}
         self.save_locks, self.uncertain_saves = {}, {}
         self.graph_jobs = {}
+        self.graph_settlements = set()
         from laomedo.integrations.langflow.assistant.configuration import (
             WorkflowConfiguration,
         )
@@ -161,10 +165,15 @@ class AssistantRuntime:
                         task.cancel()
                     await asyncio.gather(*self.jobs.values(), return_exceptions=True)
                     for task in list(self.graph_jobs.values()):
-                        task.cancel()
+                        task.task.cancel()
                     await asyncio.gather(
-                        *self.graph_jobs.values(), return_exceptions=True
+                        *(entry.task for entry in self.graph_jobs.values()),
+                        return_exceptions=True,
                     )
+                    if self.graph_settlements:
+                        await asyncio.gather(
+                            *self.graph_settlements, return_exceptions=True
+                        )
                     for runner in self.runners.values():
                         await asyncio.to_thread(runner.shutdown)
 
@@ -629,14 +638,30 @@ class AssistantRuntime:
             owner, key, conversation, identifier, decision, context=context
         )
         if snapshot is not None:
+            entered = asyncio.Event()
             task = asyncio.create_task(
-                actions.execute(result, snapshot, actor, self.check_session)
+                actions.execute(
+                    result, snapshot, actor, self.check_session, entered=entered
+                )
             )
-            self.graph_jobs[identifier] = task
+            execution = GraphExecution(task=task, entered=entered)
+            self.graph_jobs[identifier] = execution
             task.add_done_callback(
-                lambda completed: self.graph_jobs.pop(identifier, None)
+                partial(self._graph_finished, identifier, actions, execution)
             )
         return result
+
+    def _graph_finished(self, identifier, actions, execution, completed):
+        """Settle a task cancelled before its first instruction without inventing dispatch."""
+        self.graph_jobs.pop(identifier, None)
+        if completed.cancelled() and not execution.entered.is_set():
+            settlement = asyncio.create_task(
+                actions.finish(
+                    identifier, "not_dispatched", "assistant_action_not_dispatched"
+                )
+            )
+            self.graph_settlements.add(settlement)
+            settlement.add_done_callback(self.graph_settlements.discard)
 
     async def cancel_graph_run(self, context, identifier):
         """Cancel only the locally owned graph coroutine; report settlement separately."""
@@ -650,28 +675,31 @@ class AssistantRuntime:
         )
         if action["kind"] != "run":
             raise AssistantError("assistant_input_invalid", 422)
-        task = self.graph_jobs.get(identifier)
+        execution = self.graph_jobs.get(identifier)
+        task = execution.task if execution is not None else None
         requested = bool(
             task is not None
             and not task.done()
             and task.cancel("LANGFLOW_USER_CANCELLED")
         )
         await self.authorize(context)
-        return {
-            "action_id": str(identifier),
-            "run_id": action["run_id"],
-            "state": action["state"],
-            "cancellation": (
-                "requested"
-                if requested
-                else (
-                    "already_settled"
-                    if action["state"]
-                    in {"succeeded", "failed", "cancelled", "not_dispatched"}
-                    else "unavailable"
-                )
-            ),
-        }
+        return WorkflowCancelResult.model_validate(
+            {
+                "action_id": str(identifier),
+                "run_id": action["run_id"],
+                "state": action["state"],
+                "cancellation": (
+                    "requested"
+                    if requested
+                    else (
+                        "already_settled"
+                        if action["state"]
+                        in {"succeeded", "failed", "cancelled", "not_dispatched"}
+                        else "unavailable"
+                    )
+                ),
+            }
+        ).model_dump(mode="json")
 
     async def skills(self, context, query="", cursor=0):
         """List only the configured imported local registry; private source discovery is not added."""

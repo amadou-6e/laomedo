@@ -371,8 +371,10 @@ class WorkflowActions:
                 row.state, row.error_code = state, error
                 session.add(row)
 
-    async def execute(self, result, snapshot, actor, check_session):
+    async def execute(self, result, snapshot, actor, check_session, *, entered=None):
         """Invoke the existing caller-aware execution owner once using the approved snapshot."""
+        if entered is not None:
+            entered.set()
         from langflow.api.v1.endpoints import simple_run_flow
         from langflow.api.v1.schemas import SimplifiedAPIRequest
         import asyncio
@@ -458,11 +460,19 @@ class WorkflowActions:
             await asyncio.shield(
                 self.finish(
                     identifier,
-                    "succeeded" if returned else "unknown",
+                    (
+                        "succeeded"
+                        if returned
+                        else "unknown" if dispatched else "not_dispatched"
+                    ),
                     (
                         "assistant_output_capture_failed"
                         if returned
-                        else "assistant_action_outcome_unknown"
+                        else (
+                            "assistant_action_outcome_unknown"
+                            if dispatched
+                            else "assistant_action_not_dispatched"
+                        )
                     ),
                 )
             )

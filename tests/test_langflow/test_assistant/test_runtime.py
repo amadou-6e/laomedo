@@ -64,6 +64,23 @@ class RunnerObservation:
 
 
 class RuntimeTests(unittest.IsolatedAsyncioTestCase):
+    async def test_cancel_before_execute_enters_settles_without_dispatch(self):
+        from laomedo.integrations.langflow.assistant.models import GraphExecution
+
+        identifier = uuid4()
+        actions = SimpleNamespace(finish=AsyncMock())
+        task = asyncio.create_task(asyncio.Event().wait())
+        execution = GraphExecution(task=task, entered=asyncio.Event())
+        self.runtime.graph_jobs[identifier] = execution
+        task.cancel("LANGFLOW_USER_CANCELLED")
+        await asyncio.gather(task, return_exceptions=True)
+        self.runtime._graph_finished(identifier, actions, execution, task)
+        await asyncio.gather(*self.runtime.graph_settlements)
+        actions.finish.assert_awaited_once_with(
+            identifier, "not_dispatched", "assistant_action_not_dispatched"
+        )
+        self.assertNotIn(identifier, self.runtime.graph_jobs)
+
     async def test_logout_database_failures_cannot_preserve_tool_authority(self):
         """A failed lookup/write still fences the bearer and releases idle endpoints."""
         import jwt
