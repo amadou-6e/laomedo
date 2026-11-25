@@ -19,6 +19,7 @@ export function SkillSourceSuggestions({ data }: { data: any }) {
   const [error, setError] = useState(false);
   const [loading, setLoading] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
+  const [filter, setFilter] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const profileId = useAuthStore((state) => state.userData?.id);
   const currentFlow = useFlowStore((state) => state.currentFlow);
@@ -63,20 +64,21 @@ export function SkillSourceSuggestions({ data }: { data: any }) {
     return () => { active = false; abort.abort(); };
   }, [open, connectionId, profileId, currentFlow?.id, currentFlow?.updated_at, queryClient]);
 
-  const matches = sources.filter((item) => !source || item.toLowerCase().includes(source.toLowerCase()));
-  const choose = (value: string) => { handleOnNewValue({ value }); setOpen(false); setActiveIndex(-1); };
+  const matches = sources.filter((item) => !filter || item.toLowerCase().includes(filter.toLowerCase()));
+  const choose = (value: string) => { handleOnNewValue({ value }); setOpen(false); setActiveIndex(-1); setFilter(null); };
   const listId = `source-options-${data.id}`;
   return <div className="nodrag nopan px-5 pb-2 text-sm" onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) { setOpen(false); setActiveIndex(-1); } }}>
-    <label htmlFor={`source-${data.id}`} className="mb-2 block">Source or Repository</label>
+    <label htmlFor={`source-${data.id}`} className="mb-2 block">Source or Repository <span aria-hidden="true" title="Enter a public repository URL or an allowed local folder, or select a connected repository.">ⓘ</span></label>
     <div className="flex rounded border bg-background">
       <input id={`source-${data.id}`} role="combobox" aria-expanded={open} aria-controls={listId} aria-autocomplete="list" aria-activedescendant={activeIndex >= 0 ? `${listId}-${activeIndex}` : undefined}
-        className="min-w-0 flex-1 bg-transparent p-2 outline-none" value={source} onFocus={() => setOpen(true)} onChange={(event) => { handleOnNewValue({ value: event.target.value }); setOpen(true); setActiveIndex(-1); }}
-        onKeyDown={(event) => { if (event.key === "ArrowDown" && matches.length) { event.preventDefault(); setOpen(true); setActiveIndex((i) => Math.min(i + 1, matches.length - 1)); } else if (event.key === "ArrowUp" && matches.length) { event.preventDefault(); setActiveIndex((i) => Math.max(0, i - 1)); } else if (event.key === "Enter" && open && matches[activeIndex]) { event.preventDefault(); choose(matches[activeIndex]); } else if (event.key === "Escape") { setOpen(false); setActiveIndex(-1); } }} />
-      <button type="button" aria-label="Show sources and repositories" aria-expanded={open} onClick={() => setOpen(!open)} className="px-2"><ChevronDown className="h-4 w-4" /></button>
+        className="min-w-0 flex-1 bg-transparent p-2 outline-none" value={source} onFocus={() => { setFilter(null); setOpen(true); }} onChange={(event) => { const value = event.target.value; handleOnNewValue({ value }); setFilter(value); setOpen(true); setActiveIndex(-1); }}
+        onKeyDown={(event) => { if (event.key === "ArrowDown" && matches.length) { event.preventDefault(); setOpen(true); setActiveIndex((i) => Math.min(i + 1, matches.length - 1)); } else if (event.key === "ArrowUp" && matches.length) { event.preventDefault(); setActiveIndex((i) => Math.max(0, i - 1)); } else if (event.key === "Enter" && open && matches[activeIndex]) { event.preventDefault(); choose(matches[activeIndex]); } else if (event.key === "Escape") { event.stopPropagation(); setOpen(false); setActiveIndex(-1); } }} />
+      <button type="button" aria-label="Show sources and repositories" aria-expanded={open} onClick={() => { setFilter(null); setOpen(!open); }} className="px-2"><ChevronDown className="h-4 w-4" /></button>
     </div>
     {open && <div id={listId} className="mt-1 max-h-40 overflow-auto rounded border bg-background" role="listbox" aria-label="Saved sources and repositories">
       {matches.map((item, index) => <div key={item} id={`${listId}-${index}`} role="option" aria-selected={activeIndex === index} className="w-full cursor-pointer truncate px-2 py-1 text-left hover:bg-muted" title={item} onMouseDown={(event) => event.preventDefault()} onClick={() => choose(item)}>{item}</div>)}
       {!matches.length && <p className="px-2 py-1 text-muted-foreground">{loading ? "Loading sources…" : error ? "Some sources could not be loaded." : "No matching sources or repositories."}</p>}
+      {error && matches.length > 0 && <p className="px-2 py-1 text-muted-foreground">Some sources could not be loaded.</p>}
     </div>}
   </div>;
 }

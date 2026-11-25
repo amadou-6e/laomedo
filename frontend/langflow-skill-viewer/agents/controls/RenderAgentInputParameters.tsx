@@ -130,7 +130,7 @@ const RenderInputParameters = ({
 
       return (
         <Fragment key={memoizedKey}>
-        {showNode && isSkillNode(data) && templateField === "source" && !(displayHandleMap.get(templateField) ?? false) ? <SkillSourceSuggestions data={data} /> : <NodeInputField
+        {showNode && isSkillNode(data) && templateField === "source" && !(displayHandleMap.get(templateField) ?? false) && !template.load_from_db ? <SkillSourceSuggestions data={data} /> : <NodeInputField
           lastInput={
             !(shownOutputs.length > 0 || showHiddenOutputs || (!advanced && advancedFields.length > 0)) &&
             idx === fields.length - 1

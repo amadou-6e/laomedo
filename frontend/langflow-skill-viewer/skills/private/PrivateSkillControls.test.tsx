@@ -68,6 +68,14 @@ test("source combobox supports keyboard selection and ignores other profiles' sa
   expect(input).toHaveAttribute("aria-expanded", "false");
 });
 
+test("opening a populated source shows the other repositories without clearing the selection", async () => {
+  (api.get as jest.Mock).mockResolvedValue({ data: [] });
+  render(<SkillSourceSuggestions data={{ id: "skill", node: { template: { github_connection: { value: "selected" }, source: { value: "https://github.com/synthetic/old" } } } }} />);
+  fireEvent.click(screen.getByRole("button", { name: "Show sources and repositories" }));
+  expect(await screen.findByRole("option", { name: "https://github.com/synthetic/private" })).toBeVisible();
+  expect(mockSourceChange).not.toHaveBeenCalled();
+});
+
 test("selecting a connection clears the old anonymous error and discovers private skills", async () => {
   render(<Harness initialConnection="" />);
   const select = await screen.findByLabelText("Connection");
