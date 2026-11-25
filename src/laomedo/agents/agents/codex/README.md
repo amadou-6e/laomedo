@@ -234,3 +234,7 @@ its own native system-skill tree independently.
 Native saved-account writer custody spans retained zero-turn sessions as well as
 active turns. The same run reuses its existing writer lease; idle cancellation,
 expiry and shutdown release it only after attempting exact controller cleanup.
+
+Existing native connections resolve their saved immutable image ID directly during
+preflight; a changed default tag cannot rebind or invalidate their recorded image.
+New connections use the current registered recipe.

@@ -18,6 +18,32 @@ from laomedo.agents.agents.codex.controller.models import CodexLaunch
     "Requires optional Docker runtime",
 )
 class RunnerSandboxPolicyTests(unittest.TestCase):
+    def test_native_connection_uses_recorded_image_instead_of_current_tag(self):
+        from types import SimpleNamespace
+        from unittest.mock import Mock
+
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / "checkout" / ".git").mkdir(parents=True)
+            (root / "checkout" / "source").mkdir()
+            image = "sha256:" + "b" * 64
+            connection = Mock(client_id="codex-native")
+            connection.profile.return_value = SimpleNamespace(
+                name="owned-volume", image_id=image, docker_endpoint="npipe://fixture"
+            )
+            runner = LocalRunner(
+                root / "state",
+                root / "store",
+                root / "checkout" / "source",
+                auth_connection=connection,
+                split_executor=True,
+                check_docker=False,
+            )
+            self.addCleanup(runner.close)
+            self.assertEqual(runner.image, image)
+            self.assertEqual(runner.image_id, image)
+            self.assertEqual(runner.profile, "owned-volume")
+
     def test_saved_account_uses_fixed_command_auth_without_environment_key(self):
         from unittest.mock import Mock
 

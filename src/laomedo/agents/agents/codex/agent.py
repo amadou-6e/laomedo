@@ -201,6 +201,7 @@ class CodexAgent(BaseAgent):
         if self.native_auth:
             native_profile = self.native_auth.profile()
             self.profile = native_profile.name
+            self.image = native_profile.image_id
             self.image_id = native_profile.image_id
             self._managed_image = False
             self.split_provider_config = (
