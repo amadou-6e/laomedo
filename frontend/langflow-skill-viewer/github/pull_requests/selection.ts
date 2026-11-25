@@ -12,7 +12,7 @@ export function prSelection(template: Template) {
     account: typeof template?.github_connection?.value === "string" ? template.github_connection.value : "",
     labels: [],
     state: "all",
-    url: valid ? repository.replace(/\/$/, "") + "/pull/" + number : "" };
+    url: valid ? repository.replace(/\/$/, "").replace(/\.git$/i, "") + "/pull/" + number : "" };
 }
 
 export const safeLink = (href: string | undefined) => href && /^https?:\/\//i.test(href) ? href : undefined;

@@ -66,7 +66,11 @@ class NativeGitHubPRTests(unittest.TestCase):
     def test_selected_account_reads_without_host_credential_fallback(self):
         from unittest.mock import AsyncMock
 
-        self.component.set(github_connection="selected-account", pr_choice="#1")
+        self.component.set(
+            github_connection="selected-account",
+            pr_choice="#1",
+            repository_url=self.case.url + ".git",
+        )
         payload = {"pr": {"number": 1}, "operation": {"status": "not_requested"}}
         with patch(
             "laomedo.integrations.langflow.authentication.graph_bindings.PrivateGraphBindings.read_pr",
@@ -75,6 +79,7 @@ class NativeGitHubPRTests(unittest.TestCase):
             result = asyncio.run(self.component.context_output()).data
         self.assertEqual(result["pr"]["number"], 1)
         read.assert_awaited_once()
+        self.assertEqual(read.await_args.args[2:], ("owner/repo", 1))
         self.mock.assert_not_called()
 
     def test_selected_account_failure_never_uses_host_credential(self):

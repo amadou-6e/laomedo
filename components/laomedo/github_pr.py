@@ -273,6 +273,8 @@ class LaomedoGitHubPR(Component):
                 if isinstance(context.operation, PRContextOperation):
                     operation = context.operation.model_dump(exclude_unset=True)
             repository = repository_from_url(self.repository_url)
+            if account and repository.endswith(".git"):
+                repository = repository[:-4]
             selected = str(getattr(self, "pr_choice", "") or "")
             match = re.match(r"^#([1-9][0-9]*)(?: |$)", selected)
             number = int(match.group(1)) if match else None

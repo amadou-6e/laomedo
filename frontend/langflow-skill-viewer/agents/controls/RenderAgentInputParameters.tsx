@@ -132,8 +132,8 @@ const RenderInputParameters = ({
 
       return (
         <Fragment key={memoizedKey}>
-        {showNode && isPRNode(data) && templateField === "repository_url" && <PRAccountControls data={data} />}
-        {showNode && ((isSkillNode(data) && templateField === "source") || (isPRNode(data) && templateField === "repository_url")) && !(displayHandleMap.get(templateField) ?? false) && !template.load_from_db && !nativeSource ? <SkillSourceSuggestions data={data} fieldName={templateField} onUseVariable={() => setNativeSource(true)} /> : <NodeInputField
+        {showNode && isPRNode(data) && templateField === "repository_url" && <PRAccountControls data={data} mode="account" />}
+        {showNode && isPRNode(data) && templateField === "pr_choice" && data.node?.template?.github_connection?.value ? <PRAccountControls data={data} mode="selector" /> : showNode && ((isSkillNode(data) && templateField === "source") || (isPRNode(data) && templateField === "repository_url")) && !(displayHandleMap.get(templateField) ?? false) && !template.load_from_db && !nativeSource ? <SkillSourceSuggestions data={data} fieldName={templateField} onUseVariable={() => setNativeSource(true)} /> : <NodeInputField
           lastInput={
             !(shownOutputs.length > 0 || showHiddenOutputs || (!advanced && advancedFields.length > 0)) &&
             idx === fields.length - 1

@@ -1,5 +1,6 @@
 """Authenticated account-scoped pull request reads."""
 
+import logging
 from typing import Literal
 from fastapi import APIRouter, Request
 from langflow.api.utils import CurrentActiveUser
@@ -48,4 +49,7 @@ async def private_pull_request_action(
         )
         return JSONResponse(result.payload, headers={"Cache-Control": "no-store"})
     except Exception as error:
+        logging.getLogger(__name__).warning(
+            "private_pr_read_failed category=%s", type(error).__name__
+        )
         return _failure(error)

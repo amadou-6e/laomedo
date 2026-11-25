@@ -25,7 +25,7 @@ export default function PRViewerModal({ template, open, setOpen }: { template: T
       if (!selection.account) return (await api.post<Snapshot>(`${getBaseUrl()}laomedo/github-prs/inspect`,{repository_url:selection.repository_url,pr_number:selection.pr_number,labels:selection.labels,state:selection.state},{signal:controller.signal})).data;
       const index = (await connectionRequest()).index;
       const account = index.connections.find(entry => entry.connection.id === selection.account && entry.connection.state === "ready");
-      const name = selection.repository_url.slice("https://github.com/".length).replace(/\/$/, "");
+      const name = selection.repository_url.slice("https://github.com/".length).replace(/\/$/, "").replace(/\.git$/i, "");
       const repository = account?.connection.repositories.find(entry => entry.full_name.toLowerCase() === name.toLowerCase());
       if (!repository) throw Error("Account repository unavailable");
       const result = await readPrivatePR(selection.account, repository.id, selection.pr_number, controller.signal);

@@ -25,7 +25,7 @@ export function isPRNode(data: any): boolean {
 }
 
 export function isPRControlHidden(data: any, name: string): boolean {
-  return isPRNode(data) && (["discovery_status", "state", "labels", "github_connection"].includes(name) || (name === "pr_choice" && !!data?.node?.template?.github_connection?.value));
+  return isPRNode(data) && ["discovery_status", "state", "labels", "github_connection"].includes(name);
 }
 
 export function prFieldRank(data: any, name: string): number {
@@ -46,7 +46,7 @@ export function prFieldTemplate(data: any, name: string, field: any): any {
 
 /** Never render arbitrary saved/provider text as connection feedback. */
 export function prFeedback(data: any): { message: string; error: boolean } | undefined {
-  if (!isPRNode(data) || !String(data.node?.template?.repository_url?.value || "").trim()) return;
+  if (!isPRNode(data) || data.node?.template?.github_connection?.value || !String(data.node?.template?.repository_url?.value || "").trim()) return;
   const value = data.node?.template?.discovery_status?.value;
   if (value === PR_DISCOVERY_ERROR) return { message: value, error: true };
   if (["Discovering GitHub PRs...", "No matching PRs."].includes(value)) return { message: value, error: false };

@@ -114,3 +114,10 @@ validation before invoking `PrivateSkillAccess`; the upstream authenticated user
 supplies the owner. Successful replies are fully buffered JSON and carry the
 exact read authorization into the existing release fence. No public dispatcher,
 private editing, materialization or streaming path is added.
+
+`graph_bindings.py` owns `PrivateGraphBoundary`, which binds an authenticated
+browser lease to the request context, and `PrivateGraphBindings.read_pr()`, which
+checks the executing profile and consented repository before requesting a fresh
+account-scoped PR read. Graph-supplied account and repository fields do not create
+authority. The resulting PR may be retained in normal graph output and history;
+this read binding never authorizes a PR write.
