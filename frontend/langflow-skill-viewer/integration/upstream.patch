@@ -100,7 +100,7 @@ index 65f806c..d612348 100644
 +  const skillNode = useFlowStore.getState().nodes.find((entry) => entry.id === nodeId);
 +  if (["LaomedoSkill", "LaomedoGitHubIssue", "LaomedoGitHubPR"].includes(nodeKind(skillNode?.data.type ?? "") ?? "")) {
 +    const current = getNodeTemplate(nodeId);
-+    const selectors = nodeKind(skillNode?.data.type ?? "") === "LaomedoSkill" ? ["source", "skill_id", "revision_id"] : ["repository_url", "labels", "state", nodeKind(skillNode?.data.type ?? "") === "LaomedoGitHubPR" ? "pr_choice" : "issue_choice"];
++    const selectors = nodeKind(skillNode?.data.type ?? "") === "LaomedoSkill" ? ["source", "skill_id", "revision_id", "github_connection"] : ["repository_url", "labels", "state", nodeKind(skillNode?.data.type ?? "") === "LaomedoGitHubPR" ? "pr_choice" : "issue_choice"];
 +    for (const name of selectors) {
 +      const expected = name === parameterName ? newValue : requestedNode.template?.[name]?.value;
 +      if (!isEqual(current?.[name]?.value, expected)) return true;

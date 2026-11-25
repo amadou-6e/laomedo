@@ -20,6 +20,7 @@ export const SKILL_SOURCE_ERROR_CODE = "source_discovery_failed";
 /** Only fixed, safe failure messages belong below Source; empty results stay quiet. */
 export function skillSourceError(data: any): string | undefined {
   if (!isSkillNode(data) || !String(data.node?.template?.source?.value || "").trim()) return;
+  if (data.node?.template?.github_connection?.value) return;
   const status = data.node?.template?.discovery_status?.value;
   return status === "Discovery failed. Check source access and refresh." ? status : undefined;
 }

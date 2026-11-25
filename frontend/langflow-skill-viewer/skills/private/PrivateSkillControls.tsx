@@ -92,7 +92,7 @@ export default function PrivateSkillControls({ data }: { data: any }) {
     <label htmlFor={`connection-${data.id}`}>Connection</label>
     <select id={`connection-${data.id}`} className="rounded border bg-background p-2" value={connectionId} disabled={busy || !enabled}
       onFocus={() => { if (!index && !busy) void load("connections"); }}
-      onChange={(event) => { ++epoch.current; update({ github_connection: event.target.value, private_repository_id: "", skill_id: "", revision_id: "", resolved_skill_id: "", resolved_revision_id: "", resolved_selection: "" }, { skill_id: [], revision_id: [] }); }}>
+      onChange={(event) => { ++epoch.current; update({ github_connection: event.target.value, discovery_status: "", private_repository_id: "", skill_id: "", revision_id: "", resolved_skill_id: "", resolved_revision_id: "", resolved_selection: "" }, { skill_id: [], revision_id: [] }); }}>
       <option value="">Anonymous</option>
       {connectionId && !index?.connections.some((entry) => entry.connection.id === connectionId) && <option value={connectionId}>Selected connection</option>}
       {index?.connections.filter((entry) => entry.connection.state === "ready").map(({ connection }) => <option key={connection.id} value={connection.id}>{connection.principal.login} ({connection.mode})</option>)}

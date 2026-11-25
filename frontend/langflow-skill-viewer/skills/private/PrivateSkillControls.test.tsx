@@ -20,7 +20,7 @@ const index = { revision: 1, connections: [{ connection: { id: "selected", state
 const origin = { label: "heads/main", commit, skill_id: "private-id", revision_id: hash };
 function Harness({ initialConnection = "selected", initialSkill = "" }) {
   const [data, setData] = useState<any>({ id: "skill", node: { template: Object.fromEntries(Object.entries({ github_connection: initialConnection,
-    source: "https://github.com/synthetic/private", skill_id: initialSkill, revision_id: "saved-pin", resolved_skill_id: "saved-id", resolved_revision_id: "saved-hash", resolved_selection: "saved-binding", private_repository_id: "" }).map(([name, value]) => [name, { value }])) } });
+    source: "https://github.com/synthetic/private", discovery_status: "Discovery failed. Check source access and refresh.", skill_id: initialSkill, revision_id: "saved-pin", resolved_skill_id: "saved-id", resolved_revision_id: "saved-hash", resolved_selection: "saved-binding", private_repository_id: "" }).map(([name, value]) => [name, { value }])) } });
   setNode = (_id: string, change: any) => setData((old: any) => change({ data: old }).data);
   return <><PrivateSkillControls data={data} /><output data-testid="template">{JSON.stringify(data.node.template)}</output>
     <button onClick={() => setData((old: any) => ({ ...old, node: { template: { ...old.node.template, skill_id: { value: chosen } } } }))}>Choose discovered Skill</button>
@@ -29,6 +29,17 @@ function Harness({ initialConnection = "selected", initialSkill = "" }) {
 const template = () => JSON.parse(screen.getByTestId("template").textContent || "{}");
 beforeEach(() => { jest.clearAllMocks(); (connectionRequest as jest.Mock).mockResolvedValue({ index });
   (privateSkillRequest as jest.Mock).mockImplementation((action: string) => Promise.resolve(action === "discover" ? { skills: [{ choice: chosen }] } : { revisions: [origin] })); });
+
+test("selecting a connection clears the old anonymous error and discovers private skills", async () => {
+  render(<Harness initialConnection="" />);
+  const select = await screen.findByLabelText("Connection");
+  fireEvent.focus(select);
+  await screen.findByText("Account (token)");
+  fireEvent.change(select, { target: { value: "selected" } });
+  await waitFor(() => expect(template().github_connection.value).toBe("selected"));
+  expect(template().discovery_status.value).toBe("");
+  await waitFor(() => expect(template().skill_id.options).toEqual([chosen]));
+});
 
 test("private discovery populates native dropdowns and exact revision binding", async () => {
   render(<Harness />);

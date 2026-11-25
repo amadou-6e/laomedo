@@ -87,6 +87,9 @@ test("Source failures are inline without a Discovery row; empty and successful s
   expect(skillSourceError(node("/source", "private/raw exception text"))).toBeUndefined();
   expect(skillSourceError(node("/source", "No skills found in this source."))).toBeUndefined();
   expect(skillSourceError(node("/source", "No revisions found for this Skill."))).toBeUndefined();
+  const privateNode = node("https://github.com/owner/repo", "Discovery failed. Check source access and refresh.");
+  expect(skillSourceError({ ...privateNode, node: { ...privateNode.node, template: { ...privateNode.node.template,
+    github_connection: { ...scalar, value: "private-connection" } } } })).toBeUndefined();
 });
 
 test("Skill placeholder requires an entered source and discovered options, preserving other nodes and fields", () => {
