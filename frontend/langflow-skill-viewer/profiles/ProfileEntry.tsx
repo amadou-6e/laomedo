@@ -13,6 +13,7 @@ import {
 } from "./api";
 
 import { announceProfileChange } from "./ProfileSessionSync";
+import { debugPinInput } from "./debug";
 
 type ProfileField = "name" | "pin" | "confirmation";
 
@@ -43,6 +44,8 @@ export default function ProfileEntry({
 	const [error, setError] = useState("");
 	const [fieldErrors, setFieldErrors] = useState<Partial<Record<ProfileField, string>>>({});
 	const [wait, setWait] = useState(0);
+	const selectablePin = debugPinInput && typeof CSS !== "undefined" &&
+		typeof CSS.supports === "function" && CSS.supports("-webkit-text-security", "disc");
 
 	useEffect(() => {
 		if (!wait) return;
@@ -315,7 +318,9 @@ export default function ProfileEntry({
 							PIN (6 digits)
 							<Input
 								className="mt-1"
-								type="password"
+								type={selectablePin ? "text" : "password"}
+								style={selectablePin ? { WebkitTextSecurity: "disc" } : undefined}
+								spellCheck={false}
 								inputMode="numeric"
 								autoComplete="off"
 								maxLength={6}
@@ -332,13 +337,16 @@ export default function ProfileEntry({
 								aria-describedby={fieldErrors.pin ? "profile-pin-error" : undefined}
 							/>
 							{fieldErrors.pin && <p id="profile-pin-error" role="alert" className="mt-2 text-sm text-red-600 dark:text-red-400">{describeNodeFailure(fieldErrors.pin).title}</p>}
+							{selectablePin && <p className="mt-1 text-xs text-muted-foreground">Debug mode: PIN can be copied and read by other software.</p>}
 						</label>
 						{screen === "create" && (
 							<label className="block text-sm">
 								Confirm PIN
 								<Input
 									className="mt-1"
-									type="password"
+									type={selectablePin ? "text" : "password"}
+									style={selectablePin ? { WebkitTextSecurity: "disc" } : undefined}
+									spellCheck={false}
 									inputMode="numeric"
 									autoComplete="off"
 									maxLength={6}

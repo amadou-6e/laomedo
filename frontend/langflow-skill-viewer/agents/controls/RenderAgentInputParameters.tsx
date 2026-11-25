@@ -1,4 +1,4 @@
-import { Fragment, useMemo } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { getNodeInputColors } from "@/CustomNodes/helpers/get-node-input-colors";
 import { getNodeInputColorsName } from "@/CustomNodes/helpers/get-node-input-colors-name";
 import {
@@ -12,9 +12,11 @@ import { scapedJSONStringfy } from "@/utils/reactflowUtils";
 import NodeInputField from "../NodeInputField";
 import { findPrimaryInput } from "./utils";
 import AgentAdvancedControls, { advancedAgentFields, isAgentControlHidden } from "./AgentAdvancedControls";
-import { advancedSkillFields, isConnectedSkillSetting, isSkillControlHidden, isSkillNode, skillFieldInfo, skillSourceError, SKILL_SOURCE_ERROR_CODE } from "./SkillNodeControls";
-import { isPRControlHidden, isVisiblePRState, prFieldRank, prFeedback, PR_DISCOVERY_ERROR_CODE } from "./PRNodeControls";
+import { advancedSkillFields, isConnectedSkillSetting, isGitHubSkillNode, isSkillControlHidden, isSkillNode, skillFieldInfo, skillSourceError, SKILL_SOURCE_ERROR_CODE } from "./SkillNodeControls";
+import { isPRNode, isPRControlHidden, isVisiblePRState, prFieldRank, prFeedback, PR_DISCOVERY_ERROR_CODE } from "./PRNodeControls";
 import NodeErrorNotice from "@/components/laomedoErrors/NodeErrorNotice";
+import PrivateSkillControls, { SkillSourceSuggestions } from "@/modals/skillFilesModal/private/PrivateSkillControls";
+import PRAccountControls from "@/modals/github/pull_requests/PRAccountControls";
 
 const RenderInputParameters = ({
   data,
@@ -25,6 +27,7 @@ const RenderInputParameters = ({
   showHiddenOutputs,
 }) => {
   const edges = useFlowStore((state) => state.edges);
+  const [nativeSource, setNativeSource] = useState(false);
   const feedback = prFeedback(data);
 
   const templateFields = useMemo(() => {
@@ -129,7 +132,8 @@ const RenderInputParameters = ({
 
       return (
         <Fragment key={memoizedKey}>
-        <NodeInputField
+        {showNode && isPRNode(data) && templateField === "repository_url" && <PRAccountControls data={data} mode="account" />}
+        {showNode && isPRNode(data) && templateField === "pr_choice" && data.node?.template?.github_connection?.value ? <PRAccountControls data={data} mode="selector" /> : showNode && ((isSkillNode(data) && templateField === "source") || (isPRNode(data) && templateField === "repository_url")) && !(displayHandleMap.get(templateField) ?? false) && !template.load_from_db && !nativeSource ? <SkillSourceSuggestions data={data} fieldName={templateField} onUseVariable={() => setNativeSource(true)} /> : <NodeInputField
           lastInput={
             !(shownOutputs.length > 0 || showHiddenOutputs || (!advanced && advancedFields.length > 0)) &&
             idx === fields.length - 1
@@ -137,7 +141,7 @@ const RenderInputParameters = ({
           key={memoizedKey}
           data={data}
           colors={memoizedColor.colors}
-          title={getFieldTitle(data.node?.template!, templateField)}
+          title={isSkillNode(data) && templateField === "source" ? "Source or Repository" : getFieldTitle(data.node?.template!, templateField)}
           info={skillFieldInfo(data, templateField)}
           name={templateField}
           tooltipTitle={template.input_types?.join("\n") ?? template.type}
@@ -161,11 +165,12 @@ const RenderInputParameters = ({
               ? undefined
               : `${(((handleIdx + 1) / (handleFields.length + 1)) * 100).toFixed(2)}%`
           }
-        />
+        />}
+        {showNode && isSkillNode(data) && templateField === "source" && nativeSource && !template.load_from_db && <button type="button" className="nodrag nopan px-5 text-xs text-muted-foreground underline" onClick={() => setNativeSource(false)}>Browse sources</button>}
         {showNode && templateField === "source" && skillSourceError(data) && (
           <div role="alert" data-testid="skill-source-error" className="px-5 pb-2 text-sm text-destructive">
             <NodeErrorNotice message={SKILL_SOURCE_ERROR_CODE} label={skillSourceError(data)}
-              context={{ nodeId: data.id, nodeType: "LaomedoSkill" }} />
+              context={{ nodeId: data.id, nodeType: data.type }} />
           </div>
         )}
         {showNode && templateField === "repository_url" && feedback && (
@@ -198,6 +203,7 @@ const RenderInputParameters = ({
       {renderInputParameters(shownTemplateFields)}
       {advancedFields.length > 0 && <AgentAdvancedControls nodeId={data.id} visible={showNode}
         label={isSkillNode(data) ? "Advanced settings" : "Advanced controls"}>
+        {isGitHubSkillNode(data) && <PrivateSkillControls data={data} />}
         {renderInputParameters(advancedFields, true)}
       </AgentAdvancedControls>}
     </>

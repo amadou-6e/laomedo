@@ -11,7 +11,6 @@ from laomedo.integrations.langflow.local_profiles.admission import (
 )
 from laomedo.integrations.langflow.local_profiles.auth import LocalProfileAuthService
 from laomedo.integrations.langflow.local_profiles.boundary import LocalProfileBoundary
-from laomedo.integrations.langflow.local_profiles.cookies import ProfileCookieBoundary
 from laomedo.integrations.langflow.local_profiles.errors import ProfileError
 from laomedo.integrations.langflow.local_profiles.registry import LocalProfileRegistry
 from laomedo.integrations.langflow.local_profiles.routes import router
@@ -58,8 +57,6 @@ class LocalProfileRuntime:
         app.add_middleware(ProviderSessionBoundary, service=providers)
         app.include_router(router)
         app.add_middleware(LocalProfileBoundary, port=self.admission.marker.port)
-        # Last-added middleware is outermost: translate before all cookie users.
-        app.add_middleware(ProfileCookieBoundary, port=self.admission.marker.port)
         self._upstream_lifespan = app.router.lifespan_context
         app.router.lifespan_context = self.lifespan
 

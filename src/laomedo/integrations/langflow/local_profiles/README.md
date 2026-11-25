@@ -76,7 +76,9 @@ editing the database or signing credentials is outside this convenience-lock
 trust boundary.
 
 `ProfileCookieBoundary` gives the upstream access, refresh and store-key cookies
-a port-specific browser name. It translates only the selected preview cookies
+and the private GitHub session cookie a port-specific browser name. The app
+installs it outside the private session adapter, so both see canonical cookie
+names. It translates only the selected preview cookies
 at HTTP/WebSocket ingress and renames upstream Set-Cookie headers on egress,
 preserving their attributes. `ProfileCookieResponse` owns response forwarding.
 Foreign or unscoped auth cookies never supply a profile session; existing

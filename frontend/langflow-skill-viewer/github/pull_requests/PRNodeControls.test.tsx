@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import RenderInputParameters from "./index";
-import { isPRNode, prChoicePlaceholder, prFieldTemplate, PR_DISCOVERY_ERROR } from "./PRNodeControls";
+import { filterPRChoices, isPRNode, prChoicePlaceholder, prFieldTemplate, PR_DISCOVERY_ERROR } from "./PRNodeControls";
 
 const scalar = { show: true, type: "str", advanced: false, value: "" };
 const node = (status = PR_DISCOVERY_ERROR) => ({ id: "pr", type: "LaomedoGitHubPR", node: { template: {
@@ -20,19 +20,35 @@ jest.mock("@/utils/reactflowUtils", () => ({ scapedJSONStringfy: JSON.stringify 
 jest.mock("./utils", () => ({ findPrimaryInput: () => ({ displayHandleMap: new Map([["pr_context", true]]), primaryInputFieldName: "pr_context" }) }));
 jest.mock("../NodeInputField", () => ({ __esModule: true, default: (props: any) => <input aria-label={props.name} data-handle={String(props.displayHandle)} defaultValue={props.data.node.template[props.name].value || ""} /> }));
 jest.mock("@/components/laomedoErrors/NodeErrorNotice", () => ({ __esModule: true, default: ({ label }: any) => <button>{label}</button> }));
+jest.mock("@/modals/github/pull_requests/PRAccountControls", () => ({ __esModule: true, default: () => null }));
+jest.mock("@/modals/skillFilesModal/private/PrivateSkillControls", () => ({ __esModule: true, default: () => null, SkillSourceSuggestions: () => <input aria-label="repository_url" /> }));
 function draw(data: any, showNode = true) {
   return <RenderInputParameters data={data} types={{}} isToolMode={false} showNode={showNode} shownOutputs={[]} showHiddenOutputs={false} />;
 }
-test("saved graphs display State before Labels, inline error after URL, and original sockets without rewriting values", () => {
+test("saved graphs hide State and Labels, keep inline error and sockets without rewriting values", () => {
   const data = node(); const saved = JSON.stringify(data);
   render(draw(data));
-  expect(screen.getAllByRole("textbox").map(el => el.getAttribute("aria-label"))).toEqual(["repository_url", "state", "labels", "pr_choice", "pr_context"]);
+  expect(screen.getAllByRole("textbox").map(el => el.getAttribute("aria-label"))).toEqual(["repository_url", "pr_choice", "pr_context"]);
   expect(screen.getByRole("textbox", { name: "repository_url" }).nextElementSibling).toBe(screen.getByRole("alert"));
   expect(screen.getByRole("alert")).toHaveTextContent(PR_DISCOVERY_ERROR);
   expect(screen.queryByRole("textbox", { name: "discovery_status" })).toBeNull();
-  expect(screen.getByRole("textbox", { name: "state" })).toHaveValue("closed");
+  expect(screen.queryByRole("textbox", { name: "state" })).toBeNull();
   for (const name of ["pr_context"]) expect(screen.getByRole("textbox", { name })).toHaveAttribute("data-handle", "true");
   expect(JSON.stringify(data)).toBe(saved);
+});
+
+test("PR search supports title, state, and quoted label filters", () => {
+  const options = ["#1 Fix login", "#2 Fix styles", "#3 Release"];
+  const metadata = [
+    { id: options[0], state: "open", labels: ["bug", "needs review"], laomedo_pr_search: true },
+    { id: options[1], state: "closed", labels: ["bug"], laomedo_pr_search: true },
+    { id: options[2], state: "merged", labels: [], laomedo_pr_search: true },
+  ];
+  expect(filterPRChoices('fix state:open label:"needs review"', options, metadata)).toEqual([options[0]]);
+  expect(filterPRChoices("state:closed label:bug", options, metadata)).toEqual([options[1]]);
+  expect(filterPRChoices("state:closed", options, metadata)).toEqual([options[1], options[2]]);
+  expect(filterPRChoices("state:merged", options, metadata)).toEqual([options[2]]);
+  expect(filterPRChoices("state:open label:missing", options, metadata)).toEqual([]);
 });
 test("empty, loading, failed, no matches and successful discovery remain distinguishable without raw messages", () => {
   const view = render(draw(node("Discovering GitHub PRs...")));

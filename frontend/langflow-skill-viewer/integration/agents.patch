@@ -110,7 +110,7 @@
 +        setActiveSection("traces");
 +        return;
 +      }
-       if (["LaomedoSkill", "LaomedoGitHubIssue", "LaomedoGitHubPR"].includes(nodeKind(data.type))) { setOpenModal(true); return; }
+       if (["LaomedoLocalSkill", "LaomedoGitHubSkill", "LaomedoGitHubIssue", "LaomedoGitHubPR"].includes(nodeKind(data.type))) { setOpenModal(true); return; }
        if (!hasCode) {
          setNoticeData({ title: t("node.cannotAccessCode", { id: data.id }) });
 @@ -200,7 +213,7 @@
@@ -128,7 +128,7 @@
              <ToolbarButtonRow
 +              isAgentNode={isAgentNode}
                canEditCode={canEditCode}
-               isSkillNode={nodeKind(data.type) === "LaomedoSkill"}
+               isSkillNode={["LaomedoLocalSkill", "LaomedoGitHubSkill"].includes(nodeKind(data.type))}
                isPRNode={nodeKind(data.type) === "LaomedoGitHubPR"}
 --- a/src/frontend/src/pages/FlowPage/components/nodeToolbarComponent/components/ToolbarButtonRow.tsx
 +++ b/src/frontend/src/pages/FlowPage/components/nodeToolbarComponent/components/ToolbarButtonRow.tsx

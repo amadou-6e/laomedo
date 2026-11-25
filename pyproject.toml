@@ -16,6 +16,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["black==26.10.1"]
+private-sources = ["Authlib==1.9.5", "httpx2==2.16.0; python_version >= '3.11'", "keyring==25.7.0"]
 runner = [
     "py-docker @ git+https://github.com/amadou-6e/py-docker.git@49652f4281b37e62fb43404532a376a3f1f2e07d",
     "agent-client-protocol==0.12.1",

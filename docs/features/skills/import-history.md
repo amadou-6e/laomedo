@@ -12,6 +12,6 @@ not start or configure a service, execute an Agent or rerun the graph.
 
 The journal and registry must be backed up together. Existing commit identities
 survive service restarts; deleting the journal loses those identities even when
-bundle bytes remain. A backfilled head beyond the initial root requires its exact
-Base Commit in the Skill node's Advanced settings before an operation can edit it.
+bundle bytes remain. When an edit is prepared, the service captures the current history head if its
+revision matches the selected Skill files.
 Comparing an unchanged import to current contents shows no file changes.

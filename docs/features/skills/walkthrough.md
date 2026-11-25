@@ -61,10 +61,9 @@ policy = {
 
 Keep the printed hashes for exact selection. This policy permits only those two
 Markdown paths; it does not authorize scripts, Git publication or promotion.
-For another edit, select the candidate revision and Base Commit from its existing
-history. For a fresh installation, use a separate private runtime root for all
-registry, journal and service paths together; an empty Base Commit is valid only
-at the initial imported revision.
+For another edit, select the candidate revision from its existing history. The
+service captures its current history head automatically. For a fresh installation,
+use a separate private runtime root for registry, journal and service paths together.
 
 ## 2. Start discovery and history services
 
@@ -152,8 +151,7 @@ Agent proposes only a title update, the host applies it after authorization,
 and selecting this skill alone does not update GitHub. Change only those two files.
 ```
 
-Base Commit is in the Skill node's Advanced settings. For the first imported
-revision leave it empty. Run the **Skill to edit**
+Run the **Skill to edit**
 controller once. It reserves the edit, invokes the existing Agent, validates the
 returned files and records a candidate. Do not separately run the Agent and then
 run the controller again: that would be another operation.
@@ -181,8 +179,8 @@ files. Each view compares that file with the pinned current candidate. Use
 *Historical real comparison from another task. It illustrates the viewer, not
 the result of this proposed two-file edit. [Provenance](assets/README.md).*
 
-For another edit, use the candidate's exact revision and its commit ID as
-**Base Commit**. If a reply is uncertain, inspect history before a fresh run;
+For another edit, use the candidate's exact revision; its current history head
+is captured automatically. If a reply is uncertain, inspect history before a fresh run;
 do not generate another edit merely to find out whether the first was recorded.
 
 ## Finish

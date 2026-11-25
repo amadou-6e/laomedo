@@ -3,13 +3,29 @@ const ORDER = ["repository_url", "state", "labels", "pr_choice", "pr_context"];
 export const PR_DISCOVERY_ERROR = "GitHub discovery failed. Check connection and refresh.";
 export const PR_DISCOVERY_ERROR_CODE = "pr_discovery_failed";
 
+/** Filter already discovered PRs by title/number and state:/label: qualifiers. */
+export function filterPRChoices(query: string, options: string[], metadata: any[]): string[] {
+  const tokens = query.match(/(?:[^\s"]|"[^"]*")+/g) ?? [];
+  return options.filter((option) => {
+    const item = metadata.find((entry) => entry?.id === option && entry?.laomedo_pr_search === true);
+    if (!item) return false;
+    return tokens.every((token) => {
+      const match = token.match(/^(state|label):(.+)$/i);
+      if (!match) return option.toLowerCase().includes(token.toLowerCase());
+      const value = match[2].replace(/^"(.*)"$/, "$1").toLowerCase();
+      if (match[1].toLowerCase() === "state") return value === "all" || item.state === value || (value === "closed" && item.state === "merged");
+      return Array.isArray(item.labels) && item.labels.some((label: string) => label.toLowerCase() === value);
+    });
+  });
+}
+
 export function isPRNode(data: any): boolean {
   const kind = data?.node?.name || data?.node?.type || data?.type || "";
   return (kind.match(/^ext:[^:]+:([^@]+)@.+$/)?.[1] ?? kind) === "LaomedoGitHubPR";
 }
 
 export function isPRControlHidden(data: any, name: string): boolean {
-  return isPRNode(data) && name === "discovery_status";
+  return isPRNode(data) && ["discovery_status", "state", "labels", "github_connection"].includes(name);
 }
 
 export function prFieldRank(data: any, name: string): number {
@@ -18,8 +34,7 @@ export function prFieldRank(data: any, name: string): number {
 }
 
 export function isVisiblePRState(data: any, name: string, toolMode: boolean): boolean {
-  const field = data.node?.template?.[name];
-  return isPRNode(data) && name === "state" && field?.show && !(toolMode && field.tool_mode);
+  return false;
 }
 
 export function prFieldTemplate(data: any, name: string, field: any): any {
@@ -31,7 +46,7 @@ export function prFieldTemplate(data: any, name: string, field: any): any {
 
 /** Never render arbitrary saved/provider text as connection feedback. */
 export function prFeedback(data: any): { message: string; error: boolean } | undefined {
-  if (!isPRNode(data) || !String(data.node?.template?.repository_url?.value || "").trim()) return;
+  if (!isPRNode(data) || data.node?.template?.github_connection?.value || !String(data.node?.template?.repository_url?.value || "").trim()) return;
   const value = data.node?.template?.discovery_status?.value;
   if (value === PR_DISCOVERY_ERROR) return { message: value, error: true };
   if (["Discovering GitHub PRs...", "No matching PRs."].includes(value)) return { message: value, error: false };

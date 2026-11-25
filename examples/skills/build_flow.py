@@ -18,7 +18,7 @@ spec.loader.exec_module(builder)
 node, edge = builder.node, builder.edge
 
 
-def build(skill_id, revision, editor_revision, runner_url, edit_request, commit_id=""):
+def build(skill_id, revision, editor_revision, runner_url, edit_request):
     skill = node(
         ROOT / "components/laomedo/skill.py",
         "skill",
@@ -27,7 +27,6 @@ def build(skill_id, revision, editor_revision, runner_url, edit_request, commit_
             "skill_id": skill_id,
             "revision_id": revision,
             "edit_request": edit_request,
-            "commit_id": commit_id,
         },
         0,
         0,
@@ -114,7 +113,6 @@ if __name__ == "__main__":
         "output",
     ):
         parser.add_argument("--" + field, required=True)
-    parser.add_argument("--commit-id", default="")
     args = parser.parse_args()
     Path(args.output).write_text(
         json.dumps(
@@ -124,7 +122,6 @@ if __name__ == "__main__":
                 args.editor_revision,
                 args.runner_url,
                 args.edit_request,
-                args.commit_id,
             ),
             indent=2,
         )

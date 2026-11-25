@@ -71,6 +71,18 @@ class SkillOperationTests(unittest.TestCase):
             2,
         )
 
+    def test_next_edit_captures_current_base_without_node_commit(self):
+        first = self.case.service.apply(
+            self.case.prepare()["ticket"], self.case.operation
+        )
+        current = first["skill"]["revision_id"]
+        with self.assertRaisesRegex(ConflictError, "skill_base_changed"):
+            self.case.prepare(self.case.initial["revision_id"])
+        prepared = self.case.prepare(current)
+        self.assertEqual(prepared["base_commit"], first["commit"]["commit_id"])
+        with self.assertRaisesRegex(ConflictError, "skill_base_changed"):
+            self.case.prepare(current, "not-the-current-commit")
+
     def test_policy_denies_entire_batch(self):
         reservation = self.case.prepare()
         operation = copy.deepcopy(self.case.operation)
@@ -117,8 +129,9 @@ class SkillOperationTests(unittest.TestCase):
             ),
             3,
         )
-        with self.assertRaises(ConflictError):
-            self.case.prepare()
+        self.assertEqual(
+            self.case.prepare()["base_commit"], reverted["commit"]["commit_id"]
+        )
 
     def test_path_aliases_and_model_authority_rejected(self):
         for path in ("../escape.md", "rules/../escape.md", "rules\\one.md"):

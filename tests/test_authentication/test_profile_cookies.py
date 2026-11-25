@@ -18,6 +18,7 @@ class ProfileCookieTests(unittest.TestCase):
     def setUp(self):
         self.app = FastAPI()
         self.app.add_api_route("/read", self.read)
+        self.app.add_api_route("/private", self.private)
         self.app.add_api_route("/login", self.login, methods=["POST"])
         self.app.add_api_route("/logout", self.logout, methods=["POST"])
         self.app.add_api_websocket_route("/socket", self.socket)
@@ -61,6 +62,20 @@ class ProfileCookieTests(unittest.TestCase):
             {"selected": websocket.cookies.get("access_token_lf") == "selected"}
         )
         await websocket.close()
+
+    async def private(self, request: Request):
+        return {"private": request.cookies.get("laomedo_private_session")}
+
+    def test_private_session_is_isolated_by_port(self):
+        cookie = (
+            "laomedo_private_session=unscoped; "
+            "laomedo_profile_55753_laomedo_private_session=foreign; "
+            "laomedo_profile_17884_laomedo_private_session=selected"
+        )
+        self.assertEqual(
+            self.client.get("/private", headers={"Cookie": cookie}).json()["private"],
+            "selected",
+        )
 
     def test_only_selected_preview_cookies_reach_http_and_websocket_auth(self):
         cookie = "access_token_lf=foreign; refresh_token_lf=foreign; laomedo_profile_55753_access_token_lf=foreign; laomedo_profile_17884_access_token_lf=selected; laomedo_profile_17884_refresh_token_lf=refresh; theme=dark"

@@ -34,7 +34,7 @@ def _sort_pr_vertices(graph, stop_component_id=None, start_component_id=None):
         v
         for v in graph.vertices
         if getattr(getattr(v, "custom_component", None), "name", None)
-        in {"LaomedoGitHubPR", "LaomedoSkill"}
+        in {"LaomedoGitHubPR", "LaomedoLocalSkill", "LaomedoGitHubSkill"}
         and feedback_edge(v.custom_component) is not None
     ]
     if len(controllers) > 1:
@@ -110,7 +110,8 @@ def skill_input_vertices(controller, agent):
         if (
             edge.target_handle.field_name != "skill_reference"
             or edge.source_handle.name != "skill"
-            or source.data.get("type") != "LaomedoSkill"
+            or source.data.get("type")
+            not in {"LaomedoLocalSkill", "LaomedoGitHubSkill"}
             or source.incoming_edges
             or template.get("operation", {}).get("value")
             or str(template.get("edit_request", {}).get("value") or "").strip()

@@ -10,6 +10,7 @@ jest.mock("@/components/ui/input", () => ({
 	Input: (props) => <input {...props} />,
 }));
 jest.mock("../ProfileSessionSync", () => ({ announceProfileChange: jest.fn() }));
+jest.mock("../debug", () => ({ debugPinInput: false }));
 jest.mock("../api", () => ({
 	createProfile: jest.fn(),
 	enterProfile: jest.fn(),
@@ -17,6 +18,11 @@ jest.mock("../api", () => ({
 }));
 
 describe("profile entry validation recovery", () => {
+	it("uses password fields in ordinary builds", () => {
+		render(<ProfileEntry initial={{ profiles: [], pin_digits: 6 }} initialCreate />);
+		expect(screen.getByLabelText("PIN (6 digits)").getAttribute("type")).toBe("password");
+		expect(screen.getByLabelText("Confirm PIN").getAttribute("type")).toBe("password");
+	});
 	it("removes stale validation feedback when a creation field is corrected", () => {
 		render(<ProfileEntry initial={{ profiles: [], pin_digits: 6 }} initialCreate />);
 		fireEvent.click(screen.getByRole("button", { name: "Create profile" }));

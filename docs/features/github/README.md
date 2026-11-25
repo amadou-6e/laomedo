@@ -18,3 +18,6 @@ steps state the additional host authorization required before any write.
 
 Each module owns its documentation and visual assets. Existing examples remain
 the detailed setup guides; historical evidence is not acceptance of the current head.
+
+- [Private Skill account connections](account-connections/README.md):
+  issue #251 pilot, boundaries and remaining acceptance work.

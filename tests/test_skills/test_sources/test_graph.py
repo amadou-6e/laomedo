@@ -26,12 +26,13 @@ ROOT = repository_root()
 class NativeSkillSourceTests(unittest.TestCase):
     def setUp(self):
         spec = importlib.util.spec_from_file_location(
-            "source_skill_component", ROOT / "components/laomedo/skill.py"
+            "source_skill_component",
+            ROOT / "src/laomedo/skills/interface/langflow/component.py",
         )
         self.module = importlib.util.module_from_spec(spec)
         sys.modules[spec.name] = self.module
         spec.loader.exec_module(self.module)
-        self.component = self.module.LaomedoSkill()
+        self.component = self.module.SkillComponent()
         self.config = {item.name: item.to_dict() for item in self.component.inputs}
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
@@ -81,6 +82,22 @@ class NativeSkillSourceTests(unittest.TestCase):
             result["revision_id"], self.config["resolved_revision_id"]["value"]
         )
         self.assertEqual(result["tree_hash"], result["revision_id"])
+
+    def test_private_connection_never_falls_back_to_public_resolution_or_dispatch(self):
+        self.config["github_connection"]["value"] = "selected-private-connection"
+        with patch.object(self.module, "source_request") as public:
+            self.update("source", "https://github.com/synthetic/private")
+            self.component.set(
+                github_connection="selected-private-connection",
+                source="https://github.com/synthetic/private",
+                skill_id="selected",
+                revision_id="sha256:" + "a" * 64,
+            )
+            with self.assertRaisesRegex(
+                ValueError, "private_skill_execution_unsupported"
+            ):
+                self.component.skill_output()
+            public.assert_not_called()
 
     def test_parent_change_resets_dependencies_and_inspection_provenance(self):
         self.test_discovery_selects_and_returns_native_reference()

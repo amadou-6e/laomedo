@@ -273,13 +273,18 @@ def apply(checkout):
         checkout / "src/frontend/src/components/core/parameterRenderComponent/index.tsx"
     )
     source = (
-        'import { skillChoicePlaceholder } from "@/CustomNodes/GenericNode/components/RenderInputParameters/SkillNodeControls";\n'
+        'import { skillChoicePlaceholder, skillFieldTemplate } from "@/CustomNodes/GenericNode/components/RenderInputParameters/SkillNodeControls";\n'
         + parameter.read_text(encoding="utf-8")
     )
     source = replace_once(
         source,
         "      placeholder: placeholder || templateData?.placeholder,",
         "      placeholder: skillChoicePlaceholder(useFlowStore.getState().nodes.find(node => node.id === nodeId)?.data, name, placeholder || templateData?.placeholder),",
+    )
+    source = replace_once(
+        source,
+        "  const { t } = useTranslation();",
+        "  templateData = skillFieldTemplate(useFlowStore.getState().nodes.find(node => node.id === nodeId)?.data, name, templateData);\n  const { t } = useTranslation();",
     )
     parameter.write_text(source, encoding="utf-8")
     edit_rows = checkout / "src/frontend/src/modals/editNodeModal/hooks/use-row-data.ts"
@@ -402,7 +407,9 @@ def apply(checkout):
     shutil.copytree(
         overlay / "github",
         checkout / "src/frontend/src/modals/github",
-        ignore=shutil.ignore_patterns("README.md"),
+        ignore=shutil.ignore_patterns(
+            "README.md", "PRNodeControls.test.tsx", "PRSelectors.test.tsx"
+        ),
     )
     activity_target = checkout / "src/frontend/src/modals/agentActivity"
     activity_target.mkdir()
@@ -679,6 +686,87 @@ def apply(checkout):
     from apply_langflow_assistant import apply_assistant
 
     apply_assistant(checkout, overlay)
+    dropdown_options = (
+        checkout
+        / "src/frontend/src/components/core/dropdownComponent/components/DropdownOptionsList.tsx"
+    )
+    source = dropdown_options.read_text(encoding="utf-8")
+    source = replace_once(
+        source,
+        "filteredMetadata?.[index]?.laomedo_connection === true ?",
+        "(filteredMetadata?.[index]?.laomedo_connection === true || filteredMetadata?.[index]?.laomedo_skill_path === true) ?",
+    )
+    source = replace_once(
+        source,
+        "filteredMetadata[index]?.laomedo_connection !== true && (",
+        "filteredMetadata[index]?.laomedo_connection !== true && filteredMetadata[index]?.laomedo_skill_path !== true && filteredMetadata[index]?.laomedo_pr_search !== true && (",
+    )
+    dropdown_options.write_text(source, encoding="utf-8")
+    dropdown_trigger = (
+        checkout
+        / "src/frontend/src/components/core/dropdownComponent/components/DropdownTrigger.tsx"
+    )
+    source = dropdown_trigger.read_text(encoding="utf-8")
+    source = replace_once(
+        source,
+        "selectedMetadata?.laomedo_connection === true)",
+        "selectedMetadata?.laomedo_connection === true || selectedMetadata?.laomedo_skill_path === true)",
+    )
+    dropdown_trigger.write_text(source, encoding="utf-8")
+    search_input = (
+        checkout
+        / "src/frontend/src/components/core/dropdownComponent/components/DropdownSearchInput.tsx"
+    )
+    source = search_input.read_text(encoding="utf-8")
+    source = replace_once(
+        source, "  onSearch,\n  onKeyDown,", "  onSearch,\n  onKeyDown,\n  hint,"
+    )
+    source = replace_once(
+        source,
+        "  onKeyDown: (event: KeyboardEvent<HTMLInputElement>) => void;",
+        "  onKeyDown: (event: KeyboardEvent<HTMLInputElement>) => void;\n  hint?: string;",
+    )
+    source = replace_once(
+        source,
+        'placeholder={t("input.searchOptions")}',
+        'placeholder={hint || t("input.searchOptions")}',
+    )
+    search_input.write_text(source, encoding="utf-8")
+    dropdown = checkout / "src/frontend/src/components/core/dropdownComponent/index.tsx"
+    source = dropdown.read_text(encoding="utf-8")
+    source = replace_once(
+        source,
+        "          <DropdownSearchInput\n",
+        "          <DropdownSearchInput\n            hint={policyOptionsMetaData?.some(item => item?.laomedo_pr_search === true) ? 'Search PRs, state:open, label:bug' : undefined}\n",
+    )
+    dropdown.write_text(source, encoding="utf-8")
+    dropdown_search = (
+        checkout
+        / "src/frontend/src/components/core/dropdownComponent/hooks/useDropdownOptions.ts"
+    )
+    source = dropdown_search.read_text(encoding="utf-8")
+    source = (
+        'import { filterPRChoices } from "@/CustomNodes/GenericNode/components/RenderInputParameters/PRNodeControls";\n'
+        + source
+    )
+    source = replace_once(
+        source,
+        "    setCustomValue(value);",
+        "    setCustomValue(value);\n"
+        "    if (optionsMetaData?.some(item => item?.laomedo_pr_search === true)) {\n"
+        "      const matches = filterPRChoices(value, validOptions, optionsMetaData);\n"
+        "      setFilteredOptions(matches);\n"
+        "      setFilteredMetadata(matches.map(option => optionsMetaData.find(item => item?.id === option) ?? {}));\n"
+        "      return;\n"
+        "    }",
+    )
+    if source.count("item?.laomedo_connection === true)") != 2:
+        raise SystemExit("skill_path_search_anchor_missing")
+    source = source.replace(
+        "item?.laomedo_connection === true)",
+        "item?.laomedo_connection === true || item?.laomedo_skill_path === true)",
+    )
+    dropdown_search.write_text(source, encoding="utf-8")
     print("pinned_skill_viewer_overlay_applied")
 
 

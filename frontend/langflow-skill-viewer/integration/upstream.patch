@@ -79,18 +79,22 @@ index 65f806c..d612348 100644
  import type { UseMutationResult } from "@tanstack/react-query";
  import { cloneDeep, debounce, isEqual } from "lodash";
  import { SAVE_DEBOUNCE_TIME } from "@/constants/constants";
-@@ -95,6 +96,10 @@ const keepUserEdits = (
+@@ -95,6 +96,14 @@ const keepUserEdits = (
        baseline && fieldName in baseline
          ? baseline[fieldName]
          : requestedField.value;
 +    const skillNode = useFlowStore.getState().nodes.find((entry) => entry.id === nodeId);
-+    if ((nodeKind(skillNode?.data.type ?? "") === "LaomedoSkill" &&
++    if (["LaomedoLocalSkill", "LaomedoGitHubSkill"].includes(nodeKind(skillNode?.data.type ?? "")) &&
++        currentTemplate.github_connection?.value && ["skill_id", "revision_id"].includes(fieldName)) {
++      incomingField.options = cloneDeep(currentField.options);
++    }
++    if ((["LaomedoLocalSkill", "LaomedoGitHubSkill"].includes(nodeKind(skillNode?.data.type ?? "")) &&
 +        ["resolved_skill_id", "resolved_revision_id", "resolved_selection", "discovery_status"].includes(fieldName)) ||
 +        (["LaomedoGitHubIssue", "LaomedoGitHubPR"].includes(nodeKind(skillNode?.data.type ?? "")) && fieldName === "discovery_status")) continue;
      if (!isEqual(currentField.value, appliedValue)) {
        incomingField.value = cloneDeep(currentField.value);
      }
-@@ -107,7 +112,18 @@ const keepUserEdits = (
+@@ -107,7 +116,18 @@ const keepUserEdits = (
  const isStaleForNode = (
    nodeId: string,
    requestedNode: APIClassType,
@@ -98,9 +102,9 @@ index 65f806c..d612348 100644
 +  newValue?: unknown,
  ): boolean => {
 +  const skillNode = useFlowStore.getState().nodes.find((entry) => entry.id === nodeId);
-+  if (["LaomedoSkill", "LaomedoGitHubIssue", "LaomedoGitHubPR"].includes(nodeKind(skillNode?.data.type ?? "") ?? "")) {
++  if (["LaomedoLocalSkill", "LaomedoGitHubSkill", "LaomedoGitHubIssue", "LaomedoGitHubPR"].includes(nodeKind(skillNode?.data.type ?? "") ?? "")) {
 +    const current = getNodeTemplate(nodeId);
-+    const selectors = nodeKind(skillNode?.data.type ?? "") === "LaomedoSkill" ? ["source", "skill_id", "revision_id"] : ["repository_url", "labels", "state", nodeKind(skillNode?.data.type ?? "") === "LaomedoGitHubPR" ? "pr_choice" : "issue_choice"];
++    const selectors = ["LaomedoLocalSkill", "LaomedoGitHubSkill"].includes(nodeKind(skillNode?.data.type ?? "")) ? ["source", "skill_id", "revision_id", "github_connection"] : ["repository_url", "labels", "state", ...(nodeKind(skillNode?.data.type ?? "") === "LaomedoGitHubPR" ? ["github_connection", "pr_choice"] : ["issue_choice"])];
 +    for (const name of selectors) {
 +      const expected = name === parameterName ? newValue : requestedNode.template?.[name]?.value;
 +      if (!isEqual(current?.[name]?.value, expected)) return true;
@@ -109,7 +113,7 @@ index 65f806c..d612348 100644
    const requestedCode = requestedNode.template?.code?.value;
    if (requestedCode === undefined) return false;
    const currentCode = getNodeCode(nodeId);
-@@ -163,7 +179,7 @@ export const mutateTemplate = async (
+@@ -163,7 +183,7 @@ export const mutateTemplate = async (
                tool_mode: toolMode ?? node.tool_mode,
                is_refresh: isRefresh ?? false,
              });
@@ -132,7 +136,7 @@ index b410b4b..f68f79d 100644
        }
  
 +      const skillNode = useFlowStore.getState().nodes.find((entry) => entry.id === nodeId);
-+      if (nodeKind(skillNode?.data.type ?? "") === "LaomedoSkill" && changes.value !== undefined &&
++      if (["LaomedoLocalSkill", "LaomedoGitHubSkill"].includes(nodeKind(skillNode?.data.type ?? "")) && changes.value !== undefined &&
 +          ["source", "skill_id", "revision_id"].includes(name) &&
 +          changes.value !== node.template?.[name]?.value) {
 +        if (template.discovery_status) template.discovery_status.value = name === "source" ? "Discovering skills..." : name === "skill_id" ? "Discovering revisions..." : "Resolving selected revision...";
@@ -171,7 +175,7 @@ index 419a1a2..65d4aae 100644
    ).toLowerCase();
  
    const renderComponent = (): React.ReactElement<InputProps> => {
-+    if (name === "discovery_status" && ["LaomedoSkill", "LaomedoGitHubIssue", "LaomedoGitHubPR"].includes(nodeKind(useFlowStore.getState().nodes.find((entry) => entry.id === nodeId)?.data.type ?? ""))) {
++    if (name === "discovery_status" && ["LaomedoLocalSkill", "LaomedoGitHubSkill", "LaomedoGitHubIssue", "LaomedoGitHubPR"].includes(nodeKind(useFlowStore.getState().nodes.find((entry) => entry.id === nodeId)?.data.type ?? ""))) {
 +      return <div role="status" data-testid="skill-discovery-status" className="text-sm text-muted-foreground">{String(templateValue || "")}</div>;
 +    }
      const baseInputProps: InputProps = {
@@ -289,7 +293,7 @@ index fa16114..eb5a2a6 100644
          )}
  
 -        {hasCode && (
-+        {(hasCode || nodeKind(data.type) === "LaomedoSkill" || nodeKind(data.type) === "LaomedoGitHubIssue" || nodeKind(data.type) === "LaomedoGitHubPR") && (
++        {(hasCode || ["LaomedoLocalSkill", "LaomedoGitHubSkill"].includes(nodeKind(data.type)) || nodeKind(data.type) === "LaomedoGitHubIssue" || nodeKind(data.type) === "LaomedoGitHubPR") && (
            <div className="hidden">
 -            {openModal && (
 +            {openModal && (nodeKind(data.type) === "LaomedoGitHubPR" ? (
@@ -300,10 +304,10 @@ index fa16114..eb5a2a6 100644
 +              <Suspense fallback={<div role="status">Loading issue viewer...</div>}>
 +                <IssueViewerModal open={openModal} setOpen={setOpenModal} template={data.node?.template} />
 +              </Suspense>
-+            ) : nodeKind(data.type) === "LaomedoSkill" ? (
++            ) : ["LaomedoLocalSkill", "LaomedoGitHubSkill"].includes(nodeKind(data.type)) ? (
 +              <Suspense fallback={<div role="status">Loading Skill files...</div>}>
 +                <SkillFilesModal open={openModal} setOpen={setOpenModal}
-+                  skillId={inspectionSelection(data.node?.template).skillId}
++                  {...inspectionSelection(data.node?.template)}
 +                  revision={inspectionSelection(data.node?.template).revision} />
 +              </Suspense>
 +            ) : (
@@ -333,7 +337,7 @@ index 4069ff6..0edaa72 100644
      }, [hasApiKey, hasStore]);
  
      const handleCodeModal = useCallback(() => {
-+      if (["LaomedoSkill", "LaomedoGitHubIssue", "LaomedoGitHubPR"].includes(nodeKind(data.type))) { setOpenModal(true); return; }
++      if (["LaomedoLocalSkill", "LaomedoGitHubSkill", "LaomedoGitHubIssue", "LaomedoGitHubPR"].includes(nodeKind(data.type))) { setOpenModal(true); return; }
        if (!hasCode) {
          setNoticeData({ title: t("node.cannotAccessCode", { id: data.id }) });
          return;
@@ -352,7 +356,7 @@ index 4069ff6..0edaa72 100644
            <div className="toolbar-wrapper">
              <ToolbarButtonRow
                canEditCode={canEditCode}
-+              isSkillNode={nodeKind(data.type) === "LaomedoSkill"}
++              isSkillNode={["LaomedoLocalSkill", "LaomedoGitHubSkill"].includes(nodeKind(data.type))}
 +              isPRNode={nodeKind(data.type) === "LaomedoGitHubPR"}
 +              isIssueNode={nodeKind(data.type) === "LaomedoGitHubIssue"}
 +              canOpenIssue={!!(nodeKind(data.type) === "LaomedoGitHubPR" ? prSelection(data.node?.template) : issueSelection(data.node?.template)).url}

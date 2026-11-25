@@ -22,8 +22,13 @@ class ProfileOverlayTests(unittest.TestCase):
         self.source = self.root / "overlay"
         (self.source / "profiles").mkdir(parents=True)
         (self.source / "profiles/Profile.tsx").write_bytes(b"profile asset\n")
+        (self.source / "githubConnections").mkdir()
+        (self.source / "githubConnections/ConnectionManager.tsx").write_bytes(
+            b"github asset\n"
+        )
         self.inputs = {
-            "routes.tsx": 'import LoginPage from "./pages/LoginPage";\n<LoginPage />\n<SignUp />\n',
+            "routes.tsx": 'import LoginPage from "./pages/LoginPage";\n<LoginPage />\n<SignUp />\n<Route path="shortcuts" element={<ShortcutsPage />} />\n',
+            "pages/SettingsPage/index.tsx": '  const { t } = useTranslation();\n  sidebarNavItems.push(\n    {\n      title: t("settings.nav.mcpServers"),\n',
             "components/core/appHeaderComponent/components/AccountMenu/index.tsx": 'export const AccountMenu = () => {\n    mutationLogout();\n    <HeaderMenu>\n    </HeaderMenu>\n<HeaderMenuItemButton onClick={handleLogout} icon="log-out">\n',
             "components/core/appHeaderComponent/components/HeaderMenu/index.tsx": 'export const HeaderMenuItemButton = ({ icon = "", onClick, children }) => (\n    onClick={onClick}\n',
             "controllers/API/queries/auth/use-post-logout.ts": 'console.error(error);\n    if (autoLogin) {\napi.post(`${getURL("LOGOUT")}`)\n',
@@ -49,6 +54,7 @@ class ProfileOverlayTests(unittest.TestCase):
                 "profile_picture_gate_anchor_missing",
             ),
             ("pages/MainPage/pages/empty-page.tsx", "profile_tracking_anchor_missing"),
+            ("pages/SettingsPage/index.tsx", "connection_settings_anchor_missing"),
         ):
             with self.subTest(anchor=relative):
                 path = self.frontend / relative
@@ -91,4 +97,18 @@ class ProfileOverlayTests(unittest.TestCase):
         self.assertEqual(
             (self.frontend / "components/laomedoProfiles/Profile.tsx").read_bytes(),
             b"profile asset\n",
+        )
+        self.assertIn(
+            '<Route path="github"', (self.frontend / "routes.tsx").read_text()
+        )
+        self.assertIn(
+            "GitHub connections",
+            (self.frontend / "pages/SettingsPage/index.tsx").read_text(),
+        )
+        self.assertEqual(
+            (
+                self.frontend
+                / "components/laomedoGitHubConnections/ConnectionManager.tsx"
+            ).read_bytes(),
+            b"github asset\n",
         )

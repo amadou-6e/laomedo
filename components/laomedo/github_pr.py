@@ -30,8 +30,16 @@ class LaomedoGitHubPR(Component):
     name = "LaomedoGitHubPR"
     inputs = [
         StrInput(
+            name="github_connection",
+            display_name="Account",
+            value="",
+            show=False,
+            track_in_telemetry=False,
+            info="An explicitly selected GitHub account.",
+        ),
+        StrInput(
             name="repository_url",
-            display_name="Repository URL",
+            display_name="Repository",
             value="",
             real_time_refresh=True,
             info="GitHub repository URL. The connection is configured on the host.",
@@ -40,7 +48,7 @@ class LaomedoGitHubPR(Component):
         DropdownInput(
             name="state",
             display_name="State",
-            value="open",
+            value="all",
             options=["open", "closed", "merged", "all"],
             info="Closed includes merged PRs. Merged shows only merged PRs (read-only).",
             real_time_refresh=True,
@@ -91,14 +99,15 @@ class LaomedoGitHubPR(Component):
         """Return one complete read/modify outcome; feedback completes only once."""
         if feedback_edge(self) is not None:
             await self._completed_roundtrip()
-        return Data(data=self._execution())
+        return Data(data=await self._execution())
 
     async def update_build_config(self, build_config, field_value, field_name=None):
         for item in self.inputs:
             build_config.setdefault(item.name, item.to_dict())
         build_config["state"].update(
-            advanced=False, options=["open", "closed", "merged", "all"]
+            value="all", advanced=False, options=["open", "closed", "merged", "all"]
         )
+        build_config["labels"]["value"] = []
         for name in ("labels", "pr_choice"):
             build_config[name]["combobox"] = False
         old = build_config.get(field_name, {}).get("value")
@@ -111,6 +120,10 @@ class LaomedoGitHubPR(Component):
             elif field_name in {"labels", "state"}:
                 build_config["pr_choice"].update(value="", options=[])
         repository = build_config["repository_url"].get("value", "")
+        if build_config.get("github_connection", {}).get("value"):
+            # Account-backed choices are loaded by the authenticated browser.
+            # A template refresh must not replace those choices with host data.
+            return build_config
         if not repository:
             build_config["discovery_status"]["value"] = "Supply a repository URL."
             return build_config
@@ -119,12 +132,21 @@ class LaomedoGitHubPR(Component):
                 pr_request,
                 "discover",
                 repository_url=repository,
-                labels=build_config["labels"].get("value", []),
-                state=build_config["state"].get("value", "open"),
+                labels=[],
+                state="all",
             )
             build_config["labels"]["options"] = found["labels"]
             choices = [pr["choice"] for pr in found["prs"]]
             build_config["pr_choice"]["options"] = choices
+            build_config["pr_choice"]["options_metadata"] = [
+                {
+                    "id": pr["choice"],
+                    "laomedo_pr_search": True,
+                    "state": pr.get("state", "open"),
+                    "labels": pr.get("labels", []),
+                }
+                for pr in found["prs"]
+            ]
             selected = str(build_config["pr_choice"].get("value") or "")
             identity = re.match(r"^#([1-9][0-9]*) ", selected)
             build_config["pr_choice"]["value"] = next(
@@ -151,9 +173,9 @@ class LaomedoGitHubPR(Component):
         self._pr_roundtrip_task = None
 
     async def _roundtrip(self):
-        initial = self._execution()
+        initial = await self._execution()
         original = initial.get("pr")
-        labels, state = list(self.labels), self.state
+        labels, state = [], "all"
         if not original or initial["operation"]["status"] != "not_requested":
             return initial
         dispatched = False
@@ -227,7 +249,7 @@ class LaomedoGitHubPR(Component):
             self._pr_roundtrip_task = asyncio.create_task(self._roundtrip())
         return await self._pr_roundtrip_task
 
-    def _execution(self):
+    async def _execution(self):
         cached = getattr(self, "_pr_execution_cache", None)
         if cached is not None:
             return cached
@@ -235,6 +257,13 @@ class LaomedoGitHubPR(Component):
         incoming = getattr(self, "pr_context", None)
         context = None
         try:
+            account = getattr(self, "github_connection", "")
+            if not account and getattr(self, "_vertex", None) is not None:
+                account = (
+                    self._vertex.full_data["data"]["node"]["template"]
+                    .get("github_connection", {})
+                    .get("value", "")
+                )
             if feedback_edge(self) is not None:
                 operation = None
             elif incoming is not None and incoming != "":
@@ -244,8 +273,10 @@ class LaomedoGitHubPR(Component):
                 if isinstance(context.operation, PRContextOperation):
                     operation = context.operation.model_dump(exclude_unset=True)
             repository = repository_from_url(self.repository_url)
+            if account and repository.endswith(".git"):
+                repository = repository[:-4]
             selected = str(getattr(self, "pr_choice", "") or "")
-            match = re.match(r"^#([1-9][0-9]*) ", selected)
+            match = re.match(r"^#([1-9][0-9]*)(?: |$)", selected)
             number = int(match.group(1)) if match else None
             reference = context.pr if context is not None else None
             if reference is not None:
@@ -256,19 +287,30 @@ class LaomedoGitHubPR(Component):
                 number = reference.number
             if number is None:
                 raise ValueError("selected_pr_required")
-            result = pr_request(
-                "execute",
-                repository_url=self.repository_url,
-                labels=self.labels,
-                state=self.state,
-                pr_number=number,
-                operation=operation or None,
-                **(
-                    {"expected": context.content_digest}
-                    if operation and context and context.content_digest is not None
-                    else {}
-                ),
-            )
+            if account:
+                if operation or feedback_edge(self) is not None:
+                    raise ValueError("repository_connection_unavailable")
+                from laomedo.integrations.langflow.authentication.graph_bindings import (
+                    PrivateGraphBindings,
+                )
+
+                result = await PrivateGraphBindings.read_pr(
+                    self, account, repository, number
+                )
+            else:
+                result = pr_request(
+                    "execute",
+                    repository_url=self.repository_url,
+                    labels=[],
+                    state="all",
+                    pr_number=number,
+                    operation=operation or None,
+                    **(
+                        {"expected": context.content_digest}
+                        if operation and context and context.content_digest is not None
+                        else {}
+                    ),
+                )
         except Exception as error:
             code = str(error) if str(error) in ERROR_CODES else "github_pr_unavailable"
             uncertain = bool(operation) and code not in PRE_DISPATCH_ERRORS

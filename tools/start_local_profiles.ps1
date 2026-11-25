@@ -7,6 +7,7 @@ param(
     [Parameter(Mandatory=$true)][string]$FrontendPath,
     [Parameter(Mandatory=$true)][string]$RuntimeRoot,
     [ValidateRange(1024,65535)][int]$Port = 17866,
+    [switch]$PrivateConnections,
     [string]$ProviderSourceWorkspace,
     [string]$LangflowSourceRoot
 )
@@ -152,6 +153,7 @@ ProfileRuntimeAdmission(LocalProfileSettings().runtime_root).verify_settings(get
 print('Effective settings: local profiles require PIN login; generic signup disabled.', flush=True)
 "@
         if ($Mode -eq 'Serve') {
+            $privateEnabled = if ($PrivateConnections) { 'True' } else { 'False' }
             $bootstrap += @"
 
 import laomedo
@@ -161,7 +163,7 @@ from laomedo.integrations.langflow.local_profiles.settings import LocalProfileSe
 from laomedo.integrations.langflow.local_profiles.runtime import LocalProfileRuntime
 from laomedo.integrations.langflow.viewer import create_app
 profile_settings = LocalProfileSettings()
-app = create_app(profile_runtime=LocalProfileRuntime(profile_settings.runtime_root, provider_source=profile_settings.provider_source))
+app = create_app(profile_runtime=LocalProfileRuntime(profile_settings.runtime_root, provider_source=profile_settings.provider_source), private_connections=$privateEnabled)
 uvicorn.run(app, host='127.0.0.1', port=int(os.environ['LAOMEDO_LOCAL_PROFILE_PORT']), access_log=False, workers=1)
 "@
         }

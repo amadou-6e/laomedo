@@ -1,0 +1,123 @@
+"""Safe OAuth protocol refusal without provider bodies, URLs or secret causes."""
+
+
+class GitHubOAuthError(RuntimeError):
+    """Refuse an incomplete exchange; no connection or permission is committed.
+
+    An exchange may have reached GitHub. Its caller must consume the pending
+    attempt or retain its durable refresh uncertainty marker rather than retry.
+    """
+
+    code = "github_oauth_unavailable"
+
+    def __init__(self):
+        """Expose only the stable machine code, with no underlying credential data."""
+        super().__init__(self.code)
+
+    def __reduce__(self):
+        """Restore the fixed safe outcome without provider response arguments."""
+        return type(self), ()
+
+
+class GitHubConnectionError(RuntimeError):
+    """Private connection persistence is unavailable or its outcome is unconfirmed.
+
+    Callers must keep private access locked and preserve custody cleanup records.
+    Database paths, provider diagnostics and credentials are never arguments.
+    """
+
+    code = "github_connection_unavailable"
+
+    def __init__(self):
+        """Expose only the fixed, safe connection outcome."""
+        super().__init__(self.code)
+
+    def __reduce__(self):
+        """Preserve the fixed no-argument outcome across serialization."""
+        return type(self), ()
+
+
+class GitHubConnectionChanged(GitHubConnectionError):
+    """An owner or generation check refused stale admission without changing it.
+
+    A ready connection may still exist; this does not authorize another account,
+    a replayed refresh, or automatic replacement of its current credential.
+    """
+
+    code = "github_connection_changed"
+
+
+class GitHubConnectionAttemptExpired(GitHubConnectionChanged):
+    """A matched owner/lease-bound sign-in passed its pending deadline.
+
+    No exchange or consent commit is permitted. Existing saved connections stay
+    unchanged; recovery requires a deliberate new attempt, never replaying this one.
+    """
+
+    code = "github_connection_attempt_expired"
+
+
+class GitHubRepositoryAccessError(GitHubConnectionError):
+    """Current account or repository read access could not be confirmed online.
+
+    A 404 does not establish repository existence or visibility. No stale cache,
+    anonymous fallback, alternate credential or retry permission follows.
+    """
+
+    code = "github_repository_access_unconfirmed"
+
+
+class GitHubReauthorizationRequired(GitHubConnectionError):
+    """Credential absence, expiry or uncertain renewal prevents new private reads.
+
+    The ready metadata is not replacement authority. A deliberate reconnect must
+    verify the same account and explicit repository consent before committing.
+    """
+
+    code = "github_reauthorization_required"
+
+
+class GitHubVerificationPending(GitHubConnectionError):
+    """A rotated credential is stored but its current access remains unverified.
+
+    Private reads remain fenced. Retry verification without replaying the consumed
+    refresh token, or explicitly reconnect or disconnect the account.
+    """
+
+    code = "github_verification_pending"
+
+
+class GitHubRepositoryIdentityChanged(GitHubRepositoryAccessError):
+    """An authenticated account or repository no longer matches saved consent.
+
+    Existing private access remains fenced until the owner reconnects and
+    confirms the intended identity and repository location again.
+    """
+
+
+class GitHubCredentialRejected(GitHubRepositoryAccessError):
+    """GitHub explicitly rejected the selected credential as unauthenticated.
+
+    This does not reveal repository existence. A fenced rotation requires a new
+    sign-in; the inherited public code preserves the existing read-error contract.
+    """
+
+
+class GitHubTokenUnsupported(GitHubConnectionError):
+    """Deliberate token entry is outside the supported fine-grained format.
+
+    No provider request, custody write or ready replacement is authorized.
+    The token value and validation diagnostics never cross this boundary.
+    """
+
+    code = "github_token_unsupported"
+
+
+class GitHubConnectionInputError(GitHubConnectionError):
+    """A private control request has an unsupported shape or configuration value.
+
+    Request bodies, credentials and Pydantic input diagnostics are never exposed.
+    No connection replacement follows from this validation failure.
+    """
+
+    code = "github_connection_input_invalid"
