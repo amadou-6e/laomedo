@@ -17,6 +17,8 @@ const data = { id: "skill", type: "LaomedoSkill", node: { description: "Read an 
 } } };
 jest.mock("@xyflow/react", () => ({ useUpdateNodeInternals: () => update }));
 jest.mock("@/CustomNodes/hooks/use-handle-new-value", () => ({ __esModule: true, default: () => ({ handleOnNewValue: jest.fn() }) }));
+jest.mock("@/stores/authStore", () => ({ __esModule: true, default: (select: any) => select({ userData: { id: "profile" } }) }));
+jest.mock("@tanstack/react-query", () => ({ useQueryClient: () => ({ fetchQuery: jest.fn() }) }));
 jest.mock("@/stores/flowStore", () => ({ __esModule: true, default: (select: any) => select({ edges, nodes: [{ id: "skill", data: { type: "LaomedoSkill" } }] }) }));
 jest.mock("@/CustomNodes/helpers/get-node-input-colors", () => ({ getNodeInputColors: () => [] }));
 jest.mock("@/CustomNodes/helpers/get-node-input-colors-name", () => ({ getNodeInputColorsName: () => [] }));
@@ -80,7 +82,7 @@ test("Source failures are inline without a Discovery row; empty and successful s
   expect(error).toHaveTextContent("Check source access and refresh.");
   expect(error.querySelector("button")).toHaveAttribute("data-code", SKILL_SOURCE_ERROR_CODE);
   expect(isKnownNodeError(SKILL_SOURCE_ERROR_CODE, true)).toBe(true);
-  expect(screen.getByRole("textbox", { name: "source" }).nextElementSibling).toBe(error);
+  expect(screen.getByRole("combobox", { name: "Source or Repository" }).closest(".nodrag")?.nextElementSibling).toBe(error);
   view.rerender(renderNode(node("https://github.com/owner/repo", "2 skills found. Choose a Skill.")));
   expect(screen.queryByRole("alert")).toBeNull();
   view.rerender(renderNode(node("https://github.com/owner/repo", "Discovery failed. Check source access and refresh."), false));

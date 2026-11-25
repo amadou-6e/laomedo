@@ -11,7 +11,10 @@ jest.mock("@/stores/flowStore", () => {
   return { __esModule: true, default: (select: any) => select({ setNode: apply }) };
 });
 const mockSourceChange = jest.fn();
+const mockQueryClient = { fetchQuery: ({ queryFn }: any) => queryFn() };
 jest.mock("@/CustomNodes/hooks/use-handle-new-value", () => ({ __esModule: true, default: () => ({ handleOnNewValue: mockSourceChange }) }));
+jest.mock("@/stores/authStore", () => ({ __esModule: true, default: (select: any) => select({ userData: { id: "profile" } }) }));
+jest.mock("@tanstack/react-query", () => ({ useQueryClient: () => mockQueryClient }));
 jest.mock("@/controllers/API/api", () => ({ api: { get: jest.fn() } }));
 jest.mock("@/controllers/API/helpers/constants", () => ({ getURL: () => "/api/v1/flows" }));
 jest.mock("@/components/laomedoGitHubConnections/api", () => ({ connectionCapability: async () => true, connectionRequest: jest.fn(), ConnectionFailure: class extends Error { constructor(public code: string) { super(code); } } }));
@@ -36,17 +39,33 @@ beforeEach(() => { jest.clearAllMocks(); (connectionRequest as jest.Mock).mockRe
   (privateSkillRequest as jest.Mock).mockImplementation((action: string) => Promise.resolve(action === "discover" ? { skills: [{ choice: chosen }] } : { revisions: [origin] })); });
 
 test("source suggestions show the selected connection's repositories and saved sources for that connection", async () => {
-  (api.get as jest.Mock).mockResolvedValue({ data: [{ data: { nodes: [
+  (api.get as jest.Mock).mockResolvedValue({ data: [{ user_id: "profile", data: { nodes: [
     { data: { type: "LaomedoSkill", node: { template: { github_connection: { value: "selected" }, source: { value: "https://github.com/synthetic/earlier" } } } } },
     { data: { type: "LaomedoSkill", node: { template: { github_connection: { value: "other" }, source: { value: "https://github.com/other/private" } } } } },
   ] } }] });
   render(<SkillSourceSuggestions data={{ id: "skill", node: { template: { github_connection: { value: "selected" } } } }} />);
-  fireEvent.click(screen.getByRole("button", { name: "Choose a saved source or repository" }));
-  fireEvent.click(await screen.findByRole("button", { name: "https://github.com/synthetic/private" }));
+  fireEvent.click(screen.getByRole("button", { name: "Show sources and repositories" }));
+  fireEvent.click(await screen.findByRole("option", { name: "https://github.com/synthetic/private" }));
   expect(mockSourceChange).toHaveBeenCalledWith({ value: "https://github.com/synthetic/private" });
-  fireEvent.click(screen.getByRole("button", { name: "Choose a saved source or repository" }));
-  expect(await screen.findByRole("button", { name: "https://github.com/synthetic/earlier" })).toBeVisible();
+  fireEvent.click(screen.getByRole("button", { name: "Show sources and repositories" }));
+  expect(await screen.findByRole("option", { name: "https://github.com/synthetic/earlier" })).toBeVisible();
   expect(screen.queryByText("https://github.com/other/private")).toBeNull();
+});
+
+test("source combobox supports keyboard selection and ignores other profiles' saved workflows", async () => {
+  (api.get as jest.Mock).mockResolvedValue({ data: [
+    { user_id: "other-profile", data: { nodes: [{ data: { type: "LaomedoSkill", node: { template: { source: { value: "/other-user" } } } } }] } },
+    { user_id: "profile", data: { nodes: [{ data: { type: "LaomedoSkill", node: { template: { source: { value: "/my-source" } } } } }] } },
+  ] });
+  render(<SkillSourceSuggestions data={{ id: "skill", node: { template: {} } }} />);
+  const input = screen.getByRole("combobox", { name: "Source or Repository" });
+  fireEvent.focus(input);
+  expect(await screen.findByRole("option", { name: "/my-source" })).toBeVisible();
+  expect(screen.queryByText("/other-user")).toBeNull();
+  fireEvent.keyDown(input, { key: "ArrowDown" });
+  fireEvent.keyDown(input, { key: "Enter" });
+  expect(mockSourceChange).toHaveBeenCalledWith({ value: "/my-source" });
+  expect(input).toHaveAttribute("aria-expanded", "false");
 });
 
 test("selecting a connection clears the old anonymous error and discovers private skills", async () => {

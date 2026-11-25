@@ -130,7 +130,7 @@ const RenderInputParameters = ({
 
       return (
         <Fragment key={memoizedKey}>
-        <NodeInputField
+        {showNode && isSkillNode(data) && templateField === "source" && !(displayHandleMap.get(templateField) ?? false) ? <SkillSourceSuggestions data={data} /> : <NodeInputField
           lastInput={
             !(shownOutputs.length > 0 || showHiddenOutputs || (!advanced && advancedFields.length > 0)) &&
             idx === fields.length - 1
@@ -162,14 +162,13 @@ const RenderInputParameters = ({
               ? undefined
               : `${(((handleIdx + 1) / (handleFields.length + 1)) * 100).toFixed(2)}%`
           }
-        />
+        />}
         {showNode && templateField === "source" && skillSourceError(data) && (
           <div role="alert" data-testid="skill-source-error" className="px-5 pb-2 text-sm text-destructive">
             <NodeErrorNotice message={SKILL_SOURCE_ERROR_CODE} label={skillSourceError(data)}
               context={{ nodeId: data.id, nodeType: "LaomedoSkill" }} />
           </div>
         )}
-        {showNode && isSkillNode(data) && templateField === "source" && <SkillSourceSuggestions data={data} />}
         {showNode && templateField === "repository_url" && feedback && (
           <div role={feedback.error ? "alert" : "status"} data-testid="pr-source-feedback"
             className={`px-5 pb-2 text-sm ${feedback.error ? "text-destructive" : "text-muted-foreground"}`}>
