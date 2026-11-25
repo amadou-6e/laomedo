@@ -32,8 +32,10 @@ class ComponentCatalog:
     def audited_family(self, identity):
         """Require exact reviewed installed source, not a forgeable component class name."""
         component = self._index().get(identity, {})
-        name = identity.split("/", 1)[-1]
-        expected = AUDITED_COMPONENT_DIGESTS.get(name)
+        name = component.get("name") or identity.split("/", 1)[-1]
+        expected = (
+            AUDITED_COMPONENT_DIGESTS.get(name) if isinstance(name, str) else None
+        )
         code = component.get("template", {}).get("code", {}).get("value")
         if (
             expected

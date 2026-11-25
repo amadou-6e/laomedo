@@ -15,7 +15,9 @@ submit a model task. Real acceptance and independent review are pending.
 
 Audited adapters are exact-source Codex, Claude, OpenCode, Skill and MCPTools
 components. Other installed components expose static typed fields and compatible
-ports; unsupported dynamic fields remain explicit. Agent model depends on the
+ports; unsupported dynamic fields remain explicit. Adapter classification uses the
+installed template's canonical name, preserving its namespaced registry identity
+in saved graphs; exact reviewed source digests remain mandatory. Agent model depends on the
 explicit saved account, and effort depends on its selected model. Skill revisions
 are pinned within the existing host-level imported registry (the same registry
 already listed by `list_skills`); this feature introduces no private Skill owner.

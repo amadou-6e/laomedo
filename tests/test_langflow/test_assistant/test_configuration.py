@@ -168,6 +168,33 @@ class ConfigurationTests(unittest.IsolatedAsyncioTestCase):
                     "low",
                 )
 
+    async def test_namespaced_installed_adapter_resolves_with_its_exact_source_digest(
+        self,
+    ):
+        component = self.catalog.snapshot["laomedo"].pop("LaomedoCodexAgent")
+        name = "ext:laomedo:LaomedoCodexAgent@extra"
+        component.update(name="LaomedoCodexAgent", namespaced_id=name)
+        self.catalog.snapshot["laomedo"][name] = component
+        self.identity = "laomedo/" + name
+        result = await self.resolved()
+        self.assertEqual(
+            self.catalog.audited_family(self.identity), "LaomedoCodexAgent"
+        )
+        self.assertEqual(result["fields"]["provider_connection"], str(self.connection))
+        description = self.catalog.describe(self.identity)
+        self.assertEqual(description["configuration_support"], "audited_adapter")
+        node = DraftNode(
+            key="agent",
+            component_type=self.identity,
+            fields=result["fields"],
+            resolution_id=UUID(result["resolution_id"]),
+        )
+        await self.configuration.prepare(self.context, self.catalog, [node])
+        data, _ = self.catalog.compile(DraftGraph(nodes=[node]))
+        self.assertEqual(data["nodes"][0]["data"]["type"], name)
+        component["template"]["code"]["value"] += "\n# unreviewed change"
+        self.assertIsNone(self.catalog.audited_family(self.identity))
+
     async def test_missing_account_never_discovers_models_or_selects_an_ambient_default(
         self,
     ):
