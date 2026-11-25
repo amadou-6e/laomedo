@@ -66,6 +66,31 @@ Project it through `LeaseCleanupObservation`: no result means no cleanup fact,
 not false. The sidecar's lease cleanup boolean covers only that leased resource.
 The existing public fail-closed status/category wins even beside verified cleanup.
 Fresh native answers, counters and completion never establish Resume success.
+# Native assistant commands
+
+`commands.py` owns `CodexCommands.validate` (fixed built-in argument policy),
+`admit` (exact native catalog revision/name) and `project` (bounded discovery,
+including unavailable commands). Descriptions are never authority. The initial
+admitted commands are status, mcp, skills, review and compact. Branch/commit
+reviews are unavailable because the assistant uses scratch space, not a selected
+repository; account, title, autonomous-goal and configuration controls are excluded.
+
+`CodexAgentRuntime.command_catalog` observes the current ACP session without a
+request. Explicit command mode is carried in the resume identity, never inferred
+from prompt text. `prompt(..., command=...)` preserves strict native evidence for
+model commands. `CodexCommandResult` in `controller/models.py` describes a native
+control response without inventing a model turn ID or usage. Control completion
+requires actual ACP end-turn text and no native turn events. Agent settlement
+retains these as separate command receipts and preserves workspace checkpoints.
+# Initial status
+
+Codex admits `initial_native_command="status"` only with the exact task `/status`,
+without output requirements or GitHub mediation. It opens the fresh native
+session, observes the actual supported command catalog, and executes the existing
+non-model control path with that catalog revision. The normal retained run,
+thread, Activity, cleanup and workspace checkpoint support subsequent resume.
+Absent handler support or advertisement fails before a prompt; no model fallback.
+
 
 
 ## Saved-account quota discovery
@@ -117,3 +142,95 @@ native saved connections can be exposed.
 Native identity projections are validated by `CodexConnection.validate_native_identity`,
 which rejects a public observation that does not match the saved account binding.
 The shared saved-connection facade delegates this provider-specific validation.
+
+## Zero-turn session lifetime (implementation in progress)
+
+The user selected retaining the actual Codex controller between an initial
+`/status` and the first model message. A status receipt is completed independently
+of native-resource cleanup. It does not claim a persisted model conversation.
+
+- `CodexSessionOwner` in `session.py` owns the dedicated native event-loop thread
+  and its event loop. `run()` executes on that thread; `close()` shuts down
+  the loop after the Agent drains its native resources. `IdleCodexSession` in
+  `models.py` groups the exact runtime, cancellation, lease and ownership values. No provider
+  object is reconstructed from a saved pointer after restart.
+- `CodexAgent` retains only successful zero-model-turn command sessions. The first
+  ordinary message uses the same ACP session and native thread, with the selected
+  model/effort configured in place. After a materialized model turn the normal
+  close-and-resume path applies. Missing live state never creates another thread
+  or submits a replacement prompt.
+- The retained MCP registration keeps the native tool endpoint stable. Host tool
+  authority is removed after status and remains unavailable while idle. Before
+  the next message the assistant binds that endpoint to the newly authorized
+  message context for the exact owner/conversation/account/generation. The frozen
+  manifest cannot expand. After the first normal turn the registration is revoked.
+- `BaseAgent.has_live_session(run_id)` reports actual in-memory ownership; its
+  default is false. `BaseAgent.close()` is the shared teardown entry point. The
+  saved-account manager uses these declared methods for settlement, disconnect
+  inventory, cancellation and shutdown. Durable completed status receipts are
+  not treated as proof that retained resources are absent.
+- Idle resources stay under the same Docker ownership receipt, daemon, profile
+  and native identity. Account revocation, cancellation, idle expiry, process
+  failure and shutdown close that ownership; cleanup uncertainty stays explicit.
+  A fresh credential observation is required before the first model turn.
+  Routine token rotation for the same admitted account updates the existing
+  controller with `CodexAgentRuntime.refresh_credential(token)`. Account identity
+  and generation changes still refuse before dispatch; no thread is replaced.
+- Managed SIWC uses pinned native command-backed bearer authentication. The fixed
+  `/bin/cat /tmp/laomedo-provider-auth/access-token` helper reads a controller-only
+  0600 file inside a 0700 noexec tmpfs, outside persistent profiles and tool mounts.
+  `LaomedoLaunch.writeProviderCredential` atomically replaces that file; launch
+  preparation removes ACCESS_TOKEN from the native child environment. The native
+  provider retains https://api.openai.com/v1, Responses and HTTP streaming.
+  `LaomedoExtension.refreshCredential` is a host-only ACP extension, requires the
+  managed split executor, rejects updates during prompting and acknowledges only
+  after the pinned 1 ms bearer cache expires. No paths, commands, refresh tokens
+  or native RPC methods are supplied by callers. The Python runtime redacts each
+  replacement token before sending it. Missing capability or uncertain update
+  refuses dispatch and triggers normal owned cleanup.
+  This managed credential path applies to graph and assistant saved-account runs.
+  Both require the registered commands4 adapter capability; an explicit older
+  image override is refused before inference rather than using stale credentials.
+- Restart reconciles the retained resource receipt and marks that zero-turn
+  session unavailable. It cannot claim the native thread survived: Codex has not
+  written a rollout before its first user turn.
+
+Acceptance requires real `/status`, first model message and contextual follow-up
+with one native thread, working Laomedo MCP under the new message context, and
+confirmed idle cleanup on shutdown/disconnect. Unit tests alone do not establish
+that acceptance. This section describes the selected target, not completed work.
+
+`controller/settings.py` owns `Settings.idle_session_seconds`
+(`LAOMEDO_CODEX_IDLE_SESSION_SECONDS`, default 3600). It bounds unused resources;
+it does not reduce the existing model-turn execution budget. Expired or
+lost zero-turn sessions require an explicit new conversation.
+
+## Idle OAuth renewal
+
+`CodexAgentRuntime.check_health(idle=True)` checks the same saved-account identity
+and connection epoch as active execution. Only an idle controller may wait up to
+30 seconds for `refresh_in_flight` (the broker HTTP timeout is 20 seconds). It
+never dispatches inference in that state. Unknown renewal, revoked admission,
+changed identity/epoch or a stuck refresh closes the controller. Resume must
+borrow an active token and confirm its native update before any prompt.
+`live_session_close_reason` retains a fixed sanitized reason for idle cleanup;
+unrecognized health errors become `health_lost`, never arbitrary exception text.
+
+Bundled system skills are distinct native command rows. CodexCommands.skill_reason checks native system scope, exact path, enabled state and uniqueness before the pinned capability policy admits a skill. The adapter rechecks native skills/list and the image manifest immediately before injecting the structured skill input. System extraction uses a bounded disposable controller tmpfs; public bundled helper files also ship read-only in the credential-free worker image. No host or personal skills are mounted. Skill-creator uses the existing approved model-turn path; other bundled requirements remain explicit.
+
+CodexCommands.validate_skill_mentions mirrors the pinned native ASCII dollar-token and linked-path rules: an ordinary message cannot implicitly invoke a bundled skill, and approved arguments cannot invoke another one. Currency-like dollar text stays ordinary chat. CodexSkillReceipt binds verified structured input to a unique invocation and the native root turn; skill_receipt requires it between that turn's start and completion. The adapter receipt is labelled separately from original native events and retained in the command outcome.
+
+OpenAI Docs remains visible but unavailable: live acceptance confirmed that the
+runner does not expose the native search/open capability required by its bundled
+instructions. The CLI's cached-search default alone does not establish tool
+availability. Skill discovery never adds a host MCP service or relaxes networking.
+
+The worker's temporary home deliberately contains no credentials. Before starting
+its native exec server, it links the canonical system-skill path to the image's
+root-owned, read-only `/opt/acp/system-skills` tree. Thus the temporary home cannot
+hide bundled validators or references; the controller still extracts and verifies
+its own native system-skill tree independently.
+
+Native saved-account writer custody spans retained zero-turn sessions as well as
+active turns. The same run reuses its existing writer lease; idle cancellation,
+expiry and shutdown release it only after attempting exact controller cleanup.

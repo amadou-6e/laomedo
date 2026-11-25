@@ -37,8 +37,9 @@ describe("assistant request authority and uncertain dispatch", () => {
       method: "POST",
       credentials: "same-origin",
       cache: "no-store",
-      headers: { Authorization: "Bearer fixture-app-session" },
+      headers: { "Content-Type": "application/json" },
     });
+    expect(fetcher.mock.calls[0][1]?.headers).not.toHaveProperty("Authorization");
   });
 
   it("locks on expired authority without attempting authentication refresh", async () => {

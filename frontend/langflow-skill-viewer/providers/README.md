@@ -8,6 +8,8 @@ connection Settings stylesheet from `feat/286` at `e7b0fa93`; the same `gc-*`
 panel, heading, account row, detail and navigation classes are used directly.
 Back and Refresh remain
 icon buttons below the card. Refresh never starts authentication.
+Background status polling keeps form fields enabled so it cannot interrupt focus
+or text selection. Explicit submissions retain the in-flight operation guard.
 
 Returning sign-in attempts start on a stable, centered Langflow handoff rather
 than briefly rendering the account-list header. Confirmed saves and duplicates

@@ -11,6 +11,46 @@ from laomedo.agents.agents.opencode.settings import MIN_TOKEN_REMAINING_MS
 from laomedo.agents.errors import RunnerError
 import secrets
 import time
+import os
+import shutil
+import stat
+from functools import partial
+
+
+def remove_controller_directory(root: Path, profile: Path) -> None:
+    """Remove only a verified owned staging child, including read-only copies."""
+    if (
+        not re.fullmatch(r"controller-[0-9a-f]{32}", root.name)
+        or root.is_symlink()
+        or root.resolve().parent != profile.resolve()
+    ):
+        raise OSError("opencode_container_cleanup_unverified")
+    try:
+        observed = root.lstat()
+        if getattr(observed, "st_file_attributes", 0) & getattr(
+            stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400
+        ):
+            raise OSError("opencode_container_cleanup_unverified")
+        shutil.rmtree(root, onerror=partial(_remove_readonly_controller_file, root))
+    except FileNotFoundError:
+        if os.path.lexists(root):
+            raise
+
+
+def _remove_readonly_controller_file(root, function, path, error):
+    """Retry a Windows read-only owned copy once; preserve other failures."""
+    target = Path(path)
+    if (
+        not isinstance(error[1], PermissionError)
+        or target.is_symlink()
+        or not target.resolve().is_relative_to(root.resolve())
+        or not getattr(target.stat(), "st_file_attributes", 0)
+        & getattr(stat, "FILE_ATTRIBUTE_READONLY", 1)
+        or function not in {os.unlink, os.rmdir}
+    ):
+        raise error[1]
+    target.chmod(target.stat().st_mode | stat.S_IWRITE)
+    function(path)
 
 
 def check_auth_fresh(profile, *, minimum_validity_seconds=None):

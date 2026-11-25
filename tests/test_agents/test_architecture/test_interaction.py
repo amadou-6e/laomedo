@@ -9,6 +9,7 @@ import unittest
 from unittest.mock import patch
 
 from laomedo.agents.agents.base.agent import BaseAgent
+from laomedo.agents.agents.base.models import NativeCommandInvocation
 from laomedo.agents.agents.claude.agent import ClaudeAgent
 from laomedo.agents.agents.codex.agent import CodexAgent
 from laomedo.agents.agents.opencode.agent import OpenCodeAgent
@@ -42,6 +43,27 @@ class InteractionContractTests(unittest.TestCase):
                             implementation.parameters[parameter].default,
                         )
                     self.assertFalse(inspect.iscoroutinefunction(getattr(kind, name)))
+
+    def test_unsupported_native_commands_refuse_before_record_access(self):
+        for kind in (ClaudeAgent, OpenCodeAgent):
+            with self.subTest(provider=kind.provider):
+                agent = object.__new__(kind)
+                with patch.object(agent, "status") as status:
+                    with self.assertRaisesRegex(
+                        RunnerError, "native_command_not_supported"
+                    ):
+                        agent.resume(
+                            "not-admitted",
+                            "/status",
+                            expected_post_run_hash="hash",
+                            expected_thread_id="thread",
+                            model="model",
+                            effort="default",
+                            native_command=NativeCommandInvocation(
+                                name="status", catalog_revision="a" * 64
+                            ),
+                        )
+                    status.assert_not_called()
 
     def test_unsupported_timeout_refuses_resume_before_record_access(self):
         for kind in (CodexAgent, OpenCodeAgent):

@@ -1,41 +1,50 @@
-import GraphPermissions from "./GraphPermissions";
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { useSearchParams } from "react-router-dom";
+import useConversationExport from "./conversation/useConversationExport";
+import useSavedAccounts from "./composer/useSavedAccounts";
+import useModelDiscovery from "./composer/useModelDiscovery";
+import MessageList from "./messages/MessageList";
+import ConversationHistory from "./history/ConversationHistory";
+import Composer from "./composer/Composer";
+import Welcome from "./conversation/Welcome";
+import ConversationTitle from "./conversation/ConversationTitle";
 import {
-  Plus,
-  ChevronLeft,
-  ChevronRight,
-  ArrowUp,
-  Square,
-  Workflow,
-  MessageSquare,
-  Check,
-  Sparkles,
-  Download,
-  History,
-} from "lucide-react";
-import { OpenAiIcon } from "@/icons/OpenAi";
-import { Button } from "@/components/ui/button";
-import useAuthStore from "@/stores/authStore";
+  applicationCommands,
+  providerCommandNames,
+  codexBundledSkillNames,
+  codexSkillMentions,
+} from "./commands/commandPreviews";
+import GraphPermissions from "./graphs/GraphPermissions";
+import {
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+  type FormEvent,
+} from "react";
+import { useSearchParams } from "react-router-dom";
+import { Download, History } from "lucide-react";
+import { AuthContext } from "@/contexts/authContext";
 import { describeNodeFailure } from "@/components/laomedoErrors/nodeErrors";
 import ErrorExplanation from "@/components/laomedoErrors/ErrorExplanation";
 import { AssistantFailure, assistantRequest } from "./api";
-import MessageRow, { UserMessage } from "./Message";
-import Thinking from "./Thinking";
-import ModelSelection from "./ModelSelection";
 import type {
   ConversationDetail,
   Conversation,
   ConversationIndex,
   Message,
-  Models,
   PendingSubmission,
+  NativeCommandCatalog,
 } from "./models";
-import { stateLabel } from "./models";
-import { conversationTranscript, downloadTranscript } from "./transcript";
-import DeleteConversation from "./DeleteConversation";
+import DeleteConversation from "./conversation/DeleteConversation";
 
-export default function AssistantPage({ embedded = false, selectedConversation, linkedConversation, onSelectConversation, headerActions }: {
+export default function AssistantPage({
+  embedded = false,
+  selectedConversation,
+  linkedConversation,
+  onSelectConversation,
+  headerActions,
+}: {
   embedded?: boolean;
   headerActions?: ReactNode;
   selectedConversation?: string;
@@ -43,10 +52,14 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
   onSelectConversation?: (selection: Record<string, string>) => void;
 } = {}) {
   const RootTag = embedded ? "section" : "main";
-  const owner = useAuthStore((state) => state.userData?.id);
+  const owner = useContext(AuthContext).userData?.id;
   const [params, setRouteParams] = useSearchParams();
-  const selected = embedded ? selectedConversation ?? "" : params.get("conversation") ?? "";
-  const linked = embedded ? linkedConversation ?? "" : params.get("linked") ?? "";
+  const selected = embedded
+    ? (selectedConversation ?? "")
+    : (params.get("conversation") ?? "");
+  const linked = embedded
+    ? (linkedConversation ?? "")
+    : (params.get("linked") ?? "");
   const setParams = (selection: Record<string, string>) => {
     if (embedded) onSelectConversation?.(selection);
     else setRouteParams(selection);
@@ -56,10 +69,30 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
     next_cursor: null,
   });
   const [detail, setDetail] = useState<ConversationDetail>();
-  const [models, setModels] = useState<Models>();
-  const [model, setModel] = useState("");
-  const [effort, setEffort] = useState("");
+  const [provider, setProvider] = useState("codex");
+  const selectedProvider =
+    detail?.conversation.id === selected
+      ? detail.conversation.provider
+      : index.conversations.find((item) => item.id === selected)?.provider;
+  const providerKnown = !selected || Boolean(selectedProvider);
+  const chosenProvider = selected ? (selectedProvider ?? "codex") : provider;
+  const providerRef = useRef(chosenProvider);
+  providerRef.current = chosenProvider;
   const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const retainSettingsDraft = (nextDrafts = drafts) => {
+    if (!owner || locked) return false;
+    try {
+      sessionStorage.setItem(
+        `laomedo.assistant.settings-drafts.${owner}`,
+        JSON.stringify({ drafts: nextDrafts, provider }),
+      );
+      return true;
+    } catch {
+      return window.confirm(
+        "Your draft could not be saved. Leave chat and discard it?",
+      );
+    }
+  };
   const [pending, setPending] = useState<Record<string, PendingSubmission>>({});
   const [retryable, setRetryable] = useState<Record<string, boolean>>({});
   const [pendingOwner, setPendingOwner] = useState<string>();
@@ -67,47 +100,28 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
   const [error, setError] = useState<string>();
   const [locked, setLocked] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [commandsDismissed, setCommandsDismissed] = useState(false);
   const [history, setHistory] = useState(!embedded);
   const [renaming, setRenaming] = useState<string>();
   const [titleDraft, setTitleDraft] = useState("");
   const [savingTitle, setSavingTitle] = useState(false);
   const [renameError, setRenameError] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [exporting, setExporting] = useState(false);
-  const [exportError, setExportError] = useState(false);
-  const exportController = useRef<AbortController>();
   const generation = useRef(0);
   const scroll = useRef<HTMLDivElement>(null);
   const pinned = useRef(true);
   const currentSelection = useRef(selected);
+  const nativeSubmission = useRef<{
+    conversation: string;
+    text: string;
+    request: {
+      name: string;
+      arguments: string;
+      catalog_revision: string;
+      operation_key: string;
+    };
+  } | undefined>(undefined);
   currentSelection.current = selected;
-
-  useEffect(() => {
-    setExporting(false);
-    setExportError(false);
-    return () => exportController.current?.abort();
-  }, [selected, owner, locked]);
-
-  async function exportConversation() {
-    if (!selected || exporting || locked) return;
-    const controller = new AbortController();
-    exportController.current = controller;
-    const epoch = generation.current, identity = selected;
-    setExporting(true);
-    setExportError(false);
-    try {
-      const result = await conversationTranscript(identity, controller.signal);
-      if (!controller.signal.aborted && epoch === generation.current && currentSelection.current === identity)
-        downloadTranscript(result.text, result.filename);
-    } catch (failure) {
-      if (!controller.signal.aborted && epoch === generation.current && currentSelection.current === identity) {
-        setExportError(true);
-        if (failure instanceof AssistantFailure && failure.code === "assistant_session_locked") fail(failure);
-      }
-    } finally {
-      if (exportController.current === controller) setExporting(false);
-    }
-  }
 
   useEffect(() => {
     setRenaming(undefined);
@@ -136,6 +150,10 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
         try {
           if (owner)
             sessionStorage.removeItem(`laomedo.assistant.pending.${owner}`);
+          if (owner)
+            sessionStorage.removeItem(
+              `laomedo.assistant.settings-drafts.${owner}`,
+            );
         } catch {
           /* Rendered private state is already cleared. */
         }
@@ -143,6 +161,43 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
     },
     [owner],
   );
+
+  const { accounts, accountsLoading, accountsOwner, account, setAccount } =
+    useSavedAccounts({ owner, locked, selected, chosenProvider, fail });
+  const boundAccount = selected
+    ? detail?.conversation.id === selected
+      ? detail.conversation
+      : index.conversations.find((item) => item.id === selected)
+    : undefined;
+  const connectionId =
+    owner && accountsOwner === owner
+      ? selected
+        ? boundAccount?.connection_id
+        : account?.provider === chosenProvider
+          ? account.connection_id
+          : undefined
+      : undefined;
+  const connectionGeneration =
+    owner && accountsOwner === owner
+      ? selected
+        ? boundAccount?.connection_generation
+        : account?.provider === chosenProvider
+          ? account.generation
+          : undefined
+      : undefined;
+  const binding = `${chosenProvider}:${connectionId ?? ""}:${connectionGeneration ?? ""}`;
+  const bindingRef = useRef(binding);
+  bindingRef.current = binding;
+
+  const { exporting, exportError, exportConversation, exportController } =
+    useConversationExport({
+      selected,
+      owner,
+      locked,
+      generation,
+      currentSelection,
+      fail,
+    });
 
   const follow = useCallback(() => {
     if (pinned.current && scroll.current)
@@ -166,11 +221,38 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
         sessionStorage.removeItem(
           `laomedo.assistant.pending.${previousOwner.current}`,
         );
+      if (previousOwner.current && previousOwner.current !== owner)
+        sessionStorage.removeItem(
+          `laomedo.assistant.settings-drafts.${previousOwner.current}`,
+        );
     } catch {
       /* No storage access may block a profile fence. */
     }
     previousOwner.current = owner;
     if (owner) {
+      try {
+        const key = `laomedo.assistant.settings-drafts.${owner}`;
+        const retained = JSON.parse(sessionStorage.getItem(key) ?? "null");
+        sessionStorage.removeItem(key);
+        if (
+          retained &&
+          ["codex", "claude", "opencode"].includes(retained.provider) &&
+          retained.drafts &&
+          typeof retained.drafts === "object" &&
+          !Array.isArray(retained.drafts) &&
+          Object.entries(retained.drafts).every(
+            ([key, text]) =>
+              (key === "" || /^[0-9a-f-]{36}$/.test(key)) &&
+              typeof text === "string" &&
+              text.length <= 12000,
+          )
+        ) {
+          setDrafts(retained.drafts);
+          setProvider(retained.provider);
+        }
+      } catch {
+        /* Corrupt or unavailable browser storage never changes admission. */
+      }
       try {
         const restored = JSON.parse(
           sessionStorage.getItem(`laomedo.assistant.pending.${owner}`) ?? "{}",
@@ -185,6 +267,9 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
               /^[0-9a-f-]{36}$/.test(row.id) &&
               typeof row?.text === "string" &&
               row.text.length <= 12000 &&
+              (row.initial_native_command === undefined ||
+                (row.initial_native_command === "status" &&
+                  row.text === "/status")) &&
               ((row.model === undefined && row.effort === undefined) ||
                 (typeof row.model === "string" &&
                   typeof row.effort === "string")),
@@ -338,72 +423,71 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
     };
   }, [refresh, selected, owner, locked, fail]);
 
-  const discover = useCallback(async () => {
-    const epoch = generation.current;
-    setBusy(true);
-    setError(undefined);
-    try {
-      const result = await assistantRequest<Models>("/models");
-      if (epoch === generation.current) setModels(result);
-    } catch (failure) {
-      if (epoch === generation.current) fail(failure);
-    } finally {
-      if (epoch === generation.current) setBusy(false);
-    }
-  }, [fail]);
-
-  useEffect(() => {
-    if (!locked) void discover();
-  }, [selected, locked, discover]);
-
-  const boundSelection = useRef("");
-  useEffect(() => {
-    if (!selected) {
-      boundSelection.current = "";
-    } else if (
-      detail?.conversation.id === selected &&
-      boundSelection.current !== selected
-    ) {
-      boundSelection.current = selected;
-      setModel(detail.conversation.model);
-      setEffort(detail.conversation.effort);
-    }
-  }, [selected, detail?.conversation.id]);
-
-  useEffect(() => {
-    if (selected || !models) return;
-    const recent = index.conversations.find((conversation) =>
-      models.models.some(
-        (choice) =>
-          choice.id === conversation.model &&
-          choice.efforts.includes(conversation.effort),
-      ),
-    );
-    const choice =
-      models.models.find((item) => item.id === model && item.efforts.length) ??
-      models.models.find((item) => item.id === recent?.model) ??
-      models.models.find((item) => item.efforts.length);
-    if (!choice) return;
-    setModel(choice.id);
-    setEffort(
-      choice.efforts.includes(effort)
-        ? effort
-        : recent && choice.id === recent.model
-          ? recent.effort
-          : choice.efforts[0],
-    );
-  }, [selected, models, model, effort, index.conversations]);
+  const {
+    models,
+    setModels,
+    model,
+    setModel,
+    effort,
+    setEffort,
+    discovering,
+    boundSelection,
+  } = useModelDiscovery({
+    selected,
+    locked,
+    providerKnown,
+    chosenProvider,
+    connectionId,
+    connectionGeneration,
+    binding,
+    generation,
+    bindingRef,
+    fail,
+    clearError: () => setError(undefined),
+    detail,
+    index,
+  });
 
   async function create() {
     return assistantRequest<{ id: string }>("/conversations", {
-      provider: "codex",
+      provider,
+      connection_id: connectionId,
+      connection_generation: connectionGeneration,
       model,
       effort,
       ...(linked ? { linked_conversation_id: linked } : {}),
     });
   }
 
+  function clearCommandInputError() {
+    setError((value) =>
+      value &&
+      [
+        "native_command_not_available",
+        "native_command_not_supported",
+        "native_command_arguments_invalid",
+        "native_command_catalog_changed",
+        "native_skill_approval_required",
+      ].includes(value)
+        ? undefined
+        : value,
+    );
+  }
+
   async function send(retry?: PendingSubmission) {
+    if (!retry && appCommand && canUseAppCommand) {
+      const nextDrafts = { ...drafts, [selected]: "" };
+      if (appCommand.action === "accounts") {
+        if (retainSettingsDraft(nextDrafts))
+          window.location.assign("/settings/providers");
+      } else if (conversation) {
+        setTitleDraft(conversation.title);
+        setRenaming(conversation.id);
+        setDrafts(nextDrafts);
+        setCommandsDismissed(true);
+      }
+      return;
+    }
     if (!retry && !canSend) return;
     const text = retry?.text ?? drafts[selected] ?? "";
     if (
@@ -415,7 +499,18 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
     )
       return;
     const epoch = generation.current;
-    const identity = retry ?? { id: crypto.randomUUID(), text, model, effort };
+    const initialStatus =
+      text.trim() === "/status" &&
+      chosenProvider === "codex" &&
+      (!selected ||
+        (detail?.conversation.id === selected && !detail.conversation.run_id));
+    const identity: PendingSubmission = retry ?? {
+      id: crypto.randomUUID(),
+      text: initialStatus ? "/status" : text,
+      model,
+      effort,
+      ...(initialStatus ? { initial_native_command: "status" as const } : {}),
+    };
     let target = selected;
     let acknowledged = false;
     if (
@@ -423,7 +518,9 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
       (pending[selected]?.id !== retry.id ||
         pending[selected]?.text !== retry.text ||
         pending[selected]?.model !== retry.model ||
-        pending[selected]?.effort !== retry.effort)
+        pending[selected]?.effort !== retry.effort ||
+        pending[selected]?.initial_native_command !==
+          retry.initial_native_command)
     )
       return;
     setBusy(true);
@@ -431,6 +528,102 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
     setError(undefined);
     pinned.current = true;
     try {
+      if (
+        (text.startsWith("/") ||
+          (chosenProvider === "codex" && text.startsWith("$"))) &&
+        !identity.initial_native_command
+      ) {
+        let submission = nativeSubmission.current;
+        if (
+          !submission ||
+          submission.conversation !== target ||
+          submission.text !== text
+        ) {
+          submission = undefined;
+          const parsed = /^([/$])([^\s]+)(?: (.*))?$/.exec(text);
+          const match = parsed
+            ? [parsed[0], (parsed[1] === "$" ? "$" : "") + parsed[2], parsed[3]]
+            : null;
+          if (
+            chosenProvider === "codex" &&
+            codexSkillMentions(text).some((name) => name !== match?.[1])
+          )
+            throw new AssistantFailure("native_skill_approval_required");
+          if (
+            text.startsWith("$") &&
+            codexBundledSkillNames.includes(match?.[1] ?? "") &&
+            (!target || !detail?.conversation.run_id)
+          )
+            throw new AssistantFailure("native_command_not_available");
+          if (
+            (!target || !detail?.conversation.run_id) &&
+            (providerCommandNames[chosenProvider] ?? []).includes(
+              match?.[1] ?? "",
+            )
+          ) {
+            throw new AssistantFailure("native_command_not_available");
+          }
+          if (target && match) {
+            const catalog = await assistantRequest<NativeCommandCatalog>(
+              `/conversations/${target}/native-commands`,
+            );
+            if (
+              epoch !== generation.current ||
+              currentSelection.current !== target
+            )
+              return;
+            const command = catalog.commands?.find(
+              (item) => item.name === match[1],
+            );
+            if (
+              (catalog.state !== "available" &&
+                catalog.reason !== "native_session_not_created") ||
+              (!command &&
+                (providerCommandNames[chosenProvider] ?? []).includes(match[1]))
+            ) {
+              throw new AssistantFailure("native_command_not_available");
+            }
+            if (command && !command.executable)
+              throw new AssistantFailure("native_command_not_supported");
+            if (command) {
+              const args = match[2] ?? "";
+              if (!catalog.revision || (args && !command.accepts_arguments))
+                throw new AssistantFailure("native_command_arguments_invalid");
+              submission = {
+                conversation: target,
+                text,
+                request: {
+                  name: command.name,
+                  arguments: args,
+                  catalog_revision: catalog.revision,
+                  operation_key: crypto.randomUUID(),
+                },
+              };
+              nativeSubmission.current = submission;
+            }
+          }
+        }
+        if (submission) {
+          await assistantRequest(
+            `/conversations/${target}/native-commands`,
+            submission.request,
+          );
+          if (
+            epoch !== generation.current ||
+            currentSelection.current !== target
+          )
+            return;
+          nativeSubmission.current = undefined;
+          setDrafts((value) => ({
+            ...value,
+            [target]: value[target] === text ? "" : (value[target] ?? ""),
+          }));
+          await refresh();
+          return;
+        }
+      }
+      if (chosenProvider === "codex" && codexSkillMentions(text).length)
+        throw new AssistantFailure("native_skill_approval_required");
       if (!target) {
         const created = await create();
         if (
@@ -449,7 +642,11 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
         throw new AssistantFailure("assistant_client_state_unavailable");
       }
       setPending((value) => ({ ...value, [target]: identity }));
-      setDrafts((value) => ({ ...value, [selected]: "" }));
+      setDrafts((value) => {
+        const nextDraft =
+          value[selected] === text ? "" : (value[selected] ?? "");
+        return { ...value, [selected]: "", [target]: nextDraft };
+      });
       requestAnimationFrame(follow);
       if (!selected) setParams({ conversation: target });
       await assistantRequest<Message>(`/conversations/${target}/messages`, {
@@ -457,6 +654,9 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
         text: identity.text,
         model: identity.model,
         effort: identity.effort,
+        ...(identity.initial_native_command
+          ? { initial_native_command: identity.initial_native_command }
+          : {}),
       });
       acknowledged = true;
       if (epoch !== generation.current) return;
@@ -478,12 +678,63 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
           delete next[target];
           return next;
         });
-        setDrafts((value) => ({ ...value, [target]: identity.text }));
+        setDrafts((value) => ({
+          ...value,
+          [target]:
+            value[target] && value[target] !== identity.text
+              ? `${identity.text}\n\n${value[target]}`
+              : identity.text,
+        }));
       } else {
         setRetryable((value) => ({ ...value, [identity.id]: true }));
       }
     } finally {
       if (epoch === generation.current) setBusy(false);
+    }
+  }
+
+  async function saveTitle(event: FormEvent) {
+    if (!conversation) return;
+    event.preventDefault();
+    if (savingTitle || !titleDraft.trim()) return;
+    const identifier = conversation.id;
+    const version = generation.current;
+    setSavingTitle(true);
+    setRenameError(false);
+    try {
+      const renamed = await assistantRequest<Conversation>(
+        `/conversations/${identifier}`,
+        { title: titleDraft },
+        undefined,
+        "PATCH",
+      );
+      if (version !== generation.current) return;
+      setIndex((current) => ({
+        ...current,
+        conversations: current.conversations.map((row) =>
+          row.id === identifier ? renamed : row,
+        ),
+      }));
+      setDetail((current) =>
+        current?.conversation.id === identifier
+          ? { ...current, conversation: renamed }
+          : current,
+      );
+      setRenaming(undefined);
+    } catch (error) {
+      if (version === generation.current) {
+        if (
+          error instanceof AssistantFailure &&
+          [
+            "assistant_session_locked",
+            "assistant_native_session_required",
+          ].includes(error.code)
+        )
+          fail(error);
+        else setRenameError(true);
+      }
+    } finally {
+      setSavingTitle(false);
     }
   }
 
@@ -536,33 +787,12 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
     }
   }
 
-  async function olderConversations() {
-    if (index.next_cursor === null) return;
-    const epoch = generation.current;
-    try {
-      const page = await assistantRequest<ConversationIndex>(
-        `/conversations?cursor=${index.next_cursor}`,
-      );
-      if (epoch !== generation.current) return;
-      setIndex((current) => ({
-        ...page,
-        conversations: [
-          ...current.conversations,
-          ...page.conversations.filter(
-            (row) =>
-              !current.conversations.some((existing) => existing.id === row.id),
-          ),
-        ],
-      }));
-    } catch (failure) {
-      if (epoch === generation.current) fail(failure);
-    }
-  }
-
   if (locked)
     return (
       <RootTag className="m-auto max-w-lg space-y-4 p-8">
-        {headerActions && <div className="flex justify-end gap-2">{headerActions}</div>}
+        {headerActions && (
+          <div className="flex justify-end gap-2">{headerActions}</div>
+        )}
         <h1 className="text-xl font-semibold">Profile locked</h1>
         <p className="text-sm text-muted-foreground">
           Chat details are hidden and tool access has been revoked. Sign in
@@ -576,26 +806,80 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
         </a>
       </RootTag>
     );
-  const historyControl = embedded && <button type="button"
-    aria-label={history ? "Collapse conversations" : "Expand conversations"}
-    title={history ? "Collapse conversations" : "Expand conversations"}
-    aria-expanded={history} onClick={() => setHistory(!history)}
-    className="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline focus-visible:outline-2">
-    <History size={16} aria-hidden="true" />
-  </button>;
+  const historyControl = embedded && (
+    <button
+      type="button"
+      aria-label={history ? "Collapse conversations" : "Expand conversations"}
+      title={history ? "Collapse conversations" : "Expand conversations"}
+      aria-expanded={history}
+      onClick={() => setHistory(!history)}
+      className="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline focus-visible:outline-2"
+    >
+      <History size={16} aria-hidden="true" />
+    </button>
+  );
   const conversation = detail?.conversation;
   const active = Boolean(conversation?.active_message_id);
   const needsAttention = conversation?.state === "attention";
   const waiting = pending[selected];
+  const providerName =
+    (
+      { codex: "Codex", claude: "Claude", opencode: "OpenCode" } as Record<
+        string,
+        string
+      >
+    )[chosenProvider] ?? chosenProvider;
+  const providerAccounts = accounts.filter(
+    (item) =>
+      item.provider === chosenProvider && item.lifecycle === "connected",
+  );
+  const composerStatus = error
+    ? undefined
+    : accountsLoading
+      ? "Loading accounts…"
+      : !providerAccounts.length
+        ? `Connect a ${providerName} account in Settings → Providers to chat.`
+        : !connectionId
+          ? undefined
+          : discovering
+            ? `Loading ${providerName} models…`
+            : models && !models.models.length
+              ? "No models were returned for this account."
+              : undefined;
   const canSend = Boolean(
-    (!selected || conversation?.state === "idle") &&
+    connectionId &&
+      connectionGeneration &&
+      accounts.some(
+        (item) =>
+          item.connection_id === connectionId &&
+          item.generation === connectionGeneration &&
+          item.lifecycle === "connected",
+      ) &&
+      (!selected || conversation?.state === "idle") &&
       model &&
       effort &&
       !active &&
       !waiting &&
       !busy &&
+      !discovering &&
       !detail?.observation_error &&
-      !error,
+      ![
+        "assistant_dispatch_unknown",
+        "assistant_connection_unavailable",
+      ].includes(error ?? ""),
+  );
+  const appCommand = (applicationCommands[chosenProvider] ?? []).find(
+    (item) => `/${item.name}` === (drafts[selected] ?? "").trim(),
+  );
+  const canUseAppCommand = Boolean(
+    appCommand &&
+      owner &&
+      !locked &&
+      !busy &&
+      !active &&
+      !waiting &&
+      !needsAttention &&
+      (appCommand.action !== "rename" || conversation),
   );
   const explanation =
     error || detail?.observation_error || conversation?.error_code;
@@ -608,212 +892,108 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
       className="flex h-full min-h-0 w-full bg-background"
       aria-label="Application assistant"
     >
+      <ConversationHistory
+        index={index}
+        onIndex={setIndex}
+        generation={generation}
+        owner={owner}
+        selected={selected}
+        embedded={embedded}
+        history={history}
+        historyControl={historyControl}
+        headerActions={headerActions}
+        fail={fail}
+        onSelect={(id) => {
+          setParams({ conversation: id });
+          if (embedded) setHistory(false);
+        }}
+        onNew={() => {
+          setParams({});
+          if (embedded) setHistory(false);
+        }}
+        onToggle={() => setHistory(!history)}
+      />
       <div
-        className={`relative min-h-0 shrink-0 ${history ? embedded ? "w-full" : "w-64 max-w-[75vw]" : embedded ? "hidden" : "w-5"}`}
+        hidden={embedded && history}
+        className={`${embedded && history ? "hidden" : "flex"} min-h-0 min-w-0 flex-1 flex-col`}
       >
-        <aside
-          hidden={!history}
-          className={`${history ? "flex" : "hidden"} h-full flex-col bg-muted/20 p-4 pr-6`}
-          aria-label="Conversations"
+        <header
+          className={`flex shrink-0 flex-wrap items-center justify-between border-b ${embedded ? "min-h-11 gap-2 px-3 py-2" : "gap-3 px-5 py-4"}`}
         >
-          <div className="mb-4 flex items-center gap-2"><h2 className="flex-1 text-sm font-semibold">Conversations</h2>{embedded && <>{historyControl}{headerActions}</>}</div>
-          <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto">
-            {index.conversations.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                aria-current={selected === item.id ? "page" : undefined}
-                className={`w-full rounded-lg p-3 text-left text-sm hover:bg-muted focus-visible:outline focus-visible:outline-2 ${selected === item.id ? "bg-muted" : ""}`}
-                onClick={() => {
-                  setParams({ conversation: item.id });
-                  if (embedded) setHistory(false);
-                }}
-              >
-                <span className="block truncate font-medium">{item.title}</span>
-                <span className="mt-1 block text-xs text-muted-foreground">
-                  Codex ·{" "}
-                  {item.active_message_id
-                    ? stateLabel(item.state)
-                    : new Date(item.updated_at * 1000).toLocaleDateString()}
-                </span>
-              </button>
-            ))}
-          </nav>
-          {index.next_cursor !== null && (
-            <button
-              type="button"
-              className="mt-3 text-left text-sm underline"
-              onClick={() => void olderConversations()}
-            >
-              Load earlier conversations
-            </button>
-          )}
-          <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
-            Switching conversations does not stop active work.
-          </p>
-          <Button
-            className="mt-4 w-full justify-start"
-            variant="ghost"
-            aria-label="New conversation"
-            onClick={() => {setParams({});if (embedded) setHistory(false);}}
-          >
-            <Plus size={16} />
-            New conversation
-          </Button>
-        </aside>
-        {!embedded && (
-          <button
-          type="button"
-          aria-label={
-            history ? "Collapse conversations" : "Expand conversations"
-          }
-          title={history ? "Collapse conversations" : "Expand conversations"}
-          aria-expanded={history}
-          onClick={() => setHistory(!history)}
-          className="absolute inset-y-0 right-0 flex w-4 items-center justify-center border-r text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline focus-visible:outline-2"
-        >
-          {history ? <ChevronLeft size={12} /> : <ChevronRight size={12} />}
-        </button>)}
-      </div>
-      <div hidden={embedded && history} className={`${embedded && history ? "hidden" : "flex"} min-h-0 min-w-0 flex-1 flex-col`}>
-        <header className={`flex shrink-0 flex-wrap items-center justify-between border-b ${embedded ? "min-h-11 gap-2 px-3 py-2" : "gap-3 px-5 py-4"}`}>
           <div className="min-w-0 flex-1">
-            {renaming === conversation?.id && conversation ? (
-              <form
-                onSubmit={async (event) => {
-                  event.preventDefault();
-                  if (savingTitle || !titleDraft.trim()) return;
-                  const identifier = conversation.id;
-                  const version = generation.current;
-                  setSavingTitle(true);
-                  setRenameError(false);
-                  try {
-                    const renamed = await assistantRequest<Conversation>(
-                      `/conversations/${identifier}`,
-                      { title: titleDraft },
-                      undefined,
-                      "PATCH",
-                    );
-                    if (version !== generation.current) return;
-                    setIndex((current) => ({
-                      ...current,
-                      conversations: current.conversations.map((row) =>
-                        row.id === identifier ? renamed : row,
-                      ),
-                    }));
-                    setDetail((current) =>
-                      current?.conversation.id === identifier
-                        ? { ...current, conversation: renamed }
-                        : current,
-                    );
-                    setRenaming(undefined);
-                  } catch (error) {
-                    if (version === generation.current) {
-                      if (
-                        error instanceof AssistantFailure &&
-                        [
-                          "assistant_session_locked",
-                          "assistant_native_session_required",
-                        ].includes(error.code)
-                      )
-                        fail(error);
-                      else setRenameError(true);
-                    }
-                  } finally {
-                    setSavingTitle(false);
-                  }
-                }}
-                className="flex w-full items-center gap-2"
-              >
-                <input
-                  autoFocus
-                  aria-label="Conversation title"
-                  value={titleDraft}
-                  maxLength={80}
-                  disabled={savingTitle}
-                  onChange={(event) => setTitleDraft(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Escape") setRenaming(undefined);
-                  }}
-                  className="min-w-0 flex-1 rounded border bg-background px-2 py-1 text-sm"
-                />
-                <button
-                  type="submit"
-                  disabled={savingTitle || !titleDraft.trim()}
-                  className="text-xs"
-                >
-                  {savingTitle ? "Saving…" : "Save"}
-                </button>
-                <button
-                  type="button"
-                  disabled={savingTitle}
-                  onClick={() => setRenaming(undefined)}
-                  className="text-xs text-muted-foreground"
-                >
-                  Cancel
-                </button>
-                {renameError && (
-                  <span role="alert" className="text-xs text-destructive">
-                    Could not rename. Try again.
-                  </span>
-                )}
-              </form>
-            ) : (
-              <h1
-                className="block min-w-0 text-sm font-medium"
-                onDoubleClick={() => {
-                  if (conversation) {
-                    setTitleDraft(conversation.title);
-                    setRenaming(conversation.id);
-                  }
-                }}
-              >
-                <button
-                  type="button"
-                  disabled={!conversation}
-                  className="max-w-full truncate text-left"
-                  title="Double-click to rename conversation"
-                  onKeyDown={(event) => {
-                    if (conversation && ["Enter", " "].includes(event.key)) {
-                      event.preventDefault();
-                      setTitleDraft(conversation.title);
-                      setRenaming(conversation.id);
-                    }
-                  }}
-                >
-                  {conversation?.title ?? "Laomedo assistant"}
-                </button>
-              </h1>
-            )}
+            <ConversationTitle
+              conversation={conversation}
+              renaming={renaming === conversation?.id}
+              titleDraft={titleDraft}
+              savingTitle={savingTitle}
+              renameError={renameError}
+              onSave={saveTitle}
+              onDraft={setTitleDraft}
+              onCancel={() => setRenaming(undefined)}
+              onRename={() => {
+                if (conversation) {
+                  setTitleDraft(conversation.title);
+                  setRenaming(conversation.id);
+                }
+              }}
+            />
           </div>
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             {historyControl}
-            {conversation && !locked && (<>
-              <span role="status" aria-live="polite">
-                {exporting ? "Exporting..." : exportError ? "Export failed. Try again." : ""}
-              </span>
-              <button type="button" aria-label="Export conversation" title="Export conversation as Markdown"
-                disabled={exporting} onClick={() => void exportConversation()}
-                className="rounded p-1.5 hover:bg-muted hover:text-foreground disabled:opacity-40 focus-visible:outline focus-visible:outline-2">
-                <Download size={16} />
-              </button>
-              <DeleteConversation
-                key={`${owner}:${selected}`}
-                conversation={selected}
-                title={conversation.title}
-                onFailure={fail}
-                onDeleted={() => {
-                  generation.current += 1;
-                  exportController.current?.abort();
-                  setIndex((value) => ({ ...value, conversations: value.conversations.filter((row) => row.id !== selected) }));
-                  setDetail(undefined);
-                  setDrafts((value) => { const next = { ...value }; delete next[selected]; return next; });
-                  setPending((value) => { const next = { ...value }; delete next[selected]; return next; });
-                  setRetryable((value) => { const next = { ...value }; if (pending[selected]) delete next[pending[selected].id]; return next; });
-                  setParams({});
-                }}
-              />
-            </>)}
+            {conversation && !locked && (
+              <>
+                <span role="status" aria-live="polite">
+                  {exporting
+                    ? "Exporting..."
+                    : exportError
+                      ? "Export failed. Try again."
+                      : ""}
+                </span>
+                <button
+                  type="button"
+                  aria-label="Export conversation"
+                  title="Export conversation as Markdown"
+                  disabled={exporting}
+                  onClick={() => void exportConversation()}
+                  className="rounded p-1.5 hover:bg-muted hover:text-foreground disabled:opacity-40 focus-visible:outline focus-visible:outline-2"
+                >
+                  <Download size={16} />
+                </button>
+                <DeleteConversation
+                  key={`${owner}:${selected}`}
+                  conversation={selected}
+                  title={conversation.title}
+                  onFailure={fail}
+                  onDeleted={() => {
+                    generation.current += 1;
+                    exportController.current?.abort();
+                    setIndex((value) => ({
+                      ...value,
+                      conversations: value.conversations.filter(
+                        (row) => row.id !== selected,
+                      ),
+                    }));
+                    setDetail(undefined);
+                    setDrafts((value) => {
+                      const next = { ...value };
+                      delete next[selected];
+                      return next;
+                    });
+                    setPending((value) => {
+                      const next = { ...value };
+                      delete next[selected];
+                      return next;
+                    });
+                    setRetryable((value) => {
+                      const next = { ...value };
+                      if (pending[selected]) delete next[pending[selected].id];
+                      return next;
+                    });
+                    setParams({});
+                  }}
+                />
+              </>
+            )}
             {headerActions}
           </div>
         </header>
@@ -823,8 +1003,9 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
             className="mx-5 mt-4 rounded-lg border bg-muted/30 p-4 text-sm"
           >
             <p className="mb-2 font-medium">
-              {needsAttention
-                ? "Cannot safely continue this session"
+              {needsAttention &&
+              failure.diagnostics.code !== "runner_authentication_required"
+                ? "This session needs attention"
                 : failure.title}
             </p>
             <ErrorExplanation failure={failure} />
@@ -891,213 +1072,110 @@ export default function AssistantPage({ embedded = false, selectedConversation, 
                     Load earlier messages
                   </button>
                 )}
-              {detail?.messages.map((message) => (
-                <MessageRow
-                  key={message.id}
-                  conversation={selected}
-                  message={message}
-                  actions={(detail.actions ?? []).filter(
-                    (action) => action.message_id === message.id,
-                  )}
-                  receipts={detail.drafts.filter(
-                    (receipt) => receipt.message_id === message.id,
-                  )}
-                  active={conversation?.active_message_id === message.id}
-                  onContent={follow}
-                  onFailure={fail}
-                />
-              ))}
-              {waiting &&
-                !detail?.messages.some(
-                  (row) => row.client_message_id === waiting.id,
-                ) && (
-                  <section
-                    className="space-y-5 pb-6"
-                    aria-label="Message and response"
-                  >
-                    <UserMessage text={waiting.text} />
-                    {retryable[waiting.id] && !busy && !loading ? (
-                      <div>
-                        <button
-                          type="button"
-                          disabled={busy || active}
-                          className="mt-3 text-sm underline"
-                          onClick={() => void send(waiting)}
-                        >
-                          Retry same submission
-                        </button>
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          Reuses its original message ID. Accepted messages are
-                          observed rather than dispatched again.
-                        </p>
-                      </div>
-                    ) : (
-                      <Thinking />
-                    )}
-                  </section>
-                )}
+              <MessageList
+                conversationId={selected}
+                provider={conversation?.provider ?? "codex"}
+                detail={detail}
+                activeMessageId={conversation?.active_message_id}
+                failureShown={Boolean(failure)}
+                explanation={explanation}
+                waiting={waiting}
+                retryable={Boolean(waiting && retryable[waiting.id])}
+                busy={busy}
+                active={active}
+                loading={loading}
+                onContent={follow}
+                onFailure={fail}
+                onRetry={(submission) => void send(submission)}
+              />
               {!waiting &&
                 (!selected || (detail && !detail.messages.length)) && (
-                  <div className="mx-auto w-full max-w-md space-y-5 py-10 text-center">
-                    <div
-                      aria-hidden="true"
-                      className="relative mx-auto flex h-24 w-64 items-center justify-center gap-4 rounded-full bg-gradient-to-r from-transparent via-primary/10 to-transparent"
-                    >
-                      <span className="-rotate-6 rounded-2xl border bg-background p-3 text-muted-foreground shadow-sm">
-                        <MessageSquare size={22} />
-                      </span>
-                      <span className="h-px w-5 bg-primary/40" />
-                      <span className="relative rounded-2xl border border-primary/30 bg-primary/10 p-4 text-primary shadow-sm">
-                        <Workflow size={32} />
-                        <Sparkles
-                          size={15}
-                          className="absolute -right-2 -top-2"
-                        />
-                      </span>
-                      <span className="h-px w-5 bg-primary/40" />
-                      <span className="rotate-6 rounded-2xl border bg-background p-3 text-muted-foreground shadow-sm">
-                        <Check size={22} />
-                      </span>
-                    </div>
-                    <h2 className="text-xl font-medium">
-                      What would you like to build?
-                    </h2>
-                    <p className="text-sm text-muted-foreground">
-                      Describe a workflow or ask me to change one. I can inspect
-                      workflows and save a separate editable draft.
-                    </p>
-                    {!selected && (
-                      <fieldset
-                        className="pt-2 text-left"
-                        aria-label="Assistant provider"
-                      >
-                        <label className="flex cursor-default items-center gap-4 rounded-2xl border border-primary/40 bg-primary/5 p-4 has-[:focus-visible]:outline has-[:focus-visible]:outline-2">
-                          <input
-                            type="radio"
-                            name="assistant-provider"
-                            aria-label="Codex"
-                            checked
-                            readOnly
-                            className="sr-only"
-                          />
-                          <span aria-hidden="true" className="text-4xl">
-                            <OpenAiIcon />
-                          </span>
-                          <span className="min-w-0 flex-1">
-                            <span className="block text-sm font-medium">
-                              Codex
-                            </span>
-                            <span className="mt-1 block text-xs text-muted-foreground">
-                              OpenAI · Your workflow-building companion
-                            </span>
-                          </span>
-                          <span className="inline-flex items-center gap-1 text-xs text-primary">
-                            <Check size={14} />
-                            Selected
-                          </span>
-                        </label>
-                      </fieldset>
-                    )}
-                    {linked && (
-                      <p className="text-xs text-muted-foreground">
-                        Linked to an earlier conversation. Its history remains
-                        available.
-                      </p>
-                    )}
-                  </div>
+                  <Welcome
+                    selected={selected}
+                    linked={linked}
+                    provider={provider}
+                    pending={Boolean(pending[""])}
+                    onProvider={(id) => {
+                      setProvider(id);
+                      setAccount(undefined);
+                      setModels(undefined);
+                      setModel("");
+                      setEffort("");
+                      setError(undefined);
+                    }}
+                  />
                 )}
             </div>
           </div>
-          <form
-            className="shrink-0 bg-background px-4 pb-4 pt-2 md:px-10"
-            onSubmit={(event) => {
-              event.preventDefault();
-              void send();
+          <Composer
+            selected={selected}
+            provider={chosenProvider}
+            runId={conversation?.run_id}
+            threadId={conversation?.thread_id}
+            active={active}
+            stopping={conversation?.state === "stopping"}
+            busy={busy}
+            text={drafts[selected] ?? ""}
+            readOnly={locked || Boolean(selected && needsAttention)}
+            canSubmit={canSend || canUseAppCommand}
+            commandsDismissed={commandsDismissed}
+            accountsLoading={accountsLoading}
+            hasAccounts={Boolean(providerAccounts.length)}
+            hasConnection={Boolean(connectionId)}
+            composerStatus={composerStatus}
+            onDraft={(text) => {
+              clearCommandInputError();
+              setDrafts((value) => ({ ...value, [selected]: text }));
             }}
-          >
-            <div className="mx-auto max-w-4xl rounded-2xl border bg-muted/30 p-2 shadow-sm focus-within:ring-1 focus-within:ring-ring">
-              <label htmlFor="assistant-message" className="sr-only">
-                Message this assistant
-              </label>
-              <textarea
-                id="assistant-message"
-                maxLength={12000}
-                rows={2}
-                placeholder={
-                  selected ? "Message this assistant…" : "Start chat…"
-                }
-                value={drafts[selected] ?? ""}
-                readOnly={
-                  busy ||
-                  active ||
-                  Boolean(selected && (!detail || needsAttention || waiting))
-                }
-                onChange={(event) =>
-                  setDrafts((value) => ({
-                    ...value,
-                    [selected]: event.target.value,
-                  }))
-                }
-                onKeyDown={(event) => {
-                  if (
-                    event.key === "Enter" &&
-                    !event.shiftKey &&
-                    !event.nativeEvent.isComposing
-                  ) {
-                    event.preventDefault();
-                    void send();
-                  }
-                }}
-                className="block w-full resize-none border-0 bg-transparent px-2 py-2 text-sm outline-none placeholder:text-muted-foreground read-only:opacity-60"
-              />
-              <div className="mt-1 flex items-center justify-end gap-2 px-1">
-                <ModelSelection
-                  models={models}
-                  model={model}
-                  effort={effort}
-                  disabled={busy || active || Boolean(waiting)}
-                  onModel={(value) => {
-                    const next = models?.models.find(
-                      (item) => item.id === value,
-                    );
-                    setModel(value);
-                    setEffort(
-                      next?.efforts.includes(effort)
-                        ? effort
-                        : (next?.efforts[0] ?? ""),
-                    );
-                  }}
-                  onEffort={setEffort}
-                />
-                {active ? (
-                  <button
-                    type="button"
-                    aria-label="Stop response"
-                    title={
-                      conversation?.state === "stopping"
-                        ? "Stopping…"
-                        : "Stop response"
-                    }
-                    disabled={busy || conversation?.state === "stopping"}
-                    onClick={stop}
-                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-foreground text-background disabled:opacity-40"
-                  >
-                    <Square size={12} fill="currentColor" />
-                  </button>
-                ) : (
-                  <button
-                    type="submit"
-                    aria-label={selected ? "Send" : "Start chat"}
-                    title={selected ? "Send (Enter)" : "Start chat (Enter)"}
-                    disabled={!canSend || !(drafts[selected] ?? "").trim()}
-                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-foreground text-background transition-opacity disabled:opacity-30"
-                  >
-                    <ArrowUp size={17} />
-                  </button>
-                )}
-              </div>
-            </div>
-          </form>
+            onDismissCommands={setCommandsDismissed}
+            onSend={() => void send()}
+            onStop={() => void stop()}
+            accountSelection={{
+              onManageAccounts: retainSettingsDraft,
+              provider: chosenProvider,
+              accounts: accounts.filter(
+                (item) => item.provider === chosenProvider,
+              ),
+              selected: connectionId,
+              generation: connectionGeneration,
+              loading: accountsLoading,
+              disabled: Boolean(selected || busy || active || pending[""]),
+              onSelect: (value) => {
+                if (
+                  value.connection_id === connectionId &&
+                  value.generation === connectionGeneration
+                )
+                  return;
+                setAccount(value);
+                setModels(undefined);
+                setModel("");
+                setEffort("");
+                setError(undefined);
+              },
+            }}
+            modelSelection={{
+              models,
+              model: connectionId ? model : "",
+              effort: connectionId ? effort : "",
+              disabled:
+                !connectionId ||
+                !models?.models.length ||
+                busy ||
+                discovering ||
+                active ||
+                Boolean(waiting),
+              onModel: (value) => {
+                const next = models?.models.find((item) => item.id === value);
+                setModel(value);
+                setEffort(
+                  next?.efforts.includes(effort)
+                    ? effort
+                    : (next?.efforts[0] ?? ""),
+                );
+              },
+              onEffort: setEffort,
+            }}
+          />
         </>
       </div>
     </RootTag>

@@ -240,3 +240,44 @@ class CodexLoginAttempt(BaseModel):
     confirmation: Any = Field(
         exclude=True, repr=False, description="Explicit replacement confirmation event."
     )
+
+
+class IdleCodexSession(BaseModel):
+    """Process-local native session retained before any model turn materializes it."""
+
+    model_config = ConfigDict(arbitrary_types_allowed=True, extra="forbid")
+    closing: bool = Field(
+        default=False,
+        exclude=True,
+        description="Cleanup has begun; this runtime cannot be taken for another message.",
+    )
+    runtime: Any = Field(
+        exclude=True,
+        repr=False,
+        description="Exact live native runtime on its original event loop.",
+    )
+    lease: Any = Field(
+        default=None,
+        exclude=True,
+        repr=False,
+        description="Existing independent resource lease, when configured.",
+    )
+    cancelled: Any = Field(
+        exclude=True,
+        repr=False,
+        description="Original cancellation event also observed by its resource lease.",
+    )
+    ownership: dict = Field(
+        exclude=True,
+        repr=False,
+        description="Exact recorded Docker ownership; never a replacement identity.",
+    )
+    credential_digest: str | None = Field(
+        default=None,
+        exclude=True,
+        repr=False,
+        description="In-memory last admitted bearer digest for refresh detection; never serialized.",
+    )
+    expires: float = Field(
+        exclude=True, description="Monotonic deadline for an unused live session."
+    )

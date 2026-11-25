@@ -13,6 +13,8 @@ from uuid import uuid4
 import test_agents.test_runtime.test_lifecycle as controls
 from laomedo.agents.agents.claude.agent import ClaudeAgent
 from laomedo.agents.agents.claude.models import ClaudePolicy
+from laomedo.agents.agents.claude.models import ClaudeControlResult
+from laomedo.agents.agents.base.models import NativeCommandInvocation
 from laomedo.agents.agents.claude.utils import terminal_result
 from laomedo.agents.agents.claude.utils import activity_usage
 from laomedo.agents.agents.claude.activity.projection import project
@@ -30,6 +32,80 @@ except ImportError:
 
 
 class ClaudeRunnerTests(unittest.TestCase):
+    def test_native_control_receipt_retains_output_without_compaction_or_model_turn(
+        self,
+    ):
+        payload = {
+            key: value for key, value in self.payload.items() if key != "skill_ref"
+        }
+        with self.invoke():
+            first = self.runner.start(payload)
+
+        from laomedo.agents.agents.base.utils import _json
+
+        root = self.runner._run_dir(first["run_id"])
+        first["usage"] = {"input_tokens": 11, "output_tokens": 22}
+        _json(root / "record.json", first)
+        self.runner._event(
+            root,
+            "thread/tokenUsage/updated",
+            {
+                "threadId": first["thread_id"],
+                "tokenUsage": {"total": {"inputTokens": 11, "outputTokens": 22}},
+            },
+        )
+
+        def control(root, record, prompt, flag, *, resume):
+            self._begin_activity(root, record, prompt)
+            return ClaudeControlResult(
+                command="usage",
+                native_terminal={
+                    "kind": "local_command_output",
+                    "event_id": "control-receipt",
+                    "session_id": record["thread_id"],
+                },
+                answer="Native usage view",
+            )
+
+        with patch.object(self.runner, "_invoke", side_effect=control):
+            result = self.runner.resume(
+                first["run_id"],
+                "/usage",
+                expected_post_run_hash=first["post_run_hash"],
+                expected_thread_id=first["thread_id"],
+                model="sonnet",
+                effort="low",
+                native_command=NativeCommandInvocation(
+                    name="usage", catalog_revision="a" * 64
+                ),
+            )
+        self.assertEqual(result["status"], "completed")
+        self.assertEqual(result["answer"], "Native usage view")
+        self.assertEqual(len(result["turns"]), len(first["turns"]))
+        self.assertEqual(
+            result["native_command_receipts"][-1]["answer"], "Native usage view"
+        )
+        root = self.runner._run_dir(result["run_id"])
+        events = [
+            json.loads(line)["event"]
+            for line in (root / "activity-events.jsonl").read_text().splitlines()
+        ]
+        items = [
+            event.get("params", {}).get("item", {})
+            for event in events
+            if event.get("method") == "item/completed"
+        ]
+        self.assertTrue(
+            any(item.get("type") == "nativeCommandResult" for item in items)
+        )
+        self.assertFalse(any(item.get("type") == "contextCompaction" for item in items))
+        activity = self.runner.read_activity(
+            result["run_id"], result["activity_attempt_id"]
+        )
+        self.assertTrue(activity.available)
+        self.assertIsNotNone(activity.projection)
+        self.assertIsNone(activity.projection.usage)
+
     def test_resume_prelaunch_failure_cannot_reuse_prior_cleanup_attestation(self):
         from laomedo.agents.agents.base.resume import ResumeDispatcher
         from laomedo.agents.agents.base.utils import _json

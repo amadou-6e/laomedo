@@ -171,6 +171,11 @@ class OpenCodeCommandExecutor(BaseInterruptibleCommandExecutor):
                             network_mode="none",
                             read_only=False,
                             working_dir="/draft",
+                            environment={
+                                "GIT_CONFIG_COUNT": "1",
+                                "GIT_CONFIG_KEY_0": "safe.directory",
+                                "GIT_CONFIG_VALUE_0": "/draft",
+                            },
                             mounts=[
                                 Mount(
                                     type="bind",

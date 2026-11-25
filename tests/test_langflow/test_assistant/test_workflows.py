@@ -53,7 +53,12 @@ class WorkflowTests(unittest.IsolatedAsyncioTestCase):
         await self.store.admit_session("fixture", self.owner, time.time() + 1000)
         conversation = await self.store.create(
             self.owner,
-            ConversationRequest(model="fixture", effort="low"),
+            ConversationRequest(
+                connection_id=uuid4(),
+                connection_generation=1,
+                model="fixture",
+                effort="low",
+            ),
             session_key="fixture",
         )
         self.identifier = UUID(conversation["id"])

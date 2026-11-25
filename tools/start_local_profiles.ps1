@@ -101,6 +101,8 @@ $config = @{
     LANGFLOW_CORS_ALLOW_CREDENTIALS='true'
     LAOMEDO_LOCAL_PROFILE_PORT=[string]$Port
     LAOMEDO_LOCAL_PROFILE_RUNTIME=$runtime
+    LAOMEDO_ASSISTANT_APP_URL=("http://127.0.0.1:" + $Port)
+    LAOMEDO_ASSISTANT_STATE_ROOT=(Join-Path $runtime "assistant")
     LAOMEDO_PROVIDER_SOURCE_WORKSPACE=$providerSource
     PYTHONPATH=($pythonSources -join [IO.Path]::PathSeparator)
 }

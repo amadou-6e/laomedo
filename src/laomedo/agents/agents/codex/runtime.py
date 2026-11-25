@@ -4,6 +4,7 @@ import asyncio
 from contextlib import ExitStack
 import json
 import time
+from uuid import uuid4
 
 from laomedo.agents.interface.output.utils import dynamic_tool
 from laomedo.agents.interface.output.utils import precheck_response
@@ -12,6 +13,8 @@ from laomedo.agents.agents.codex.settings import NATIVE_RECEIPT_FILENAME
 from laomedo.agents.agents.codex.settings import Settings as CodexSettings
 from laomedo.agents.agents.codex.controller.models import CodexLaunch
 from laomedo.agents.agents.codex.controller.models import CodexTurn
+from laomedo.agents.agents.codex.controller.models import CodexCommandResult
+from laomedo.agents.agents.codex.commands import CodexCommands
 from laomedo.agents.agents.codex.controller.settings import Settings
 from laomedo.agents.errors import RunnerError
 from laomedo.docker import DockerRuntime
@@ -50,6 +53,10 @@ class CodexAgentRuntime:
         self.container_name = launch.name
         self._session_scope = ExitStack()
         self.session = self.acp = self.executor = self.telemetry = None
+        self.native_commands_supported = False
+        self.credential_refresh_supported = False
+        self.bundled_skills_supported = False
+        self.managed_credential = bool(split is not None and split.managed_credential)
         self._cancelled = None
         self._protocol_ready = False
         self.events = []
@@ -60,6 +67,7 @@ class CodexAgentRuntime:
         self.native_completion_status = None
         self.interrupt_acknowledged = False
         self.authorization_probe = None
+        self.authorization_failure = {}
         self.cleanup_confirmed = self.streams_closed = False
         self._closed = False
         self._close_failure = None
@@ -92,6 +100,10 @@ class CodexAgentRuntime:
                     self.secret_redactions += (split.access_token.get_secret_value(),)
             spec = launch.to_container_spec()
             environment = dict(spec.environment)
+            if split is not None and split.managed_credential:
+                from pydantic import SecretStr
+
+                environment["LAOMEDO_CODEX_REFRESHABLE_AUTH"] = SecretStr("1")
             arguments = (
                 json.loads(environment["LAOMEDO_CODEX_ARGS"].get_secret_value())
                 if "LAOMEDO_CODEX_ARGS" in environment
@@ -121,7 +133,14 @@ class CodexAgentRuntime:
             from pydantic import SecretStr
 
             environment["LAOMEDO_CODEX_ARGS"] = SecretStr(json.dumps(arguments))
-            spec = spec.model_copy(update={"environment": environment})
+            private_tmpfs = dict(spec.tmpfs)
+            if self.managed_credential:
+                private_tmpfs["/tmp/laomedo-provider-auth"] = (
+                    "rw,noexec,nosuid,size=1m,mode=0700,uid=10001,gid=10001"
+                )
+            spec = spec.model_copy(
+                update={"environment": environment, "tmpfs": private_tmpfs}
+            )
             self.raw_log = (evidence / "raw-events.jsonl").open("a", encoding="utf-8")
             self.logs.append(self.raw_log)
             self.activity_log = (evidence / "activity-events.jsonl").open(
@@ -174,13 +193,45 @@ class CodexAgentRuntime:
         )
         reply = await self.acp.initialize()
         advertised = (reply.field_meta or {}).get("laomedo")
+        base = {"version": 1, "rawEvents": True, "hostPolicy": True}
         if (
-            advertised != {"version": 1, "rawEvents": True, "hostPolicy": True}
+            advertised
+            not in (
+                base,
+                {**base, "nativeCommands": 1},
+                {**base, "nativeCommands": 1, "credentialRefresh": 1},
+                {
+                    **base,
+                    "nativeCommands": 1,
+                    "credentialRefresh": 1,
+                    "bundledSkills": 1,
+                },
+            )
             or type(advertised["version"]) is not int
             or type(advertised["rawEvents"]) is not bool
             or type(advertised["hostPolicy"]) is not bool
+            or (
+                "nativeCommands" in advertised
+                and type(advertised["nativeCommands"]) is not int
+            )
+            or (
+                "credentialRefresh" in advertised
+                and type(advertised["credentialRefresh"]) is not int
+            )
+            or (
+                "bundledSkills" in advertised
+                and type(advertised["bundledSkills"]) is not int
+            )
         ):
             raise RunnerError("initialize_rejected")
+        self.native_commands_supported = advertised.get("nativeCommands") == 1
+        self.credential_refresh_supported = advertised.get("credentialRefresh") == 1
+        self.bundled_skills_supported = (
+            type(advertised.get("bundledSkills")) is int
+            and advertised.get("bundledSkills") == 1
+        )
+        if self.managed_credential and not self.credential_refresh_supported:
+            raise RunnerError("codex_credential_update_unconfirmed")
         if self.executor is not None:
             self.assert_controller_isolated()
             executor = self.executor
@@ -217,6 +268,7 @@ class CodexAgentRuntime:
             "laomedo/preflight",
             "laomedo/registerExecutor",
             "laomedo/executorStatus",
+            "laomedo/refreshCredential",
         }:
             raise RunnerError("runner_transport_failed")
         label = {
@@ -225,12 +277,27 @@ class CodexAgentRuntime:
             "laomedo/preflight": "command/exec",
             "laomedo/registerExecutor": "environment/add",
             "laomedo/executorStatus": "environment/status",
+            "laomedo/refreshCredential": "provider/credential/update",
         }[method]
         return await self.acp.extension(
             method, params, operation=label, seconds=seconds
         )
 
-    async def open(self, record, *, resume):
+    async def refresh_credential(self, token):
+        """Update only the existing controller's bearer after host account admission."""
+        if not self.credential_refresh_supported or self.executor is None:
+            raise RunnerError("codex_credential_update_unconfirmed")
+        self.secret_redactions += (token,)
+        try:
+            result = await self.extension(
+                "laomedo/refreshCredential", {"accessToken": token}
+            )
+        except RunnerError:
+            raise RunnerError("codex_credential_update_unconfirmed") from None
+        if result != {"updated": True}:
+            raise RunnerError("codex_credential_update_unconfirmed")
+
+    async def open(self, record, *, resume, reuse=False):
         """Bind the actual native session and confirm advertised model settings."""
         self.output_requirements = (
             verify_requirements(record["output_requirements"])
@@ -254,16 +321,20 @@ class CodexAgentRuntime:
             self.secret_redactions += (
                 self.mcp_access.connection.token.get_secret_value(),
             )
-        await self.acp.open(
-            session_id=record["thread_id"] if resume else None,
-            mcp_servers=(
-                [self.mcp_access.acp_server()]
-                if getattr(self, "mcp_access", None)
-                else []
-            ),
-            metadata={"laomedo": policy},
-        )
-        self.active_thread_id = self.acp.session_id
+        if reuse:
+            if not resume or self.active_thread_id != record["thread_id"]:
+                raise RunnerError("thread_identity_mismatch")
+        else:
+            await self.acp.open(
+                session_id=record["thread_id"] if resume else None,
+                mcp_servers=(
+                    [self.mcp_access.acp_server()]
+                    if getattr(self, "mcp_access", None)
+                    else []
+                ),
+                metadata={"laomedo": policy},
+            )
+            self.active_thread_id = self.acp.session_id
         if resume and self.active_thread_id != record["thread_id"]:
             raise RunnerError("thread_identity_mismatch")
         for key, expected in (
@@ -281,10 +352,38 @@ class CodexAgentRuntime:
             )
             if observed != expected:
                 raise RunnerError("unsupported_model_effort")
+        # ACP notifications are handled independently of request responses.
+        # Allow the fresh list to arrive before the caller publishes discovery.
+        deadline = time.monotonic() + 2
+        while (
+            self.native_commands_supported
+            and self.command_catalog() is None
+            and time.monotonic() < deadline
+        ):
+            await asyncio.sleep(0.01)
         return self.active_thread_id
 
-    async def prompt(self, text, *, skills, cancelled, seconds):
+    def command_catalog(self):
+        """Read detached native metadata without initiating another request or turn."""
+        return self.acp.command_catalog() if self.native_commands_supported else None
+
+    async def prompt(self, text, *, skills, cancelled, seconds, command=None):
         """Use the common health/cancel loop and require raw native completion."""
+        CodexCommands.validate_skill_mentions(text, command)
+        skill_invocation = (
+            str(uuid4())
+            if command is not None and command.name.startswith("$")
+            else None
+        )
+        if skill_invocation and not self.bundled_skills_supported:
+            raise RunnerError("native_command_not_supported")
+        command_kind = None
+        if command is not None:
+            if not self.native_commands_supported:
+                raise RunnerError("native_command_not_supported")
+            command_kind = CodexCommands.admit(command, self.command_catalog())
+            if text != command.text() or self.output_requirements:
+                raise RunnerError("native_command_context_invalid")
         self._cancelled = cancelled
         offset = len(self.events)
         failure = None
@@ -296,6 +395,21 @@ class CodexAgentRuntime:
                 seconds=seconds,
                 metadata={
                     "laomedo": {
+                        **(
+                            {
+                                "nativeCommand": {
+                                    "name": command.name,
+                                    "arguments": command.arguments,
+                                    **(
+                                        {"invocationId": skill_invocation}
+                                        if skill_invocation
+                                        else {}
+                                    ),
+                                }
+                            }
+                            if command is not None
+                            else {}
+                        ),
                         "skills": [
                             {
                                 "type": "skill",
@@ -305,7 +419,7 @@ class CodexAgentRuntime:
                                 + "/SKILL.md",
                             }
                             for item in skills
-                        ]
+                        ],
                     }
                 },
                 check_health=self.check_health,
@@ -314,12 +428,91 @@ class CodexAgentRuntime:
             failure = exc.code
         finally:
             self._cancelled = None
+        if command is not None and command.name == "compact":
+            evidence = self._compaction_terminal(
+                [
+                    e
+                    for e in self.events[offset:]
+                    if e.get("params", {}).get("threadId") == self.active_thread_id
+                ]
+            )
+            if evidence is not None:
+                # Upstream finishes manual compaction on the matched item. Drain
+                # briefly for a late native turn failure before normal cleanup.
+                deadline = time.monotonic() + 2
+                while (
+                    not evidence["turn_terminal_observed"]
+                    and time.monotonic() < deadline
+                ):
+                    if cancelled.is_set() or failure:
+                        break
+                    try:
+                        self.check_health()
+                    except RunnerError as exc:
+                        failure = exc.code
+                        break
+                    await asyncio.sleep(0.05)
+                    evidence = self._compaction_terminal(
+                        [
+                            e
+                            for e in self.events[offset:]
+                            if e.get("params", {}).get("threadId")
+                            == self.active_thread_id
+                        ]
+                    )
+                    if evidence is None:
+                        break
+                completed = (
+                    evidence is not None
+                    and not failure
+                    and not cancelled.is_set()
+                    and response is not None
+                    and response.stop_reason == "end_turn"
+                )
+                return CodexCommandResult(
+                    command="compact",
+                    status="completed" if completed else "unknown",
+                    stop_reason=response.stop_reason if response is not None else None,
+                    answer=response.answer or None if completed else None,
+                    native_terminal=evidence,
+                    error=(
+                        None
+                        if completed
+                        else failure or "native_command_outcome_unknown"
+                    ),
+                )
         terminal = [
             event["params"]["turn"]
             for event in self.events[offset:]
             if event.get("method") == "turn/completed"
             and event.get("params", {}).get("threadId") == self.active_thread_id
         ]
+        if command_kind == "control":
+            started = any(
+                event.get("method") == "turn/started"
+                and event.get("params", {}).get("threadId") == self.active_thread_id
+                for event in self.events[offset:]
+            )
+            completed = (
+                not failure
+                and not cancelled.is_set()
+                and not started
+                and not terminal
+                and response is not None
+                and response.stop_reason == "end_turn"
+                and isinstance(response.answer, str)
+                and bool(response.answer.strip())
+                and len(response.answer) <= 100000
+            )
+            return CodexCommandResult(
+                command=command.name,
+                stop_reason=response.stop_reason if response is not None else None,
+                status="completed" if completed else "unknown",
+                answer=response.answer if completed else None,
+                error=(
+                    None if completed else failure or "native_command_outcome_unknown"
+                ),
+            )
         if not terminal and (failure or cancelled.is_set()):
             started = [
                 event["params"]["turn"]
@@ -364,13 +557,29 @@ class CodexAgentRuntime:
             status, error = "cancelled", "cancelled_by_user"
         elif cancelled.is_set() and status != "completed":
             status, error = "cancelled", "cancel_native_unconfirmed"
-        return CodexTurn(turn_id=turn["id"], status=status, error=error)
+        native_skill = None
+        if status == "completed" and skill_invocation:
+            native_skill = CodexCommands.skill_receipt(
+                self.events[offset:],
+                command,
+                session_id=self.active_thread_id,
+                turn_id=turn["id"],
+                invocation_id=skill_invocation,
+            )
+        return CodexTurn(
+            turn_id=turn["id"], status=status, error=error, native_skill=native_skill
+        )
 
-    def check_health(self) -> ProcessHealthObservation:
+    def check_health(self, *, idle=False) -> ProcessHealthObservation:
         """Guard host authorization and the separately owned executor."""
         if getattr(self, "mcp_access", None):
             self.mcp_access.check_health()
-        if self.authorization_probe is not None and not self.authorization_probe():
+        if self.authorization_probe is not None and not self.authorization_probe(
+            idle=idle
+        ):
+            if idle:
+                failure_code = self.authorization_failure.get("code", "auth_revoked")
+                raise RunnerError(failure_code)
             raise RunnerError("auth_revoked_during_turn")
         if self.executor is not None:
             return self.executor.check_health()
@@ -503,7 +712,7 @@ class CodexAgentRuntime:
         raise RunnerError("model_list_page_limit")
 
     def _native_event(self, method, event):
-        """Retain redacted original native events before ACP prompt returns."""
+        """Retain native events and labelled adapter input receipts before return."""
         if method != "laomedo/codexEvent":
             return
         from laomedo.agents.activity.redaction.utils import sanitized
@@ -581,3 +790,51 @@ class CodexAgentRuntime:
                     error = error or RunnerError("runner_transport_failed")
         if error:
             raise error
+
+    @staticmethod
+    def _compaction_terminal(events):
+        """Admit only one ordered native compaction pair on its observed turn."""
+        starts = [e for e in events if e.get("method") == "turn/started"]
+        if len(starts) != 1:
+            return None
+        params = starts[0].get("params", {})
+        thread, turn = params.get("threadId"), params.get("turn", {}).get("id")
+        if not isinstance(turn, str) or not turn:
+            return None
+        scoped = [e for e in events if e.get("params", {}).get("threadId") == thread]
+        items = [
+            e
+            for e in scoped
+            if e.get("params", {}).get("turnId") == turn
+            and e.get("params", {}).get("item", {}).get("type") == "contextCompaction"
+        ]
+        incoming = [e for e in items if e.get("method") == "item/started"]
+        outgoing = [e for e in items if e.get("method") == "item/completed"]
+        if len(incoming) != 1 or len(outgoing) != 1:
+            return None
+        item = outgoing[0]["params"]["item"]
+        identity = incoming[0]["params"]["item"].get("id")
+        terminal = [
+            e["params"]["turn"] for e in scoped if e.get("method") == "turn/completed"
+        ]
+        if (
+            not isinstance(identity, str)
+            or not identity
+            or item.get("id") != identity
+            or events.index(starts[0]) >= events.index(incoming[0])
+            or events.index(incoming[0]) >= events.index(outgoing[0])
+            or item.get("status") not in {None, "completed"}
+            or item.get("error") is not None
+            or any(e.get("method") == "error" for e in scoped)
+            or len(terminal) > 1
+            or any(
+                t.get("id") != turn or t.get("status") != "completed" for t in terminal
+            )
+        ):
+            return None
+        return {
+            "kind": "contextCompaction",
+            "turn_id": turn,
+            "item_id": identity,
+            "turn_terminal_observed": bool(terminal),
+        }

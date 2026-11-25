@@ -1,5 +1,28 @@
 # Opencode Agent
 
+Model discovery is scoped to `opencode-go`, the provider admitted by the dedicated
+Go credential profile. The native CLI's global catalogue also includes free
+models that the authenticated ACP session does not advertise; they must not be
+offered as runnable selections for this connection.
+
+## Assistant native commands
+
+`OpenCodeCommands` in `commands.py` validates no-argument built-ins, projects
+the observed catalog, admits its exact image-bound revision, and verifies
+native root/child terminal history. `result()` returns `OpenCodeCommandResult`
+with session/message identities and the actual target. It does not invent
+an answer, usage, repository review or a file write.
+Terminal admitted tool/assistant errors produce `opencode_native_command_failed`,
+not an uncertain-running outcome. Incomplete or unadmitted native work still
+produces `opencode_response_not_terminal`; neither gets a success receipt.
+
+Native `init` and `review` target the isolated controller view containing
+agent configuration, not the worker workspace or a user repository. The
+approval discloses that distinction; only worker-tool writes reach retained
+scratch files. OpenCode 1.18.33 namespaces MCP prompts with `server:prompt`,
+so they cannot replace bare built-in names. Custom config/skills are refused
+for this admission path. Real execution acceptance remains separately required.
+
 `OpenCodeAgent` is the provider-qualified concrete Agent. It inherits the [abstract lifecycle](../base/README.md).
 The implementation is in `agent.py`; folder and object renaming do not
 remove its whole-pipeline overrides.
@@ -10,6 +33,10 @@ exact native session. `OpenCodeCommandExecutor` in `executor.py` owns workers;
 validates the borrowed native profile. `OpenCodeModelCatalog` in `catalog.py` owns
 zero-turn discovery; `read_activity` with internal `activity/projection.py` helpers owns
 native interpretation and pricing. See the [role methods](../README.md#provider-role-contracts-275).
+
+Credential-free command workers trust only their fixed `/draft` mount as a Git
+safe directory through a three-key process environment. This supports host-owned
+bind mounts without global wildcard trust, profile mounts or inherited credentials.
 
 The controller and broker span an attempt. Native history export follows confirmed closure and precedes the final freeze. Output requirements are currently unsupported.
 
@@ -65,6 +92,11 @@ has no attempt or new store and retains its existing HTTP code boundary. A true
 `opencode_owned_resources` cleanup fact requires all allocated catalog/controller/
 worker resources, not controller absence alone. It never accepts a failed run.
 
+Host composition may pass `profile` to `OpenCodeAgent` to select its existing
+isolated `OpenCodeAgentRuntime`. The profile stays host-owned; combining it with
+an independently supplied transport factory is refused. Construction without
+either retains the explicit isolated-transport-required readiness result.
+
 Model discovery runs the pinned native `models --refresh --verbose` command so
 the bundled registry cannot offer a retired model that ACP no longer advertises.
 Before configuring a model, `_run_acp()` checks the session's current flat or
@@ -78,5 +110,17 @@ refused. Application callers construct the Agent through `AgentProviderRegistry`
 they never import or construct the provider's private runtime.
 
 ## Saved account connections
+
+On Windows, disposable controller configuration and its read-only skill view
+are staged in a unique child of the admitted private profile, alongside the
+already readable native session store. No credentials are copied. Evidence and
+Docker receipts remain in the run/catalogue root. Confirmed runtime closure
+removes its staging child; uncertain cleanup retains it for diagnosis.
+Disconnect also removes exact `controller-<32 hex digits>` children after the
+existing native-stop confirmation, including leftovers from a crashed process.
+It does not sweep live profiles at runtime construction or touch other folders.
+`utils.remove_controller_directory(root, profile)` checks the exact owned name
+and parent, refuses links/reparse points, and retries only read-only copies
+within that checked directory. Source skill attributes are never changed.
 
 `connection.py` is the provider boundary. GoConnection owns save/profile/summary/erase for explicit Go subscription keys. It reports custody rather than verified identity and has no asynchronous browser login workers. Exact repeated keys reuse the existing connection. The shared Agent connection service owns admission/index fencing; host storage and profile authorization remain separate.

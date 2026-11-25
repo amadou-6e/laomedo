@@ -331,9 +331,19 @@
     "recovery": "Check Runner URL and the runner service, then refresh Model. No model turn is submitted by refreshing the catalogue."
   },
   "runner_transport_failed": {
-    "title": "Run outcome unconfirmed",
-    "description": "The application could not confirm whether the remote work finished. It may still be active.",
+    "title": "Provider connection failed",
+    "description": "Communication with the provider failed. Check the retained run status to determine whether the operation finished.",
     "recovery": "Inspect the existing run or request status using the available identifiers before starting another run. Do not repeat the operation until its outcome is confirmed."
+  },
+  "runner_authentication_required": {
+    "title": "Provider sign-in required",
+    "description": "The provider refused the session because its configured login is missing or expired.",
+    "recovery": "Reconnect the provider login, then check the retained conversation status. The failed request will not be replayed automatically."
+  },
+  "outside_assistant_command_policy": {
+    "title": "Command unavailable in this chat",
+    "description": "This native command is outside the assistant's supported command set.",
+    "recovery": "Choose an executable command from this conversation's current command list."
   },
   "runner_wait_deadline": {
     "title": "The remote outcome is not confirmed",
@@ -379,6 +389,11 @@
     "title": "The remote outcome is not confirmed",
     "description": "The application could not confirm whether the remote work finished. It may still be active.",
     "recovery": "Inspect the existing run or request status using the available identifiers before starting another run. Do not repeat the operation until its outcome is confirmed."
+  },
+  "opencode_native_command_failed": {
+    "title": "The native command failed",
+    "description": "The command finished, but one or more of its steps failed. Its actual response is retained below.",
+    "recovery": "Read the response for the reason. No successful file change or repository review is claimed."
   },
   "opencode_response_not_terminal": {
     "title": "The remote outcome is not confirmed",
@@ -819,6 +834,16 @@
     "title": "The run is not ready for dispatch",
     "description": "The run state no longer permits this request to be submitted as a new execution.",
     "recovery": "Inspect the existing run in Activity and check its Status. Keep its original Run Reference; do not dispatch or resume the same request again while its outcome is uncertain."
+  },
+  "codex_idle_session_unavailable": {
+    "title": "This unused session has ended",
+    "description": "The controller for this status-only conversation was closed, expired or lost before its first model response.",
+    "recovery": "Start a new or linked conversation. This unused native thread has no saved model history to resume; your previous request will not be replayed."
+  },
+  "codex_credential_update_unconfirmed": {
+    "title": "The session credential update was not confirmed",
+    "description": "Laomedo could not confirm that this controller accepted the current account credential. No new model prompt was sent.",
+    "recovery": "Start a new or linked conversation after controller cleanup completes. This does not by itself mean your account needs signing in again. The failed request will not be replayed."
   },
   "empty_token": {
     "title": "The runner credential is empty",
@@ -2685,6 +2710,11 @@
     "description": "The runner instance changed. Its previous native binding has not been silently replaced; history and saved drafts remain available.",
     "recovery": "Use Start linked conversation to choose a new session explicitly. The original conversation and committed drafts stay available."
   },
+  "resume_after_runner_restart_forbidden": {
+    "title": "This Codex session cannot continue after the runner restarted",
+    "description": "The authenticated Codex runner changed. Its existing restart safeguard refuses continuation; your conversation history and saved drafts are preserved.",
+    "recovery": "In chat, use Start linked conversation to start a new session explicitly. For a workflow, start a fresh run. The earlier request is not replayed."
+  },
   "assistant_runner_unavailable": {
     "title": "The assistant operation could not be completed",
     "description": "The local runner could not be observed. Retained history is still available.",
@@ -2799,5 +2829,45 @@
     "title": "Another graph already has that name",
     "description": "The approved edit conflicted with an existing workflow name. No graph changes were saved.",
     "recovery": "Choose a different name and ask for a fresh edit proposal."
+  },
+  "native_command_not_supported": {
+    "title": "This native command is unavailable",
+    "description": "This command is outside the assistant built-in command policy.",
+    "recovery": "Inspect the retained result and request a fresh proposal when the session is settled. Do not blindly replay an uncertain command."
+  },
+  "native_command_arguments_invalid": {
+    "title": "The command arguments are invalid",
+    "description": "This built-in command does not accept the supplied arguments.",
+    "recovery": "Inspect the retained result and request a fresh proposal when the session is settled. Do not blindly replay an uncertain command."
+  },
+  "native_command_catalog_changed": {
+    "title": "Available commands changed",
+    "description": "The current native command catalog no longer matches the approved proposal.",
+    "recovery": "Inspect the retained result and request a fresh proposal when the session is settled. Do not blindly replay an uncertain command."
+  },
+  "native_skill_approval_required": {
+    "title": "Use the native skill menu",
+    "description": "Codex treats this skill mention as an invocation, even inside ordinary text.",
+    "recovery": "Choose the skill from the / menu and send that request. To discuss it without invoking it, write its name without the dollar prefix or native skill link."
+  },
+  "native_skill_requires_provider_configuration": {
+    "title": "This skill changes provider configuration",
+    "description": "This skill needs to change configuration that Laomedo manages for the provider.",
+    "recovery": "Choose another supported skill. Sending this skill cannot override the provider configuration boundary."
+  },
+  "native_command_not_available": {
+    "title": "The native command is unavailable",
+    "description": "The current native session did not advertise this command.",
+    "recovery": "Inspect the retained result and request a fresh proposal when the session is settled. Do not blindly replay an uncertain command."
+  },
+  "native_command_context_invalid": {
+    "title": "The command cannot run in this context",
+    "description": "Native commands require an explicit isolated continuation without output contracts or mediated repository authority.",
+    "recovery": "Inspect the retained result and request a fresh proposal when the session is settled. Do not blindly replay an uncertain command."
+  },
+  "native_command_outcome_unknown": {
+    "title": "The command outcome is unknown",
+    "description": "The required native command completion evidence was not observed. No successful outcome is assumed.",
+    "recovery": "Inspect the retained result and request a fresh proposal when the session is settled. Do not blindly replay an uncertain command."
   }
 }

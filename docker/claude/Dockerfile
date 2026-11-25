@@ -8,6 +8,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY command_mcp.py /opt/laomedo/command_mcp.py
 COPY package.json package-lock.json /opt/acp/
 RUN npm ci --prefix /opt/acp --omit=dev
+COPY native-skills.patch /opt/laomedo/native-skills.patch
+RUN cd /opt/acp/node_modules/@agentclientprotocol/claude-agent-acp \
+    && git apply --check /opt/laomedo/native-skills.patch \
+    && git apply /opt/laomedo/native-skills.patch
 USER node
 ENV HOME=/profile CLAUDE_CONFIG_DIR=/profile/config \
     CLAUDE_CODE_DISABLE_AUTO_MEMORY=1 DISABLE_AUTOUPDATER=1 \

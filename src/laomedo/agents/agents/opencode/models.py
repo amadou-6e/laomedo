@@ -43,6 +43,16 @@ class OpenCodeRuntimeIdentity(BaseModel):
         return self.model_dump()
 
 
+class OpenCodeCommandResult(BaseModel):
+    """Verified native root/child identities, distinct from a fabricated answer."""
+
+    model_config = ConfigDict(strict=True, extra="forbid", frozen=True)
+    command: str = Field(description="Exact admitted built-in command.")
+    native_terminal: dict[str, str | list[str]] = Field(
+        description="Native terminal root and child message/session identities."
+    )
+
+
 class OpenCodeConfig(BaseModel):
     """Project admitted broker inputs into the existing native configuration.
 

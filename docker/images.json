@@ -1,12 +1,13 @@
 {
   "claude": {
-    "image": "laomedo-claude-controller:2.1.310-acp0.98.0",
+    "image": "laomedo-claude-controller:2.1.310-acp0.98.0-skills1",
     "context": "claude",
     "files": [
       "Dockerfile",
       "package.json",
       "package-lock.json",
-      "command_mcp.py"
+      "command_mcp.py",
+      "native-skills.patch"
     ],
     "verify_command": [
       "claude",
@@ -15,7 +16,7 @@
     "verify_output": "2.1.310 (Claude Code)"
   },
   "codex": {
-    "image": "laomedo-codex-acp:0.159.2-2.1.1-unified300",
+    "image": "laomedo-codex-acp:0.159.2-2.1.1-unified300-skills7",
     "context": "codex-acp",
     "files": [
       "Dockerfile",
@@ -27,7 +28,9 @@
       "LaomedoLaunch.ts",
       "LaomedoLaunch.test.ts",
       "native-login.mjs",
-      "native-login.test.mjs"
+      "native-login.test.mjs",
+      "LaomedoSkills.test.ts",
+      "seed_system_skills.py"
     ],
     "verify_command": [
       "codex",
@@ -50,7 +53,7 @@
     "verify_output": "1.18.33"
   },
   "opencode-worker": {
-    "image": "laomedo-opencode-worker:codex-0.159.2-2.1.1-unified300",
+    "image": "laomedo-opencode-worker:codex-0.159.2-2.1.1-unified300-skills7",
     "context": "codex-acp",
     "files": [
       "Dockerfile",
@@ -62,7 +65,9 @@
       "LaomedoLaunch.ts",
       "LaomedoLaunch.test.ts",
       "native-login.mjs",
-      "native-login.test.mjs"
+      "native-login.test.mjs",
+      "LaomedoSkills.test.ts",
+      "seed_system_skills.py"
     ],
     "verify_command": [
       "codex",

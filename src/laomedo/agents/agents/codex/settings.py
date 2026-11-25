@@ -2,11 +2,19 @@
 
 from laomedo._paths import package_root
 
-IMAGE = "laomedo-codex-acp:0.159.2-2.1.1-unified300"
+IMAGE = "laomedo-codex-acp:0.159.2-2.1.1-unified300-skills7"
 
 
 # Managed image IDs are resolved on the selected daemon before execution.
 IMAGE_ID = None
+
+BUNDLED_SKILL_REQUIREMENTS = {
+    "$skill-creator": None,
+    "$skill-installer": "native_skill_requires_provider_configuration",
+    "$imagegen": "native_skill_requires_external_services",
+    "$openai-docs": "native_skill_requires_external_services",
+    "$review-agent": "scratch_workspace",
+}
 
 
 GIT_IMAGE = IMAGE
@@ -17,6 +25,8 @@ GIT_IMAGE_ID = IMAGE_ID
 
 CLI_VERSION = "codex-cli 0.159.2"
 NATIVE_TURN_SECONDS = 180
+# Broker HTTPS timeout is 20 seconds; idle controllers allow a bounded margin.
+IDLE_AUTH_REFRESH_SECONDS = 30
 NATIVE_RECEIPT_FILENAME = "container-receipt.json"
 
 

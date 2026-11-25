@@ -32,6 +32,14 @@ class Settings(BaseSettings):
         description="Additional attachment seconds around the existing allowed native turns.",
     )
 
+    idle_session_seconds: float = Field(
+        default=3600,
+        gt=0,
+        allow_inf_nan=False,
+        validation_alias="LAOMEDO_CODEX_IDLE_SESSION_SECONDS",
+        description="Maximum idle lifetime before a zero-turn native session is explicitly closed.",
+    )
+
     @classmethod
     def settings_customise_sources(
         cls,

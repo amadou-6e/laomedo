@@ -160,6 +160,15 @@ class BaseAgent(ABC):
         """Opt in only when the provider actually implements the mediated lease path."""
         return False
 
+    def has_live_session(self, run_id):
+        """Report actual retained native resources between requests; default is none."""
+        return False
+
+    def close(self):
+        """Request cancellation of active work before the host releases this Agent."""
+        for flag in list(self.cancel_flags.values()):
+            flag.set()
+
     def mcp_access(self, run_id):
         """Return only in-memory admitted external access, never reconstruct a grant."""
         return getattr(self, "_mcp_access", {}).get(run_id)
@@ -191,6 +200,8 @@ class BaseAgent(ABC):
 
     def release_mcp(self, run_id, *, expected=None):
         """Revoke an attempt's external access without masking native cleanup errors."""
+        if self.has_live_session(run_id):
+            return
         with self._mcp_lock:
             if expected is not None and self.mcp_access(run_id) is not expected:
                 return
@@ -209,7 +220,13 @@ class BaseAgent(ABC):
         if (manifest.model_dump(mode="json") if manifest else None) != saved:
             raise RunnerError("mcp_resume_binding_mismatch")
         with self._mcp_lock:
-            if self.mcp_access(run_id) is not None:
+            existing = self.mcp_access(run_id)
+            if existing is not None:
+                if self.has_live_session(run_id) and str(
+                    existing.connection.registration.registration_id
+                ) == request.get("mcp_registration"):
+                    existing.check_health(force=True)
+                    return existing
                 raise RunnerError("mcp_run_already_bound")
             access = self._admit_mcp(request)
             if access:
@@ -309,8 +326,9 @@ class BaseAgent(ABC):
         effort: str,
         activity_attempt_id: str | None = None,
         run_timeout_seconds: int | None = None,
+        native_command=None,
     ) -> dict:
-        """Validate the provider binding before resuming its existing execution."""
+        """Resume a bound execution; unsupported native commands refuse before effects."""
 
     @abstractmethod
     def readiness(self) -> ReadinessObservation:
@@ -320,8 +338,14 @@ class BaseAgent(ABC):
         """Provider-owned refresh semantics for an explicit editor discovery request."""
         return self.model_catalog()
 
+    def prepare_initial_command(self, request: dict) -> str:
+        """Refuse an unsupported initial native command before any preparation effects."""
+        raise RunnerError("native_command_not_supported")
+
     def prepare_resume(self, run_id, body):
         """Validate provider extensions and refresh authentication before HTTP resume."""
+        if body.get("native_command") is not None:
+            raise RunnerError("native_command_not_supported")
         self._validate_run_timeout(body.get("run_timeout_seconds"))
         self._prepare_credentials()
         return {}
@@ -750,6 +774,11 @@ class BaseAgent(ABC):
             raise RunnerError("invalid_request")
         self._mcp_manifest(request)
         self._validate_run_timeout(request.get("run_timeout_seconds"))
+        initial_command = (
+            self.prepare_initial_command(request)
+            if request.get("initial_native_command") is not None
+            else None
+        )
         task = request.get("task")
         if not isinstance(task, str) or not task.strip() or len(task) > 16000:
             raise RunnerError("invalid_task")
@@ -884,6 +913,7 @@ class BaseAgent(ABC):
                 activity_initial_attempt_id=str(uuid4()),
                 output_requirements=output_requirements,
                 output_retries=output_retries,
+                initial_native_command=initial_command,
                 request_hash=request_hash,
                 github_scope=(
                     AgentGitHubScope(**github_scope)

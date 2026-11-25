@@ -9,7 +9,8 @@ from pathlib import Path
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 from uuid import uuid4
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
+from types import SimpleNamespace
 
 from laomedo.agents.connections.controllers import ProviderControllers
 from laomedo.agents.connections.errors import ProviderConnectionError
@@ -32,6 +33,12 @@ class FakeNativeAgent:
         self.provider = "codex"
         self.auth = kwargs["auth_connection"]
         self.pending = []
+
+    def has_live_session(self, run_id):
+        return False
+
+    def close(self):
+        return None
 
     def pending_resumes(self):
         return list(self.pending)
@@ -105,6 +112,89 @@ class ProviderControllerTests(unittest.TestCase):
         with urlopen(request, timeout=3) as response:
             return json.load(response)
 
+    def test_assistant_has_distinct_source_and_graph_cannot_resolve_its_run(self):
+        graph = self.manager.endpoint(self.profile, self.one)
+        assistant = self.manager.assistant_endpoint(self.profile, self.one, 1)
+        self.assertNotEqual(graph, assistant)
+        record = self.post(assistant[0], "/v1/runs/async", {"task": "fixture"})
+        with self.assertRaises(ProviderConnectionError):
+            self.manager.connection_for_run(self.profile, record["run_id"])
+        with self.assertRaises(ProviderConnectionError):
+            self.manager.endpoint(self.profile, self.one, run_id=record["run_id"])
+        self.assertEqual(
+            self.manager.connection_for_run(
+                self.profile, record["run_id"], scope="assistant"
+            ),
+            self.one,
+        )
+        self.assertEqual(self.manager.inventory(self.profile, self.one)[0], 1)
+        self.assertFalse(self.manager.stop(self.profile, self.one))
+        slot = self.manager.slots[(self.profile, self.one, 1, "assistant")]
+        self.assertEqual(slot.runner.status(record["run_id"])["status"], "cancelled")
+        self.assertTrue(self.manager.stop(self.profile, self.one))
+        with self.assertRaises(ProviderConnectionError):
+            self.manager.assistant_endpoint(self.profile, self.one, 2)
+        with self.assertRaises(ProviderConnectionError):
+            self.manager.assistant_endpoint(uuid4(), self.one, 1)
+
+    def test_restart_recovers_assistant_scope_without_a_graph_controller(self):
+        self.manager.assistant_endpoint(self.profile, self.one, 1)
+        self.manager.close()
+        replacement = ProviderControllers(
+            self.service,
+            self.manager.root,
+            self.manager.skill_store,
+            self.manager.source,
+            factory=FakeNativeAgent,
+        )
+        self.addCleanup(replacement.close)
+        replacement.recover()
+        slot = replacement.slots[(self.profile, self.one, 1, "assistant")]
+        self.assertEqual(slot.scope, "assistant")
+        self.assertEqual(slot.state.name, "state")
+        self.assertTrue(
+            (slot.state.parent / "source" / "workspace" / "README.md").is_file()
+        )
+
+    def test_claude_assistant_does_not_pin_execution_to_the_login_image(self):
+        self.records[0] = self.records[0].model_copy(update={"provider": "claude"})
+        self.service._save(self.profile, self.records)
+        self.manager.factory = None
+        native = SimpleNamespace(name="laomedo-claude-fixture", image_id="sha256:login")
+        with (
+            patch.object(self.service.claude, "profile", return_value=native),
+            patch(
+                "laomedo.agents.connections.controllers.AgentProviderRegistry.create_agent"
+            ) as create,
+        ):
+            create.side_effect = lambda provider, *args, **kwargs: FakeNativeAgent(
+                *args, **kwargs
+            )
+            self.manager._create(
+                self.profile, self.one, 1, recovery=True, scope="assistant"
+            )
+            self.assertNotIn("image", create.call_args.kwargs)
+            self.assertEqual(create.call_args.kwargs["profile_volume"], native.name)
+            self.manager._create(
+                self.profile, self.one, 1, recovery=True, scope="graph"
+            )
+            self.assertEqual(create.call_args.kwargs["image"], native.image_id)
+
+    def test_shutdown_closes_remaining_accounts_after_one_runner_fails(self):
+        self.manager.assistant_endpoint(self.profile, self.one, 1)
+        self.manager.assistant_endpoint(self.profile, self.two, 1)
+        slots = list(self.manager.slots.values())
+        slots[0].runner.close = Mock(side_effect=RuntimeError("cleanup uncertain"))
+        slots[1].runner.close = Mock()
+        servers = [slot.server for slot in slots]
+        with self.assertRaises(ProviderConnectionError) as failure:
+            self.manager.close()
+        self.assertEqual(failure.exception.code, "provider_cleanup_unconfirmed")
+        slots[1].runner.close.assert_called_once()
+        self.assertTrue(all(server.fileno() == -1 for server in servers))
+        self.assertIsNot(ProviderControllers._current, self.manager)
+        slots[0].runner.close = Mock()
+
     def test_connections_have_distinct_runners_and_foreign_profile_cannot_bind(self):
         one = self.manager.endpoint(self.profile, self.one)
         two = self.manager.endpoint(self.profile, self.two)
@@ -130,7 +220,7 @@ class ProviderControllerTests(unittest.TestCase):
     def test_trailing_slash_routes_use_the_same_admission_fence(self):
         """Every path accepted by the base handler is counted and fenced identically."""
         endpoint, _token = self.manager.endpoint(self.profile, self.one)
-        slot = self.manager.slots[(self.profile, self.one, 1)]
+        slot = self.manager.slots[(self.profile, self.one, 1, "graph")]
         self.service._save(
             self.profile,
             [
@@ -157,7 +247,7 @@ class ProviderControllerTests(unittest.TestCase):
 
     def test_catalog_and_native_work_cannot_overlap_credential_rotation(self):
         self.manager.endpoint(self.profile, self.one)
-        slot = self.manager.slots[(self.profile, self.one, 1)]
+        slot = self.manager.slots[(self.profile, self.one, 1, "graph")]
         self.manager.admit_operation(slot, catalog=True)
         with self.assertRaisesRegex(
             ProviderConnectionError, "provider_connection_busy"
@@ -173,7 +263,7 @@ class ProviderControllerTests(unittest.TestCase):
 
     def test_corrupt_inventory_refuses_catalog_with_a_safe_response(self):
         endpoint, _token = self.manager.endpoint(self.profile, self.one)
-        slot = self.manager.slots[(self.profile, self.one, 1)]
+        slot = self.manager.slots[(self.profile, self.one, 1, "graph")]
         record = slot.state / "runs" / str(uuid4()) / "record.json"
         record.parent.mkdir()
         record.write_text("{", encoding="utf-8")
@@ -224,16 +314,16 @@ class ProviderControllerTests(unittest.TestCase):
 
     def test_cleanup_waits_if_failed_slot_retry_is_already_starting(self):
         self.manager.endpoint(self.profile, self.one)
-        slot = self.manager.slots[(self.profile, self.one, 1)]
+        slot = self.manager.slots[(self.profile, self.one, 1, "graph")]
         starting = slot.model_copy(
             update={"runner": None, "server": None, "creating": True}
         )
-        self.manager.slots[(self.profile, self.one, 1)] = slot.model_copy(
+        self.manager.slots[(self.profile, self.one, 1, "graph")] = slot.model_copy(
             update={"runner": None, "server": None}
         )
         with unittest.mock.patch.object(self.manager, "_create", return_value=starting):
             self.assertFalse(self.manager.stop(self.profile, self.one))
-        self.manager.slots[(self.profile, self.one, 1)] = slot
+        self.manager.slots[(self.profile, self.one, 1, "graph")] = slot
 
     @unittest.skipUnless(find_spec("py_docker"), "Requires the optional Docker SDK")
     def test_native_recovery_failure_retains_slot_and_allows_later_retry(self):
@@ -245,7 +335,7 @@ class ProviderControllerTests(unittest.TestCase):
         factory = self.manager.factory
         self.manager.factory = Mock(side_effect=DockerOperationError("daemon offline"))
         self.manager.recover()
-        slot = self.manager.slots[(self.profile, self.one, 1)]
+        slot = self.manager.slots[(self.profile, self.one, 1, "graph")]
         self.assertIsNone(slot.runner)
         self.assertFalse(slot.creating)
         with self.assertRaisesRegex(
@@ -261,7 +351,7 @@ class ProviderControllerTests(unittest.TestCase):
         from py_docker.errors import DockerOperationError
 
         self.manager.endpoint(self.profile, self.one)
-        slot = self.manager.slots[(self.profile, self.one, 1)]
+        slot = self.manager.slots[(self.profile, self.one, 1, "graph")]
         receipt = slot.state / "receipts" / "owned.json"
         receipt.parent.mkdir()
         receipt.write_text("owned fixture")
@@ -273,8 +363,8 @@ class ProviderControllerTests(unittest.TestCase):
                 runner.container.client.side_effect = DockerOperationError(
                     "daemon offline"
                 )
-                self.manager.slots[(self.profile, self.one, 1)] = slot.model_copy(
-                    update={"runner": runner}
+                self.manager.slots[(self.profile, self.one, 1, "graph")] = (
+                    slot.model_copy(update={"runner": runner})
                 )
                 with unittest.mock.patch.object(
                     DockerRuntime,
@@ -298,14 +388,14 @@ class ProviderControllerTests(unittest.TestCase):
                     result = self.service.retry_cleanup(self.profile, self.one)
                 self.assertEqual(result.status, "cleanup_required")
                 self.assertTrue(receipt.exists())
-        self.manager.slots[(self.profile, self.one, 1)] = slot
+        self.manager.slots[(self.profile, self.one, 1, "graph")] = slot
 
     def test_unavailable_recovered_runner_keeps_settings_and_cleanup_retryable(self):
         state = self.manager.root / str(self.profile) / str(self.one) / "g1"
         state.mkdir(parents=True)
         self.manager.source = None
         self.manager.recover()
-        slot = self.manager.slots[(self.profile, self.one, 1)]
+        slot = self.manager.slots[(self.profile, self.one, 1, "graph")]
         self.assertFalse(slot.creating)
         self.assertIsNone(slot.runner)
         with self.assertRaisesRegex(
@@ -344,13 +434,13 @@ class ProviderControllerTests(unittest.TestCase):
             )
         self.assertFalse(self.manager.stop(self.profile, self.one))
         self.assertTrue(self.manager.stop(self.profile, self.one))
-        slot = self.manager.slots[(self.profile, self.one, 1)]
+        slot = self.manager.slots[(self.profile, self.one, 1, "graph")]
         self.assertEqual(slot.runner.status(record["run_id"])["status"], "cancelled")
 
     def test_queued_resume_is_counted_and_cleanup_waits_for_settlement(self):
         endpoint, _token = self.manager.endpoint(self.profile, self.one)
         record = self.post(endpoint, "/v1/runs/async", {"request_id": str(uuid4())})
-        slot = self.manager.slots[(self.profile, self.one, 1)]
+        slot = self.manager.slots[(self.profile, self.one, 1, "graph")]
         record["status"] = "completed"
         (slot.state / "runs" / record["run_id"] / "record.json").write_text(
             json.dumps(record), encoding="utf-8"
@@ -369,7 +459,7 @@ class ProviderControllerTests(unittest.TestCase):
         from laomedo.host.credentials.siwc.errors import AuthError
 
         self.manager.endpoint(self.profile, self.one)
-        slot = self.manager.slots[(self.profile, self.one, 1)]
+        slot = self.manager.slots[(self.profile, self.one, 1, "graph")]
         self.manager.closed = True
         with unittest.mock.patch.object(self.service, "borrow") as borrow:
             with self.assertRaisesRegex(AuthError, "auth_revoked"):
@@ -381,7 +471,7 @@ class ProviderControllerTests(unittest.TestCase):
     def test_unknown_resume_does_not_skip_cancellation_in_other_generations(self):
         endpoint, _token = self.manager.endpoint(self.profile, self.one)
         first = self.post(endpoint, "/v1/runs/async", {"request_id": str(uuid4())})
-        old_slot = self.manager.slots[(self.profile, self.one, 1)]
+        old_slot = self.manager.slots[(self.profile, self.one, 1, "graph")]
         old_slot.runner.pending = [{"run_id": first["run_id"], "status": "unknown"}]
         self.service._save(
             self.profile,
@@ -389,7 +479,7 @@ class ProviderControllerTests(unittest.TestCase):
         )
         endpoint, _token = self.manager.endpoint(self.profile, self.one)
         second = self.post(endpoint, "/v1/runs/async", {"request_id": str(uuid4())})
-        new_slot = self.manager.slots[(self.profile, self.one, 2)]
+        new_slot = self.manager.slots[(self.profile, self.one, 2, "graph")]
         with self.assertRaisesRegex(
             ProviderConnectionError, "provider_cleanup_unconfirmed"
         ):
@@ -401,7 +491,7 @@ class ProviderControllerTests(unittest.TestCase):
 
     def test_unknown_resume_exposes_cleanup_retry_without_erasing_credentials(self):
         self.manager.endpoint(self.profile, self.one)
-        slot = self.manager.slots[(self.profile, self.one, 1)]
+        slot = self.manager.slots[(self.profile, self.one, 1, "graph")]
         slot.runner.pending = [{"run_id": str(uuid4()), "status": "unknown"}]
         self.service._save(
             self.profile,

@@ -51,7 +51,7 @@ def apply_assistant(checkout: Path, source: Path):
     if editor_content.count(editor_anchor) != 1:
         raise SystemExit("assistant_editor_anchor_missing")
     editor_content = (
-        'import AssistantSidebar from "@/components/laomedoAssistant/AssistantSidebar";\n'
+        'import AssistantSidebar from "@/components/laomedoAssistant/sidebar/AssistantSidebar";\n'
         + editor_content.replace(
             editor_anchor,
             "                    </main>\n                    <AssistantSidebar />\n                  </FlowSearchProvider>",
@@ -66,7 +66,7 @@ def apply_assistant(checkout: Path, source: Path):
     if rail_content.count(rail_anchor) != 1:
         raise SystemExit("assistant_rail_anchor_missing")
     rail_content = (
-        'import AssistantSidebarToggle from "@/components/laomedoAssistant/AssistantSidebarToggle";\n'
+        'import AssistantSidebarToggle from "@/components/laomedoAssistant/sidebar/AssistantSidebarToggle";\n'
         + rail_content.replace(
             rail_anchor,
             "        ))}\n        <AssistantSidebarToggle hiddenFromTabOrder={hiddenFromTabOrder} />\n      </SidebarMenu>",

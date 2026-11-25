@@ -10,7 +10,7 @@ build is required. Existing-tag recipe mismatches and explicit pins follow the
 [shared acquisition policy](../README.md).
 
 For a host-reviewed manual rebuild, run
-`docker build -t laomedo-codex-acp:0.159.2-2.1.1-mcp2 .` from this directory and record
+`docker build -t laomedo-codex-acp:0.159.2-2.1.1-commands4 .` from this directory and record
 the resulting immutable ID for the runner's explicit `image_id` override.
 The Dockerfile pins the Node base, upstream adapter commit/archive checksum and
 Codex package lock. The runtime includes the upstream Apache-2.0 licence and
@@ -28,7 +28,11 @@ Host-owned session metadata supplies normal or split policy, model, effort and
 the one supported output-precheck definition. Normal mode inherits the reviewed
 permission profile without per-turn sandbox/approval overrides; split mode uses
 only its registered external executor. Typed skill items come from host metadata,
-never prompt parsing. ACP slash-command interception is disabled for these runs.
+never prompt parsing. Ordinary prompts keep slash-command interception disabled. Explicit host-owned
+`nativeCommand` metadata admits only status, mcp, skills, review and compact with
+exact text/argument checks. The first three return ACP control text without a model
+turn; review and compact still require native terminal evidence. No account or
+permission commands are admitted.
 Native session roots remain explicitly untrusted, so model-writable project
 configuration cannot become a runner-policy or provider-routing source.
 
@@ -67,3 +71,30 @@ allowlist. This records the host's existing scoped admission and permits
 headless invocation without changing the global approval or sandbox policy.
 The forwarding capability is admitted only for a host Docker alias or a private
 IPv4 endpoint; public URLs and arbitrary MCP server definitions are rejected.
+
+Explicit compact execution can complete on an ordered native contextCompaction
+start/completion pair with the same observed thread, turn and item IDs. It retains
+that evidence separately from a model-turn result, drains briefly for late native
+failure, then uses normal cleanup. No assistant text or usage is manufactured.
+Ordinary prompts and review still require native turn completion.
+
+Native command discovery and dispatch require the adapter handshake flag
+`nativeCommands: 1`. Base-only adapters remain valid for ordinary execution but
+expose no executable command catalog and refuse explicit command requests before
+any prompt. Image tags or advertised slash-command descriptions alone do not
+establish handler support. Unknown capability fields and invalid flag values fail
+initialization.
+
+## Host-managed bearer refresh
+
+`credentialRefresh: 1` advertises the narrow `_laomedo/refreshCredential`
+request. It accepts only `accessToken`, returns `{updated: true}`, and never
+forwards credentials into native event history. `LaomedoLaunch` initializes the
+controller-private file before spawning native Codex. The extension atomically
+replaces it only in managed split mode outside an active prompt. Both initial
+and refreshed credentials remain in a controller-private tmpfs, outside executor
+mounts, the writable image layer and persistent profiles.
+Pinned native 0.159.2 command-backed provider auth reads the file; its 1 ms cache
+is allowed to expire before acknowledgement. This changes no native session IDs.
+The host remains the sole OAuth-refresh owner and checks selected account identity
+and generation before transfer. Failure never falls through to a model prompt.

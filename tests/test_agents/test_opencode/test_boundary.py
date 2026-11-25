@@ -7,6 +7,8 @@ from importlib.util import find_spec
 from pathlib import Path
 import hashlib
 import json
+import os
+import stat
 import tempfile
 import time
 import unittest
@@ -19,6 +21,7 @@ from urllib import request
 from laomedo.agents.agents.opencode.executor import OpenCodeCommandExecutor
 from laomedo.agents.agents.opencode.runtime import OpenCodeAgentRuntime
 from laomedo.agents.agents.opencode.utils import check_auth_fresh
+from laomedo.agents.agents.opencode.utils import remove_controller_directory
 from laomedo.agents.errors import RunnerError
 
 if find_spec("py_docker"):
@@ -29,6 +32,31 @@ ENDPOINT = "npipe:////./pipe/dockerDesktopLinuxEngine"
 
 
 class BoundaryTests(unittest.TestCase):
+    def test_staging_cleanup_handles_readonly_copies_and_refuses_other_paths(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            profile = Path(tmp) / "profile"
+            profile.mkdir()
+            source = Path(tmp) / "source.md"
+            source.write_text("original skill")
+            source.chmod(stat.S_IREAD)
+            root = profile / ("controller-" + "a" * 32)
+            root.mkdir()
+            copied = root / "skill.md"
+            copied.write_text("copied skill")
+            copied.chmod(stat.S_IREAD)
+            try:
+                remove_controller_directory(root, profile)
+                self.assertFalse(root.exists())
+                self.assertTrue(source.exists())
+                self.assertFalse(source.stat().st_mode & stat.S_IWRITE)
+                unrelated = profile / "sessions"
+                unrelated.mkdir()
+                with self.assertRaises(OSError):
+                    remove_controller_directory(unrelated, profile)
+                self.assertTrue(unrelated.exists())
+            finally:
+                source.chmod(stat.S_IWRITE)
+
     @unittest.skipUnless(find_spec("py_docker"), "Requires optional Docker runtime")
     def test_worker_image_admission_preserves_errors_before_starting_broker(self):
         from py_docker.errors import ImageResolutionError, OwnershipConflictError
@@ -221,6 +249,39 @@ class BoundaryTests(unittest.TestCase):
                     )
                 broker.return_value.shutdown.assert_called_once()
                 client.return_value.sessions.open.assert_not_called()
+                if os.name == "nt":
+                    self.assertFalse(list(profile.glob("controller-*")))
+
+    @unittest.skipUnless(find_spec("py_docker"), "Requires the optional Docker runtime")
+    def test_failed_skill_copy_removes_private_staging_before_broker_allocation(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            profile, workspace, evidence = self.fixture(Path(tmp), mode="provider_key")
+            with (
+                patch("py_docker.Client") as client,
+                patch(
+                    "laomedo.agents.agents.opencode.runtime.OpenCodeCommandExecutor"
+                ) as broker,
+                patch(
+                    "laomedo.agents.agents.opencode.runtime.shutil.copytree",
+                    side_effect=OSError("fixture copy failure"),
+                ),
+            ):
+                client.return_value.__enter__.return_value.connection.endpoint = (
+                    ENDPOINT
+                )
+                with self.assertRaisesRegex(OSError, "fixture copy failure"):
+                    OpenCodeAgentRuntime(
+                        workspace,
+                        evidence,
+                        profile=profile,
+                        image="controller",
+                        image_id=CONTROLLER_ID,
+                        worker_image_id="sha256:" + "b" * 64,
+                    )
+                broker.assert_not_called()
+                if os.name == "nt":
+                    self.assertFalse(list(profile.glob("controller-*")))
+                self.assertTrue((profile / "auth.json").exists())
 
     @unittest.skipUnless(
         find_spec("py_docker"),
@@ -268,6 +329,11 @@ class BoundaryTests(unittest.TestCase):
                 self.assertFalse(profile.joinpath("sessions/auth.json").exists())
                 self.assertNotIn("OPENCODE_SERVER_PASSWORD", spec.model_dump_json())
                 client.return_value.sessions.open.assert_not_called()
+                staging = backend.root
+                backend.close()
+                if os.name == "nt":
+                    self.assertFalse(staging.exists())
+                self.assertTrue(profile.joinpath("auth.json").is_file())
 
     @unittest.skipUnless(
         find_spec("py_docker"),
@@ -310,7 +376,13 @@ class BoundaryTests(unittest.TestCase):
                 )
                 self.addCleanup(backend.close)
                 config = json.loads(
-                    next(evidence.glob("controller-*/config.json")).read_text()
+                    Path(
+                        next(
+                            m.source
+                            for m in backend.spec.mounts
+                            if m.target == "/controller-config.json"
+                        )
+                    ).read_text()
                 )
                 self.assertTrue(config["tools"]["task"])
                 spec = backend.spec
@@ -473,7 +545,17 @@ class BoundaryTests(unittest.TestCase):
             spec = job.spec
             self.assertEqual(spec.image, CONTROLLER_ID)
             self.assertEqual(spec.network_mode, "none")
-            self.assertEqual(spec.environment, {})
+            self.assertEqual(
+                {
+                    key: value.get_secret_value()
+                    for key, value in spec.environment.items()
+                },
+                {
+                    "GIT_CONFIG_COUNT": "1",
+                    "GIT_CONFIG_KEY_0": "safe.directory",
+                    "GIT_CONFIG_VALUE_0": "/draft",
+                },
+            )
             self.assertEqual(spec.cap_drop, ["ALL"])
             self.assertEqual(len(spec.mounts), 3)
             self.assertTrue(

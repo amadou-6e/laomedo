@@ -8,6 +8,11 @@ checks the authenticated identity before restoring the cookie session in a fresh
 document. This discards old query/mutation/store callbacks on profile entry. It does
 not store PINs, mint tokens or introduce another authentication protocol.
 
+The pinned upstream auth-guard adapter preserves the full same-site path, query
+and fragment in its encoded login return URL. Revalidating a cookie on reload
+must not drop the assistant conversation identity or other route parameters.
+SessionRedirect tests exercise the actual patched guard, not a separate helper.
+
 Failures use the shared catalogue; profile forms show plain explanations without technical diagnostics. Unknown save outcomes
 require checking the list; they never automatically retry creation. A forgotten
 PIN blocks that profile; the first release has no PIN recovery or deletion.

@@ -31,3 +31,5 @@ owner-only `~/.laomedo-image-builds` directory. Verification has an ephemeral
 The OpenCode worker intentionally uses the Codex context because that existing
 worker contract needs its Git, GitHub and Python tools. Its separate tag keeps
 controller and worker registration explicit; Docker reuses shared build layers.
+
+Codex seed_system_skills.py runs only native initialization/skills discovery while building the credential-free image. It hashes the bundled tree into system-skills.json; runtime dispatch refuses changed or ambiguous sources. The worker contains the same public, root-owned read-only helper tree and Python YAML support. Claude native-skills.patch preserves the pinned SDK builtin marker without adding tools.

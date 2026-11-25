@@ -130,6 +130,7 @@ SDK_FAILURE_OPERATIONS = frozenset(
 
 RUNNER_FAILURE_CODES = frozenset(
     (
+        "native_skill_approval_required",
         "activity_attempt_already_exists",
         "activity_journal_unavailable",
         "activity_normalization_failed",
@@ -184,6 +185,7 @@ RUNNER_FAILURE_CODES = frozenset(
         "opencode_private_auth_required",
         "opencode_provider_model_required",
         "opencode_response_not_terminal",
+        "opencode_native_command_failed",
         "opencode_runtime_pin_mismatch",
         "opencode_transport_cleanup_failed",
         "opencode_workspace_command_failed",
@@ -201,8 +203,11 @@ RUNNER_FAILURE_CODES = frozenset(
         "resume_provider_binding_mismatch",
         "run_not_active_in_this_process",
         "run_not_dispatchable",
+        "codex_idle_session_unavailable",
+        "codex_credential_update_unconfirmed",
         "run_timeout_not_supported",
         "runner_busy",
+        "runner_authentication_required",
         "runner_docker_check_unconfirmed",
         "runner_transport_failed",
         "split_executor_lease_unavailable",
