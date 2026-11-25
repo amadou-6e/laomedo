@@ -1,6 +1,6 @@
 ﻿import { useCallback, useEffect, useRef, useState } from "react";
 import useFlowStore from "@/stores/flowStore";
-import { ChevronDown, ExternalLink, Info, RefreshCw } from "lucide-react";
+import { ChevronDown, ExternalLink, Globe, Info, RefreshCw } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import useAuthStore from "@/stores/authStore";
 import useHandleOnNewValue from "@/CustomNodes/hooks/use-handle-new-value";
@@ -13,7 +13,7 @@ import { privateSkillRequest, subscribePrivateInvalidation } from "./api";
 import type { PrivateDiscovery, PrivateOrigin } from "./models";
 
 /** Select a previously saved source or a repository available to the chosen connection. */
-export function SkillSourceSuggestions({ data }: { data: any }) {
+export function SkillSourceSuggestions({ data, onUseVariable }: { data: any; onUseVariable?: () => void }) {
   const [open, setOpen] = useState(false);
   const [sources, setSources] = useState<string[]>([]);
   const [error, setError] = useState(false);
@@ -67,13 +67,16 @@ export function SkillSourceSuggestions({ data }: { data: any }) {
   const matches = sources.filter((item) => !filter || item.toLowerCase().includes(filter.toLowerCase()));
   const choose = (value: string) => { handleOnNewValue({ value }); setOpen(false); setActiveIndex(-1); setFilter(null); };
   const listId = `source-options-${data.id}`;
+  const helpId = `source-help-${data.id}`;
   return <div className="nodrag nopan px-5 pb-2 text-sm" onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) { setOpen(false); setActiveIndex(-1); } }}>
     <label htmlFor={`source-${data.id}`} className="mb-2 block">Source or Repository <span aria-hidden="true" title="Enter a public repository URL or an allowed local folder, or select a connected repository.">ⓘ</span></label>
+    <span id={helpId} className="sr-only">Enter a public repository URL or an allowed local folder, or select a connected repository.</span>
     <div className="flex rounded border bg-background">
-      <input id={`source-${data.id}`} role="combobox" aria-expanded={open} aria-controls={listId} aria-autocomplete="list" aria-activedescendant={activeIndex >= 0 ? `${listId}-${activeIndex}` : undefined}
+      <input id={`source-${data.id}`} role="combobox" aria-describedby={helpId} aria-expanded={open} aria-controls={listId} aria-autocomplete="list" aria-activedescendant={activeIndex >= 0 ? `${listId}-${activeIndex}` : undefined}
         className="min-w-0 flex-1 bg-transparent p-2 outline-none" value={source} onFocus={() => { setFilter(null); setOpen(true); }} onChange={(event) => { const value = event.target.value; handleOnNewValue({ value }); setFilter(value); setOpen(true); setActiveIndex(-1); }}
         onKeyDown={(event) => { if (event.key === "ArrowDown" && matches.length) { event.preventDefault(); setOpen(true); setActiveIndex((i) => Math.min(i + 1, matches.length - 1)); } else if (event.key === "ArrowUp" && matches.length) { event.preventDefault(); setActiveIndex((i) => Math.max(0, i - 1)); } else if (event.key === "Enter" && open && matches[activeIndex]) { event.preventDefault(); choose(matches[activeIndex]); } else if (event.key === "Escape") { event.stopPropagation(); setOpen(false); setActiveIndex(-1); } }} />
       <button type="button" aria-label="Show sources and repositories" aria-expanded={open} onClick={() => { setFilter(null); setOpen(!open); }} className="px-2"><ChevronDown className="h-4 w-4" /></button>
+      {onUseVariable && <button type="button" aria-label="Use a global variable" title="Use a global variable" onClick={onUseVariable} className="px-2"><Globe className="h-4 w-4" /></button>}
     </div>
     {open && <div id={listId} className="mt-1 max-h-40 overflow-auto rounded border bg-background" role="listbox" aria-label="Saved sources and repositories">
       {matches.map((item, index) => <div key={item} id={`${listId}-${index}`} role="option" aria-selected={activeIndex === index} className="w-full cursor-pointer truncate px-2 py-1 text-left hover:bg-muted" title={item} onMouseDown={(event) => event.preventDefault()} onClick={() => choose(item)}>{item}</div>)}

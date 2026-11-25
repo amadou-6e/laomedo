@@ -70,6 +70,14 @@ test("Parameters panel cannot expose or re-add the saved request", () => {
   expect(screen.getByText("operation", { exact: true })).toBeVisible();
 });
 
+test("source picker can switch to the native global-variable control and back", () => {
+  draw(data);
+  fireEvent.click(screen.getByRole("button", { name: "Use a global variable" }));
+  expect(screen.getByRole("textbox", { name: "source" })).toBeVisible();
+  fireEvent.click(screen.getByRole("button", { name: "Browse sources" }));
+  expect(screen.getByRole("combobox", { name: "Source or Repository" })).toBeVisible();
+});
+
 test("Source failures are inline without a Discovery row; empty and successful sources are quiet", () => {
   const node = (source: string, status: string) => ({ ...data, node: { ...data.node, template: { ...data.node.template,
     source: { ...scalar, value: source }, discovery_status: { ...scalar, value: status } } } });

@@ -1,4 +1,4 @@
-import { Fragment, useMemo } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { getNodeInputColors } from "@/CustomNodes/helpers/get-node-input-colors";
 import { getNodeInputColorsName } from "@/CustomNodes/helpers/get-node-input-colors-name";
 import {
@@ -26,6 +26,7 @@ const RenderInputParameters = ({
   showHiddenOutputs,
 }) => {
   const edges = useFlowStore((state) => state.edges);
+  const [nativeSource, setNativeSource] = useState(false);
   const feedback = prFeedback(data);
 
   const templateFields = useMemo(() => {
@@ -130,7 +131,7 @@ const RenderInputParameters = ({
 
       return (
         <Fragment key={memoizedKey}>
-        {showNode && isSkillNode(data) && templateField === "source" && !(displayHandleMap.get(templateField) ?? false) && !template.load_from_db ? <SkillSourceSuggestions data={data} /> : <NodeInputField
+        {showNode && isSkillNode(data) && templateField === "source" && !(displayHandleMap.get(templateField) ?? false) && !template.load_from_db && !nativeSource ? <SkillSourceSuggestions data={data} onUseVariable={() => setNativeSource(true)} /> : <NodeInputField
           lastInput={
             !(shownOutputs.length > 0 || showHiddenOutputs || (!advanced && advancedFields.length > 0)) &&
             idx === fields.length - 1
@@ -163,6 +164,7 @@ const RenderInputParameters = ({
               : `${(((handleIdx + 1) / (handleFields.length + 1)) * 100).toFixed(2)}%`
           }
         />}
+        {showNode && isSkillNode(data) && templateField === "source" && nativeSource && !template.load_from_db && <button type="button" className="nodrag nopan px-5 text-xs text-muted-foreground underline" onClick={() => setNativeSource(false)}>Browse sources</button>}
         {showNode && templateField === "source" && skillSourceError(data) && (
           <div role="alert" data-testid="skill-source-error" className="px-5 pb-2 text-sm text-destructive">
             <NodeErrorNotice message={SKILL_SOURCE_ERROR_CODE} label={skillSourceError(data)}
