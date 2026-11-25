@@ -68,13 +68,6 @@ class SkillComponent(Component):
             info="Receive file changes from another node. Creates one revision for the batch; publish it in Skill files when ready.",
         ),
         StrInput(
-            name="commit_id",
-            display_name="Base Commit",
-            value="",
-            advanced=True,
-            info="Commit identity from history. Empty only for the initial imported revision.",
-        ),
-        StrInput(
             name="edit_request",
             display_name="Edit Request",
             value="",
@@ -165,9 +158,7 @@ class SkillComponent(Component):
 
     def skill_output(self) -> Data:
         self._validate_source(str(getattr(self, "source", "") or ""))
-        if self.select_current_revision:
-            if not getattr(self, "source", ""):
-                raise ValueError("local_skill_source_required")
+        if self.select_current_revision and getattr(self, "source", ""):
             versions = source_request(
                 "revisions", source=str(self.source), skill=str(self.skill_id)
             )
@@ -188,7 +179,15 @@ class SkillComponent(Component):
             if reference.get("tree_hash") != revision:
                 raise ValueError("source_reference_invalid")
         else:
-            skill_id, revision = str(self.skill_id), str(self.revision_id)
+            skill_id = str(self.skill_id)
+            revision = getattr(self, "revision_id", "")
+            if not revision and getattr(self, "_vertex", None) is not None:
+                revision = (
+                    self._vertex.full_data["data"]["node"]["template"]
+                    .get("revision_id", {})
+                    .get("value", "")
+                )
+            revision = str(revision)
         if not re.fullmatch(r"[a-z0-9][a-z0-9_-]{0,63}", skill_id):
             raise ValueError("invalid_skill_id")
         if not re.fullmatch(r"sha256:[0-9a-f]{64}", revision):
@@ -417,7 +416,7 @@ class SkillComponent(Component):
             "prepare",
             skill_id=reference["skill_id"],
             revision_id=reference["revision_id"],
-            commit_id=str(getattr(self, "commit_id", "") or ""),
+            commit_id="",
         )
         editor = None
         if feedback is not None:

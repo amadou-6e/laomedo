@@ -142,7 +142,7 @@ class SkillOperations:
             head_id = self._import_head(db, skill_id)
             base = self._read(db, skill_id, head_id)
             if base["revision_id"] != revision_id or (
-                commit_id != head_id if commit_id else base["parent_commit"] is not None
+                commit_id and commit_id != head_id
             ):
                 raise ConflictError("skill_base_changed")
             ticket = secrets.token_hex(32)

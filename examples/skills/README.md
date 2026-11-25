@@ -2,8 +2,8 @@
 
 For new edits use the Skill node's Operation input or the
 [manual editor and Publish](../../docs/features/skills/manual-workspace.md).
-Revision and Base Commit are under Advanced settings; Edit Request is no longer
-a node control. The builder below preserves the legacy saved-feedback export
+GitHub Skill revision is under Advanced settings; the editing service captures
+the base automatically. Edit Request is not a node control. The builder below preserves the legacy saved-feedback export
 format, including its hidden request, for existing integrations. It is not a new
 on-node authoring workflow. No fresh model run is claimed for this control change.
 
@@ -26,8 +26,8 @@ python examples/skills/build_flow.py `
   --edit-request $editRequest --output $privateFlowPath
 ```
 
-For a subsequent candidate also pass `--commit-id $baseCommit`. An empty base
-commit is valid at the imported root only. Supply real immutable references;
+For a subsequent candidate supply its immutable revision; the current matching
+history head is captured automatically. Supply real immutable references;
 credentials, transport tokens and edit tickets never belong in the saved graph.
 The command writes and validates a graph. It does not start an Agent or apply an
 edit. Inspect it in the app before explicitly running against your local services.

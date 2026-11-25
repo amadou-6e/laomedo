@@ -33,6 +33,7 @@ test("local Skills never expose revision or commit controls", () => {
   expect(isSkillControlHidden(local, "commit_id")).toBe(true);
   expect(advancedSkillFields(local, ["revision_id", "commit_id"], [], false)).toEqual([]);
   expect(isSkillControlHidden(data, "revision_id")).toBe(false);
+  expect(isSkillControlHidden(data, "commit_id")).toBe(true);
 });
 jest.mock("@xyflow/react", () => ({ useUpdateNodeInternals: () => update }));
 jest.mock("@/CustomNodes/hooks/use-handle-new-value", () => ({ __esModule: true, default: () => ({ handleOnNewValue: jest.fn() }) }));
@@ -67,7 +68,7 @@ test("legacy flags cannot expose Edit Request or leave Revision outside settings
   fireEvent.click(toggle);
   expect(screen.getAllByRole("textbox", { name: "revision_id" })).toHaveLength(1);
   expect(screen.getByRole("textbox", { name: "revision_id" })).toHaveValue("sha256:saved-pin");
-  expect(screen.getByRole("textbox", { name: "commit_id" })).toHaveValue("saved-parent");
+  expect(screen.queryByRole("textbox", { name: "commit_id", hidden: true })).toBeNull();
   fireEvent.change(screen.getByRole("textbox", { name: "revision_id" }), { target: { value: "updated pin" } });
   fireEvent.click(toggle); fireEvent.click(toggle);
   expect(screen.getByRole("textbox", { name: "revision_id" })).toHaveValue("updated pin");

@@ -123,7 +123,10 @@ def test_local_skill_uses_current_files_without_revision_selection(tmp_path):
     node = component("skill.py")
     config = {item.name: item.to_dict() for item in node.inputs}
     assert not config["revision_id"]["show"]
-    assert not config["commit_id"]["show"]
+    assert "commit_id" not in config
+    assert "commit_id" not in {
+        item.name for item in component("github_skill.py").inputs
+    }
 
     def request(action, **values):
         if action == "discover":

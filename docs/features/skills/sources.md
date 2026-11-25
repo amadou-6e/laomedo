@@ -54,17 +54,15 @@ service or mount automatically.
 1. Enter Source. The Skill selector says **No source found** until skills are
    available, then **Select an option**. Failed scans show a message directly
    below Source; empty Source and successful scans show no status row.
-2. Choose **Skill** to load that Skill's available revisions.
-3. Expand **Advanced settings** and choose **Revision**. It is an exact file
-   version, not a moving latest pointer. **Base Commit** identifies the parent
-   for an operation; leave it empty only for the initial imported revision.
+2. Choose **Skill**. Local Skill uses the current folder contents.
+3. For GitHub Skill, expand **Advanced settings** and choose **Revision**. It is
+   an exact file version. The editing service captures its history base automatically.
 4. Open **Skill files** to inspect the selected bundle. To change it, edit files
    and Publish there, or supply a change payload through **Operation**.
 
 Discovery reads/imports verified files; it never runs a Skill or starts an Agent.
-Refresh updates choices while preserving a valid selected revision. Changing
-Source clears Skill and Revision; changing Skill clears Revision, so choose a
-replacement in Advanced settings. There is no Edit Request control. Existing
+Changing the source clears the Skill selection. For GitHub Skill, changing the
+Skill also clears Revision, so select a replacement in Advanced settings. There is no Edit Request control. Existing
 saved feedback requests are retained internally for compatibility only.
 
 If Discovery fails, check the source URL/path, the allowed local roots, and the

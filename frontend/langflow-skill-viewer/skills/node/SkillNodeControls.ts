@@ -25,8 +25,8 @@ export function skillFieldTemplate(data: any, name: string, template: any): any 
 }
 
 export function isSkillControlHidden(data: any, name: string): boolean {
-  return isSkillNode(data) && (["edit_request", "discovery_status", "github_connection", "private_repository_id"].includes(name) ||
-    (!isGitHubSkillNode(data) && ["revision_id", "commit_id"].includes(name)));
+  return isSkillNode(data) && (["edit_request", "discovery_status", "github_connection", "private_repository_id", "commit_id"].includes(name) ||
+    (!isGitHubSkillNode(data) && name === "revision_id"));
 }
 
 export const SKILL_SOURCE_ERROR_CODE = "source_discovery_failed";

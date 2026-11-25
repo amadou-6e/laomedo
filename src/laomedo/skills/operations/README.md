@@ -49,7 +49,7 @@ the root; subsequent history reads do not acquire an edit lock. The first edit
 parents that commit. When canonical revisions were promoted outside an older
 journal, their verified ancestry is registered after the root, with original edit
 times and provenance explicitly unknown. The latest registration becomes the head;
-editing that revision requires its exact Base Commit, as for any non-root edit.
+preparing an edit captures that head automatically when its revision matches.
 Existing journal heads and legacy
 empty-root patches retain their original identities and verification behavior;
 no historical commit is rewritten. Legacy imports without a journal are labelled
@@ -127,10 +127,8 @@ request returns `skill_manual_stale`, preserves the candidate and newer registry
 bytes, and requires maintainer-led reconciliation. Automatic merging, branching
 and reconstruction of another journal's edit provenance are unsupported.
 
-For graph operations after initial history has been backfilled, use the current
-history head as Base Commit in the Skill node's Advanced settings. An empty Base
-Commit admits only the initial import, preventing an accidental edit of a newer
-head. The hidden Edit Request reader supports previously saved feedback graphs;
+For graph operations, prepare captures the current history head when its revision
+matches the selected files. Applying the edit checks that head has not changed. The hidden Edit Request reader supports previously saved feedback graphs;
 new nodes expose no such field and receive edits through Operation or the manual
 editor. This is saved-graph compatibility, not a new authoring control.
 
@@ -164,7 +162,7 @@ If the reviewed result equals the retained journal head, canonical and journal
 are aligned again. Otherwise retain the original journal as a read-only history
 archive and configure a new journal for the verified canonical lineage; its
 registered entries do not invent the old edit provenance. Preserve old immutable
-revision references, and select new Base Commit references explicitly. Do not
+revision references; new edits automatically capture the current head. Do not
 delete or rewrite the old journal, or present this maintenance as a UI merge.
 
 ## Missing-description guidance

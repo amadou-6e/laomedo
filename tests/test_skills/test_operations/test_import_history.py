@@ -137,11 +137,8 @@ class SkillImportHistoryTests(unittest.TestCase):
         editable = SkillOperations(
             self.case.store, self.read_only.database, {self.skill: self.case.policy}
         )
-        with self.assertRaisesRegex(ConflictError, "skill_base_changed"):
-            editable.prepare(self.skill, promoted["revision_id"])
-        prepared = editable.prepare(
-            self.skill, promoted["revision_id"], head["commit_id"]
-        )
+        prepared = editable.prepare(self.skill, promoted["revision_id"])
+        self.assertEqual(prepared["base_commit"], head["commit_id"])
         applied = editable.apply(prepared["ticket"], self.case.operation)
         self.assertEqual(applied["commit"]["parent_commit"], head["commit_id"])
         reopened = SkillOperations(self.case.store, self.read_only.database, {})
