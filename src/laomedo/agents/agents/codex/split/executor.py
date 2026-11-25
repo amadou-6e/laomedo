@@ -177,7 +177,19 @@ class CodexCommandExecutor(BaseSplitCommandExecutor):
     def _controller_listeners(self, controller) -> set[str]:
         """Reject controller-owned listening TCP/Unix and any UDP socket."""
         fds = self._exec(
-            controller.identity, ["sh", "-c", "ls -l /proc/[0-9]*/fd 2>/dev/null"]
+            controller.identity,
+            [
+                "python3",
+                "-c",
+                "import glob, os\n"
+                "for directory in glob.glob('/proc/[0-9]*/fd'):\n"
+                " try:\n"
+                "  with os.scandir(directory) as entries:\n"
+                "   for entry in entries:\n"
+                "    try: print(os.readlink(entry.path))\n"
+                "    except FileNotFoundError: continue\n"
+                " except FileNotFoundError: continue\n",
+            ],
         )
         owned = set(re.findall(r"socket:\[(\d+)\]", fds))
         if not owned:
