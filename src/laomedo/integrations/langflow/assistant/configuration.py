@@ -310,10 +310,54 @@ class WorkflowConfiguration:
                         ):
                             raise AssistantError("assistant_configuration_stale", 409)
 
+    async def binding_diagnostics(self, context, catalog, data):
+        """Keep stale graphs inspectable without admitting stale values or execution."""
+        await self.runtime.authorize(context)
+        diagnostics = []
+        for node in (data or {}).get("nodes", []):
+            raw = node.get("data", {}).get("laomedo_authoring_bindings")
+            if not raw:
+                continue
+            try:
+                await self.check_graph(
+                    context, catalog, {"nodes": [node]}, active=False
+                )
+            except AssistantError as error:
+                if not error.code.startswith("provider_") and error.code not in {
+                    "assistant_resource_unavailable",
+                    "assistant_configuration_stale",
+                    "assistant_setup_required",
+                }:
+                    raise
+                diagnostics.append(
+                    FlowDiagnostic(
+                        code="binding_stale",
+                        node_id=node["id"],
+                        field=(
+                            "provider_connection"
+                            if isinstance(raw, dict) and raw.get("connection_id")
+                            else None
+                        ),
+                        message="Select this node's account or resource again before running it.",
+                    )
+                )
+            except ValueError:
+                diagnostics.append(
+                    FlowDiagnostic(
+                        code="binding_invalid",
+                        node_id=node["id"],
+                        message="Select this node's account or resource again before running it.",
+                    )
+                )
+        await self.runtime.authorize(context)
+        return diagnostics
+
     async def project(self, context, catalog, data):
-        """Expose only the fixed nonsecret adapter fields after checking saved resource fences."""
-        await self.check_graph(context, catalog, data)
+        """Expose safe structure and repair diagnostics while withholding stale selectors."""
+        diagnostics = await self.binding_diagnostics(context, catalog, data)
+        stale = {issue.node_id for issue in diagnostics}
         result = catalog.project(data)
+        result["diagnostics"] = [issue.model_dump() for issue in diagnostics]
         saved = {node["id"]: node for node in (data or {}).get("nodes", [])}
         for node in result["nodes"]:
             source = saved.get(node["key"], {})
@@ -326,8 +370,21 @@ class WorkflowConfiguration:
             template = source.get("data", {}).get("node", {}).get("template", {})
             for field in descriptions:
                 name = field["name"]
+                if field["resolvable"]:
+                    node["fields"].pop(name, None)
+                if node["key"] in stale:
+                    if field["resolvable"] and name not in node["unresolved_fields"]:
+                        node["unresolved_fields"].append(name)
+                    continue
                 value = template.get(name, {}).get("value")
-                if field["resolvable"] and isinstance(value, str) and len(value) <= 200:
+                safe = isinstance(value, str) and len(value) <= 200
+                if name == "mcp_server" and isinstance(value, dict):
+                    safe = (
+                        set(value) == {"name"}
+                        and isinstance(value["name"], str)
+                        and len(value["name"]) <= 200
+                    )
+                if field["resolvable"] and safe:
                     node["fields"][name] = value
                     node["unresolved_fields"] = [
                         item for item in node["unresolved_fields"] if item != name
@@ -438,7 +495,9 @@ class WorkflowConfiguration:
                         message="A connection must use existing compatible named ports.",
                     )
                 )
-        await self.check_graph(context, workflows.catalog, data)
+        diagnostics.extend(
+            await self.binding_diagnostics(context, workflows.catalog, data)
+        )
         for node in data.get("nodes", []):
             identity = workflows.catalog.project({"nodes": [node]})["nodes"][0]
             if identity.get("unsupported"):

@@ -295,3 +295,52 @@ class ConfigurationTests(unittest.IsolatedAsyncioTestCase):
         await self.configuration.prepare(self.context, self.catalog, [node])
         with self.assertRaisesRegex(AssistantError, "assistant_field_not_writable"):
             self.catalog.compile(DraftGraph(nodes=[node]))
+
+    async def test_stale_binding_remains_inspectable_and_repairable_but_cannot_run(
+        self,
+    ):
+        from laomedo.integrations.langflow.assistant.graph import GraphEditor
+        from laomedo.integrations.langflow.assistant.models import (
+            GraphChanges,
+            GraphFieldUpdate,
+        )
+
+        resolved = await self.resolved()
+        node = DraftNode(
+            key="agent",
+            component_type=self.identity,
+            fields=resolved["fields"],
+            resolution_id=UUID(resolved["resolution_id"]),
+        )
+        await self.configuration.prepare(self.context, self.catalog, [node])
+        data, _ = self.catalog.compile(DraftGraph(nodes=[node]))
+        self.runtime.check_connection.side_effect = AssistantError(
+            "provider_connection_changed"
+        )
+        projected = await self.configuration.project(self.context, self.catalog, data)
+        self.assertEqual(
+            projected["diagnostics"][0]["node_id"], "LaomedoCodexAgent-agent"
+        )
+        self.assertEqual(projected["diagnostics"][0]["code"], "binding_stale")
+        self.assertEqual(projected["nodes"][0]["fields"]["task"], "test")
+        for field in ("provider_connection", "model", "effort"):
+            self.assertNotIn(field, projected["nodes"][0]["fields"])
+        with self.assertRaises(AssistantError):
+            await self.configuration.check_graph(self.context, self.catalog, data)
+        self.runtime.check_connection.side_effect = None
+        fresh = await self.resolved()
+        update = GraphFieldUpdate(
+            node_id="LaomedoCodexAgent-agent",
+            fields=fresh["fields"],
+            resolution_id=UUID(fresh["resolution_id"]),
+        )
+        await self.configuration.prepare(self.context, self.catalog, [update])
+        repaired, _ = GraphEditor(self.catalog).apply(
+            data, GraphChanges(updates=[update])
+        )
+        self.assertEqual(
+            await self.configuration.binding_diagnostics(
+                self.context, self.catalog, repaired
+            ),
+            [],
+        )

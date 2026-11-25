@@ -247,9 +247,10 @@ class WorkflowActions:
                             attempt_id=row.attempt_id,
                             session_key=key,
                         )
-                        await self.configuration.check_graph(
-                            binding_context, self.catalog, flow.data, active=False
-                        )
+                        if row.kind == "run":
+                            await self.configuration.check_graph(
+                                binding_context, self.catalog, flow.data, active=False
+                            )
                         if row.kind == "edit":
                             await self.configuration.prepare(
                                 binding_context,
@@ -378,6 +379,7 @@ class WorkflowActions:
 
         identifier = UUID(result["id"])
         dispatched = False
+        returned = False
         try:
             async with self.store.sessions() as session:
                 row = await session.get(AssistantGraphAction, identifier)
@@ -439,19 +441,38 @@ class WorkflowActions:
                 http_request=None,
                 expose_error_details=False,
             )
+            returned = True
             from laomedo.integrations.langflow.assistant.evidence import (
                 WorkflowRunEvidence,
             )
 
-            await WorkflowRunEvidence(self).retain(result, response, data=snapshot.data)
-            await self.finish(identifier, "succeeded")
+            captured = await WorkflowRunEvidence(self).retain(
+                result, response, data=snapshot.data
+            )
+            await self.finish(
+                identifier,
+                "succeeded",
+                None if captured else "assistant_output_capture_failed",
+            )
         except asyncio.CancelledError:
             await asyncio.shield(
-                self.finish(identifier, "unknown", "assistant_action_outcome_unknown")
+                self.finish(
+                    identifier,
+                    "succeeded" if returned else "unknown",
+                    (
+                        "assistant_output_capture_failed"
+                        if returned
+                        else "assistant_action_outcome_unknown"
+                    ),
+                )
             )
             raise
         except Exception:
-            if not dispatched:
+            if returned:
+                await self.finish(
+                    identifier, "succeeded", "assistant_output_capture_failed"
+                )
+            elif not dispatched:
                 await self.finish(
                     identifier, "not_dispatched", "assistant_action_not_dispatched"
                 )

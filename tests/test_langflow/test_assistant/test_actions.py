@@ -222,6 +222,35 @@ class GraphActionTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(observed["node_status_available"])
         self.assertEqual(observed["outputs"], [])
 
+    async def test_output_capture_failure_preserves_success_without_replaying_the_run(
+        self,
+    ):
+        request = GraphActionRequest(
+            operation_key="capture-failure",
+            kind="run",
+            workflow_id=self.flow_id,
+            expected_revision=self.revision,
+        )
+        proposal = await self.actions.propose(self.context, request)
+        result, snapshot, actor = await self.decide(proposal)
+        with (
+            patch(
+                "langflow.api.v1.endpoints.simple_run_flow", new=AsyncMock()
+            ) as execute,
+            patch(
+                "laomedo.integrations.langflow.assistant.evidence.WorkflowRunEvidence.retain",
+                new=AsyncMock(side_effect=RuntimeError("private database diagnostic")),
+            ),
+        ):
+            await self.actions.execute(result, snapshot, actor, AsyncMock())
+            execute.assert_awaited_once()
+        observed = await self.actions.read(
+            self.owner, self.conversation, UUID(result["id"])
+        )
+        self.assertEqual(observed["state"], "succeeded")
+        self.assertEqual(observed["error_code"], "assistant_output_capture_failed")
+        self.assertNotIn("private database diagnostic", str(observed))
+
     async def decide(self, proposal, decision="approve", key="fixture"):
         return await self.actions.decide(
             self.owner,
@@ -700,6 +729,22 @@ class GraphActionTests(unittest.IsolatedAsyncioTestCase):
             self.owner, self.conversation, UUID(result["id"])
         )
         self.assertEqual(observed["state"], "not_dispatched")
+
+    async def test_edit_can_repair_a_graph_without_using_its_stale_run_binding(self):
+        from types import SimpleNamespace
+
+        proposal = await self.actions.propose(self.context, self.request)
+        self.actions.configuration = SimpleNamespace(
+            check_graph=AsyncMock(
+                side_effect=AssistantError("provider_connection_changed")
+            ),
+            prepare=AsyncMock(),
+        )
+        result, snapshot, _ = await self.decide(proposal)
+        self.assertEqual(result["state"], "succeeded")
+        self.assertIsNone(snapshot)
+        self.actions.configuration.check_graph.assert_not_awaited()
+        self.actions.configuration.prepare.assert_awaited_once()
 
     async def test_typed_run_inputs_are_digest_bound_and_never_mutate_the_saved_graph(
         self,

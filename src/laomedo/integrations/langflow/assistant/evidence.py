@@ -106,7 +106,7 @@ class WorkflowRunEvidence:
         from langflow.api.v1.schemas import RunResponse
 
         if not isinstance(response, RunResponse):
-            return
+            return False
         outputs, size, truncated = [], 0, False
         groups = getattr(response, "outputs", []) or []
         truncated = len(groups) > RUN_OUTPUT_ITEMS
@@ -183,6 +183,7 @@ class WorkflowRunEvidence:
                         truncated=truncated,
                     )
                 )
+        return True
 
     async def read(self, context, identifier, *, node_id=None, cursor=0):
         """Release only exact owned evidence under current browser authority, with paging."""
