@@ -181,8 +181,10 @@ class CodexCommandExecutor(BaseSplitCommandExecutor):
             [
                 "python3",
                 "-c",
-                "import glob, os\n"
-                "for directory in glob.glob('/proc/[0-9]*/fd'):\n"
+                "import os\n"
+                "with os.scandir('/proc') as processes:\n"
+                " directories = [entry.path + '/fd' for entry in processes if entry.name.isdigit()]\n"
+                "for directory in directories:\n"
                 " try:\n"
                 "  with os.scandir(directory) as entries:\n"
                 "   for entry in entries:\n"

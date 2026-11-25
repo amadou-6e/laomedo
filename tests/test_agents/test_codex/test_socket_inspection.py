@@ -17,6 +17,11 @@ class ControllerSocketInspectionTests(TestCase):
         return executor._exec.call_args.args[1][2]
 
     def test_disappearing_process_and_descriptor_do_not_hide_live_socket(self):
+        processes = MagicMock()
+        processes.__enter__.return_value = [
+            SimpleNamespace(name="123", path="active"),
+            SimpleNamespace(name="456", path="exited"),
+        ]
         listing = MagicMock()
         listing.__enter__.return_value = [
             SimpleNamespace(path="live"),
@@ -24,8 +29,7 @@ class ControllerSocketInspectionTests(TestCase):
         ]
         output = io.StringIO()
         with (
-            patch("glob.glob", return_value=["active", "exited"]),
-            patch("os.scandir", side_effect=[listing, FileNotFoundError()]),
+            patch("os.scandir", side_effect=[processes, listing, FileNotFoundError()]),
             patch("os.readlink", side_effect=["socket:[42]", FileNotFoundError()]),
             redirect_stdout(output),
         ):
@@ -34,7 +38,6 @@ class ControllerSocketInspectionTests(TestCase):
 
     def test_permission_failure_is_not_treated_as_process_exit(self):
         with (
-            patch("glob.glob", return_value=["denied"]),
             patch("os.scandir", side_effect=PermissionError()),
             self.assertRaises(PermissionError),
         ):
