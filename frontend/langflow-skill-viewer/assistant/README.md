@@ -350,3 +350,8 @@ background tile; provider names remain available to screen readers.
 The assistant overlay installs after the local-profile overlay. Its logout hook
 locks assistant execution before the profile-aware auto-login guard, preserving
 server logout and profile-cookie expiry.
+
+Model discovery is a read-only native startup/teardown operation. The HTTP
+boundary allows up to 90 seconds for GET `/models`, including query parameters,
+while other requests retain the 20-second deadline. Caller cancellation still
+aborts immediately; requests and uncertain mutations are never retried.
