@@ -448,6 +448,13 @@ class ConfigurationTests(unittest.IsolatedAsyncioTestCase):
             AssistantError, "verified_review_isolation_unavailable"
         ):
             await self.configuration.check_graph(self.context, workflows.catalog, data)
+        node = data["nodes"][1]
+        original_id = node["id"]
+        node["id"] = 5
+        data["edges"][0]["target"] = "5"
+        with self.assertRaisesRegex(AssistantError, "assistant_input_invalid"):
+            await self.configuration.check_graph(self.context, workflows.catalog, data)
+        node["id"] = original_id
         data["edges"][0]["target"] = []
         with self.assertRaisesRegex(AssistantError, "assistant_input_invalid"):
             await self.configuration.check_graph(self.context, workflows.catalog, data)

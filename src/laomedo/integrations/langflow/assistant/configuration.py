@@ -354,11 +354,15 @@ class WorkflowConfiguration:
             await self.runtime.authorize(context)
         else:
             await self.runtime.check_session(context.owner_id, context.session_key)
-        nodes = {
-            node.get("id"): node
-            for node in (data or {}).get("nodes", [])
-            if isinstance(node, dict) and isinstance(node.get("id"), str)
-        }
+        nodes = {}
+        for node in (data or {}).get("nodes", []):
+            if (
+                not isinstance(node, dict)
+                or not isinstance(node.get("id"), str)
+                or not isinstance(node.get("data"), dict)
+            ):
+                raise AssistantError("assistant_input_invalid", 422)
+            nodes[node["id"]] = node
         for edge in (data or {}).get("edges", []):
             if not isinstance(edge, dict):
                 continue
