@@ -13,3 +13,7 @@ process-wide. An explicitly injected opener remains caller-owned.
 
 No transport method silently retries an uncertain write. Pagination, payload and
 deadline limits bound reads; response admission remains in the domain contracts.
+
+`PublicGitHubIssueTransport` in `public.py` is a separate anonymous read-only
+delivery path for one explicitly configured public repository. It never supplies
+a credential and admits only issue/label reads; every other operation is refused.

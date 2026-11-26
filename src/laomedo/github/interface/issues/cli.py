@@ -5,6 +5,7 @@ import argparse
 import json
 from laomedo.github.issues.gateway import GitHubIssueGateway
 from laomedo.github.transport.rest.transport import GitHubRestTransport
+from laomedo.github.transport.rest.public import PublicGitHubIssueTransport
 from laomedo.host.credentials.token import HostTokenConnection
 from laomedo.host.mediation.store import MediationStore
 import os
@@ -19,6 +20,7 @@ def main():
     credentials = parser.add_mutually_exclusive_group(required=True)
     credentials.add_argument("--github-token-env")
     credentials.add_argument("--github-token-file", type=Path)
+    credentials.add_argument("--public-read-only", action="store_true")
     parser.add_argument("--github-token-key", default="GH_LAOMEDO")
     parser.add_argument("--connection-id", default="github-issue-local")
     parser.add_argument("--connection-generation", type=int, default=1)
@@ -29,7 +31,10 @@ def main():
     parser.add_argument("--port", type=int, default=8783)
     args = parser.parse_args()
     args.repository = args.repository.lower()
-    if args.github_token_file:
+    if args.public_read_only:
+        current = lambda *_args: False
+        transport = PublicGitHubIssueTransport(args.repository)
+    elif args.github_token_file:
         connection = HostTokenConnection(
             connection_id=args.connection_id,
             generation=args.connection_generation,
@@ -78,7 +83,8 @@ def main():
                 raise ValueError("connection_unavailable")
             return initial
 
-    transport = GitHubRestTransport(args.repository, credential)
+    if not args.public_read_only:
+        transport = GitHubRestTransport(args.repository, credential)
     mediation = MediationStore(args.mediation_store, connection_is_current=current)
 
     def grant(ref):
