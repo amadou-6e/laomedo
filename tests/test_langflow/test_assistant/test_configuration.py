@@ -164,6 +164,13 @@ class ConfigurationTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(pin["value"])
         self.assertFalse(pin["show"])
         await self.configuration.check_graph(self.context, catalog, graph)
+        binding = graph["nodes"][0]["data"].pop("laomedo_authoring_bindings")
+        await self.configuration.check_graph(self.context, catalog, graph)
+        pin["value"] = False
+        with self.assertRaises(AssistantError):
+            await self.configuration.check_graph(self.context, catalog, graph)
+        pin["value"] = True
+        graph["nodes"][0]["data"]["laomedo_authoring_bindings"] = binding
         pin["value"] = False
         with self.assertRaises(AssistantError):
             await self.configuration.check_graph(self.context, catalog, graph)

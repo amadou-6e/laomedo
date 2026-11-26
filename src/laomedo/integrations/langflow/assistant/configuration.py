@@ -355,6 +355,23 @@ class WorkflowConfiguration:
         else:
             await self.runtime.check_session(context.owner_id, context.session_key)
         for node in (data or {}).get("nodes", []):
+            node_data = node.get("data", {})
+            template = node_data.get("node", {}).get("template", {})
+            if node_data.get("type") == "LaomedoGitHubIssue":
+                from laomedo.integrations.langflow.assistant.settings import (
+                    AUDITED_COMPONENT_DIGESTS,
+                )
+
+                code = template.get("code", {}).get("value")
+                if (
+                    template.get("public_service_only", {}).get("value") is not True
+                    or not isinstance(code, str)
+                    or hashlib.sha256(
+                        code.replace("\r\n", "\n").strip().encode()
+                    ).hexdigest()
+                    != AUDITED_COMPONENT_DIGESTS["LaomedoGitHubIssue"]
+                ):
+                    raise AssistantError("assistant_configuration_stale", 409)
             raw = node.get("data", {}).get("laomedo_authoring_bindings")
             if not raw:
                 continue
@@ -378,22 +395,6 @@ class WorkflowConfiguration:
                 if saved != str(selected):
                     raise AssistantError("assistant_configuration_stale", 409)
             await self.check_resources(context, binding.resources)
-            template = node.get("data", {}).get("node", {}).get("template", {})
-            if catalog.audited_family(identity) == "LaomedoGitHubIssue":
-                from laomedo.integrations.langflow.assistant.settings import (
-                    AUDITED_COMPONENT_DIGESTS,
-                )
-
-                code = template.get("code", {}).get("value")
-                if (
-                    template.get("public_service_only", {}).get("value") is not True
-                    or not isinstance(code, str)
-                    or hashlib.sha256(
-                        code.replace("\r\n", "\n").strip().encode()
-                    ).hexdigest()
-                    != AUDITED_COMPONENT_DIGESTS["LaomedoGitHubIssue"]
-                ):
-                    raise AssistantError("assistant_configuration_stale", 409)
             for resource in binding.resources:
                 if resource.kind == "skill":
                     if (
@@ -421,7 +422,7 @@ class WorkflowConfiguration:
         diagnostics = []
         for node in (data or {}).get("nodes", []):
             raw = node.get("data", {}).get("laomedo_authoring_bindings")
-            if not raw:
+            if not raw and node.get("data", {}).get("type") != "LaomedoGitHubIssue":
                 continue
             try:
                 await self.check_graph(
