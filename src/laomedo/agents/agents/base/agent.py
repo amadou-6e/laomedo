@@ -27,6 +27,7 @@ from laomedo.agents.interface.models import SUPPORTED_PROVIDERS
 from laomedo.agents.agents.base.models import ReadinessObservation
 from laomedo.agents.agents.base.models import RuntimeBinding
 from laomedo.agents.agents.base.models import PreparedRunRecord
+from laomedo.agents.agents.base.models import VerifiedReviewProvenance
 from laomedo.agents.agents.base.models import PreparedWorkspaceState
 from laomedo.agents.agents.base.models import AgentSkillBinding
 from laomedo.agents.agents.base.models import SkillGitExclusion
@@ -505,7 +506,11 @@ class BaseAgent(ABC):
             self.release_mcp(record["run_id"])
 
     def start_async(
-        self, request: dict, *, response_gate: threading.Event | None = None
+        self,
+        request: dict,
+        *,
+        response_gate: threading.Event | None = None,
+        verified_review: VerifiedReviewProvenance | None = None,
     ) -> dict:
         """Reserve one request identity, then run only after the HTTP reply."""
         if not isinstance(request, dict):
@@ -519,11 +524,19 @@ class BaseAgent(ABC):
         manifest = self._mcp_manifest(body)
         if manifest:
             body["mcp_manifest"] = manifest.model_dump(mode="json")
+        semantic_request = McpAccess.semantic_request(body)
+        if verified_review is not None:
+            if not isinstance(verified_review, VerifiedReviewProvenance):
+                raise RunnerError("invalid_request")
+            semantic_request = {
+                "request": semantic_request,
+                "verified_review": verified_review.to_record(),
+            }
         request_hash = (
             "sha256:"
             + hashlib.sha256(
                 json.dumps(
-                    McpAccess.semantic_request(body),
+                    semantic_request,
                     sort_keys=True,
                     separators=(",", ":"),
                     ensure_ascii=False,
@@ -553,7 +566,10 @@ class BaseAgent(ABC):
                         unused.close()
                     return prior
             record = self._prepare(
-                body, client_request_id=request_id, request_hash=request_hash
+                body,
+                client_request_id=request_id,
+                request_hash=request_hash,
+                verified_review=verified_review,
             )
             gate = response_gate or threading.Event()
             if response_gate is None:
@@ -806,7 +822,12 @@ class BaseAgent(ABC):
         ).model_dump()
 
     def _prepare(
-        self, request: dict, *, client_request_id=None, request_hash=None
+        self,
+        request: dict,
+        *,
+        client_request_id=None,
+        request_hash=None,
+        verified_review: VerifiedReviewProvenance | None = None,
     ) -> dict:
         """Validate the request and persist its prepared identity/workspace binding before native dispatch."""
         if not isinstance(request, dict):
@@ -954,6 +975,7 @@ class BaseAgent(ABC):
                 output_retries=output_retries,
                 initial_native_command=initial_command,
                 request_hash=request_hash,
+                verified_review=verified_review,
                 github_scope=(
                     AgentGitHubScope(**github_scope)
                     if github_scope is not None

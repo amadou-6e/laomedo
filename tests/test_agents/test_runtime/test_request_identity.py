@@ -17,6 +17,7 @@ from uuid import uuid4
 from laomedo.agents.agents.codex.agent import CodexAgent as LocalRunner
 from laomedo.agents.errors import RunnerError
 from laomedo.agents.agents.base.utils import _json
+from laomedo.agents.agents.base.models import VerifiedReviewProvenance
 from laomedo.host.runner.http.server import RunnerServer as serve
 
 from laomedo.agents.interface.bridge import HttpAgentBridge
@@ -142,6 +143,34 @@ class EarlyRunnerTests(unittest.TestCase):
         self.assertEqual(self.runner.status(first["run_id"])["status"], "cancelled")
         self.assertEqual(BlockingServer.turn_starts, 0)
         self.assertFalse((self.state / "turn-ledger.json").exists())
+
+    def test_verified_review_provenance_is_retained_and_binds_request_identity(self):
+        provenance = VerifiedReviewProvenance(
+            source_run=str(uuid4()),
+            source_connection=str(uuid4()),
+            source_generation=1,
+            source_hash="source",
+            post_run_hash="post",
+            patch_hash="patch",
+        )
+        gate = threading.Event()
+        first = self.runner.start_async(
+            self.body, response_gate=gate, verified_review=provenance
+        )
+        self.assertEqual(first["verified_review"], provenance.to_record())
+        self.assertEqual(
+            self.runner.start_async(self.body, verified_review=provenance)["run_id"],
+            first["run_id"],
+        )
+        with self.assertRaisesRegex(RunnerError, "request_identity_conflict"):
+            self.runner.start_async(self.body)
+        with self.assertRaisesRegex(RunnerError, "request_identity_conflict"):
+            self.runner.start_async(
+                self.body,
+                verified_review=provenance.model_copy(update={"patch_hash": "other"}),
+            )
+        self.runner.cancel(first["run_id"])
+        gate.set()
 
     def test_http_ack_before_turn_completion_and_active_cancel(self):
         base = self.start_http()

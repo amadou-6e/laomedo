@@ -175,6 +175,10 @@ mode. `RuntimeBinding` remains the canonical provider binding; `AgentSkillBindin
 groups installed skill identity and byte evidence. `for_preparation()` derives
 initial state after existing admission; `to_record()` preserves the persisted flat
 JSON record, including explicit nulls and an omitted absent `github_scope`.
+`VerifiedReviewProvenance` records the host-admitted source run, connection
+generation and snapshot/patch hashes when a verified review is reserved; it
+contains no patch text. Its `to_record()` outcome is the typed model's JSON
+projection. The provenance is an internal runner argument, never a graph input.
 
 Provider execution, cancellation, recovery and historical readers still own the
 existing mutable dictionary lifecycle. The preparation model is a writer, not a strict

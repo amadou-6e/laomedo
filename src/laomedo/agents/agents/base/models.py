@@ -317,6 +317,22 @@ class AgentGitHubScope(BaseModel):
     )
 
 
+class VerifiedReviewProvenance(BaseModel):
+    """Host-admitted source identity and hashes, without workspace contents."""
+
+    model_config = ConfigDict(strict=True, frozen=True, extra="forbid")
+    source_run: str
+    source_connection: str
+    source_generation: int
+    source_hash: str
+    post_run_hash: str
+    patch_hash: str
+
+    def to_record(self) -> dict:
+        """Project the provenance into the private run record."""
+        return self.model_dump(mode="json")
+
+
 class PreparedRunRecord(BaseModel):
     """New durable run construction, not a schema for later lifecycle reads."""
 
@@ -369,6 +385,7 @@ class PreparedRunRecord(BaseModel):
         "cancel_confirmed",
         "github_scope",
         "initial_native_command",
+        "verified_review",
     )
     run_id: str = Field(description="New canonical runner run UUID.")
     initial_native_command: Literal["status"] | None = Field(
@@ -417,6 +434,9 @@ class PreparedRunRecord(BaseModel):
     input_hash: str = Field(
         description="Canonical digest of the exact admitted task bytes."
     )
+    verified_review: VerifiedReviewProvenance | None = Field(
+        default=None, description="Host-admitted source of a verified review."
+    )
 
     @classmethod
     def for_preparation(cls, *, task: str, **values) -> "PreparedRunRecord":
@@ -428,7 +448,13 @@ class PreparedRunRecord(BaseModel):
     def to_record(self) -> dict:
         """Preserve the flat initial JSON schema, defaults, nulls and optional scope."""
         value = self.model_dump(
-            exclude={"workspace", "runtime", "github_scope", "initial_native_command"}
+            exclude={
+                "workspace",
+                "runtime",
+                "github_scope",
+                "initial_native_command",
+                "verified_review",
+            }
         )
         value.update(self.workspace.record_fields())
         value.update(self.runtime.record_fields())
@@ -458,6 +484,8 @@ class PreparedRunRecord(BaseModel):
         )
         if self.github_scope is not None:
             value["github_scope"] = self.github_scope.model_dump(exclude_unset=True)
+        if self.verified_review is not None:
+            value["verified_review"] = self.verified_review.to_record()
         expected = set(self.RECORD_KEYS) - (
             {"github_scope"} if self.github_scope is None else set()
         )
@@ -465,6 +493,8 @@ class PreparedRunRecord(BaseModel):
             expected.discard("initial_native_command")
         else:
             value["initial_native_command"] = self.initial_native_command
+        if self.verified_review is None:
+            expected.discard("verified_review")
         assert (
             set(value) == expected
         ), "Prepared record keys must explicitly match the persistence contract."
