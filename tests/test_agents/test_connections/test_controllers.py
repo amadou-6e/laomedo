@@ -217,6 +217,39 @@ class ProviderControllerTests(unittest.TestCase):
         with self.assertRaises(ProviderConnectionError):
             with self.manager.admit_verified_review(token, target, body):
                 pass
+        for altered in (
+            {**body, "task": "Different instruction"},
+            {**body, "skill_refs": ["unapproved"]},
+            {**body, "github_authorization_ref": "unapproved"},
+        ):
+            token = self.manager.stage_verified_review(
+                self.profile,
+                "lease",
+                record["run_id"],
+                self.two,
+                1,
+                request_id,
+                body["task"],
+            )
+            with self.assertRaises(ProviderConnectionError):
+                with self.manager.admit_verified_review(token, target, altered):
+                    pass
+        token = self.manager.stage_verified_review(
+            self.profile,
+            "lease",
+            record["run_id"],
+            self.two,
+            1,
+            request_id,
+            body["task"],
+        )
+        slot.runner.workspace_changes.return_value = source.model_copy(
+            update={"patch_hash": "changed"}
+        )
+        with self.assertRaises(ProviderConnectionError):
+            with self.manager.admit_verified_review(token, target, body):
+                pass
+        slot.runner.workspace_changes.return_value = source
         token = self.manager.stage_verified_review(
             self.profile,
             "lease",
