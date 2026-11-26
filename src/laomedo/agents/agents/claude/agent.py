@@ -507,8 +507,12 @@ class ClaudeAgent(BaseAgent):
                 record["skills"],
                 external_tools=self.mcp_names(record),
             ),
-            native_tools=(["Skill"] if record["skills"] else [])
-            + ["mcp__laomedo__exec_command"],
+            native_tools=(
+                []
+                if record.get("verified_review") is not None
+                else (["Skill"] if record["skills"] else [])
+                + ["mcp__laomedo__exec_command"]
+            ),
             turn_timeout=timeout,
             resolved_model=choice["resolved_model"],
             permission_grant={
