@@ -585,6 +585,20 @@ class ComponentCatalog:
             "viewport": {"x": 50, "y": 50, "zoom": 0.8},
         }, diagnostics
 
+    @staticmethod
+    def _position(node):
+        """Expose only finite numeric canvas coordinates, never arbitrary metadata."""
+        value = node.get("position")
+        if not isinstance(value, dict):
+            return None
+        x, y = value.get("x"), value.get("y")
+        if not all(
+            type(item) in (int, float) and abs(item) <= 1000000 and math.isfinite(item)
+            for item in (x, y)
+        ):
+            return None
+        return {"x": x, "y": y}
+
     def project(self, data):
         """Describe saved nodes without copying saved code, secret fields or arbitrary nested metadata."""
         nodes, identities = [], {}
@@ -594,7 +608,11 @@ class ComponentCatalog:
             matches = [key for key in index if key.split("/", 1)[1] == native_type]
             if len(matches) != 1:
                 nodes.append(
-                    {"key": str(node.get("id", ""))[:200], "unsupported": True}
+                    {
+                        "key": str(node.get("id", ""))[:200],
+                        "unsupported": True,
+                        "position": self._position(node),
+                    }
                 )
                 continue
             metadata = self.template(matches[0])
@@ -625,6 +643,7 @@ class ComponentCatalog:
                 {
                     "key": identifier,
                     "component_type": matches[0],
+                    "position": self._position(node),
                     "fields": fields,
                     "unresolved_fields": unresolved,
                 }

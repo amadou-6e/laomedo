@@ -845,6 +845,15 @@ class GraphConnection(BaseModel):
     input: str = ModelField(min_length=1, max_length=100)
 
 
+class GraphNodePosition(BaseModel):
+    """One node's destination in bounded, finite canvas coordinates."""
+
+    model_config = ConfigDict(extra="forbid")
+    node_id: str = ModelField(min_length=1, max_length=200)
+    x: float = ModelField(ge=-1000000, le=1000000, allow_inf_nan=False, strict=True)
+    y: float = ModelField(ge=-1000000, le=1000000, allow_inf_nan=False, strict=True)
+
+
 class GraphChanges(BaseModel):
     """A bounded explicit patch; absence never means delete an unmentioned setting."""
 
@@ -853,6 +862,9 @@ class GraphChanges(BaseModel):
     updates: list[GraphFieldUpdate] = ModelField(default_factory=list, max_length=40)
     add_nodes: list[DraftNode] = ModelField(default_factory=list, max_length=40)
     remove_nodes: list[str] = ModelField(default_factory=list, max_length=40)
+    positions: list[GraphNodePosition] = ModelField(
+        default_factory=list, max_length=100
+    )
     connect: list[GraphConnection] = ModelField(default_factory=list, max_length=100)
     disconnect: list[GraphConnection] = ModelField(default_factory=list, max_length=100)
 
@@ -865,6 +877,7 @@ class GraphChanges(BaseModel):
                 self.updates,
                 self.add_nodes,
                 self.remove_nodes,
+                self.positions,
                 self.connect,
                 self.disconnect,
             )
@@ -943,6 +956,7 @@ class GraphActionRequest(BaseModel):
                     changes.updates,
                     changes.add_nodes,
                     changes.remove_nodes,
+                    changes.positions,
                     changes.connect,
                     changes.disconnect,
                 )

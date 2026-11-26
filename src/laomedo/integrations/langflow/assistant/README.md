@@ -13,6 +13,10 @@ the private MCP dispatcher composes these services. Existing graph persistence a
 provider/Skill/MCP owners remain authoritative. Discovery and validation never
 submit a model task. Real acceptance and independent review are pending.
 
+Graph inspection exposes node positions. An approved edit can move identified
+nodes to explicit bounded canvas coordinates while preserving all other graph
+data; moves participate in the same revision and approval checks as other edits.
+
 Audited adapters are exact-source Codex, Claude, OpenCode, Skill and MCPTools
 components. Other installed components expose static typed fields and compatible
 ports; unsupported dynamic fields remain explicit. Adapter classification uses the

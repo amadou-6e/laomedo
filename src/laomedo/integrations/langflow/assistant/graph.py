@@ -166,6 +166,13 @@ class GraphEditor:
             nodes[node["id"]] = node
             preview.append("Add " + definition.component_type + " as " + node["id"])
             preview.extend("Incomplete: " + value for value in diagnostics)
+        moved = set()
+        for position in changes.positions:
+            if position.node_id not in nodes or position.node_id in moved:
+                raise AssistantError("assistant_duplicate_node", 422)
+            moved.add(position.node_id)
+            nodes[position.node_id]["position"] = {"x": position.x, "y": position.y}
+            preview.append(f"Move {position.node_id} to ({position.x}, {position.y})")
         for definition in changes.disconnect:
             identity = (
                 definition.source,

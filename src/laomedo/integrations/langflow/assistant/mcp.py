@@ -292,7 +292,7 @@ class AuthoringMcp:
         ctx: Context,
         summary: str = "",
     ) -> dict:
-        """Propose exact saved-graph changes for human approval. Applies only with existing human conversation consent; otherwise waits for approval. Discover existing node IDs and installed schemas first. New node IDs use ComponentName-key; preserve all unmentioned settings. A changed revision requires a fresh proposal/key."""
+        """Propose exact saved-graph changes, including node positions, for human approval. Applies only with existing human conversation consent; otherwise waits for approval. Discover existing node IDs and installed schemas first. New node IDs use ComponentName-key; preserve all unmentioned settings. A changed revision requires a fresh proposal/key."""
         try:
             request = GraphActionRequest(
                 operation_key=operation_key,

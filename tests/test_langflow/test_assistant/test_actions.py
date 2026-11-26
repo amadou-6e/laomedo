@@ -663,6 +663,48 @@ class GraphActionTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(changed["edges"], [])
         self.assertIn("1 incident connections", str(preview))
 
+    async def test_move_preserves_graph_and_requires_edit_approval(self):
+        original = deepcopy(self.original)
+        changes = GraphChanges.model_validate(
+            {
+                "name": "Layout",
+                "positions": [{"node_id": "Text-one", "x": 120, "y": -50}],
+            }
+        )
+        request = self.request.model_copy(update={"changes": changes})
+        self.assertEqual(request.category, "edit")
+        changed, preview = GraphEditor(self.catalog).apply(original, changes)
+        self.assertEqual(changed["nodes"][0]["position"], {"x": 120, "y": -50})
+        self.assertEqual(changed["nodes"][1:], original["nodes"][1:])
+        self.assertEqual(changed["edges"], original["edges"])
+        self.assertEqual(self.original, original)
+        self.assertIn("Move Text-one", str(preview))
+        projected = self.catalog.project(changed)
+        self.assertEqual(projected["nodes"][0]["position"], {"x": 120, "y": -50})
+        with self.assertRaises(AssistantError):
+            GraphEditor(self.catalog).apply(
+                original,
+                GraphChanges.model_validate(
+                    {
+                        "positions": [
+                            {"node_id": "Text-one", "x": 1, "y": 2},
+                            {"node_id": "Text-one", "x": 3, "y": 4},
+                        ]
+                    }
+                ),
+            )
+        with self.assertRaises(AssistantError):
+            GraphEditor(self.catalog).apply(
+                original,
+                GraphChanges.model_validate(
+                    {"positions": [{"node_id": "missing", "x": 1, "y": 2}]}
+                ),
+            )
+        with self.assertRaises(ValueError):
+            GraphChanges.model_validate(
+                {"positions": [{"node_id": "Text-one", "x": float("inf"), "y": 0}]}
+            )
+
     async def test_name_conflict_is_definite_and_leaves_original_graph_unchanged(self):
         async with self.store.transaction() as session:
             session.add(Flow(name="Taken", data=self.original, user_id=self.owner))
