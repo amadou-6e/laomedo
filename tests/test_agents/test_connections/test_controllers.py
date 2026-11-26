@@ -17,6 +17,7 @@ from laomedo.agents.connections.errors import ProviderConnectionError
 from laomedo.agents.connections.models import ConnectionRecord
 from laomedo.agents.connections.service import ProviderConnections
 from laomedo.agents.errors import RunnerError
+from laomedo.agents.workspaces.models import WorkspaceChanges
 from laomedo.docker import DockerRuntime
 
 
@@ -136,6 +137,31 @@ class ProviderControllerTests(unittest.TestCase):
             self.manager.assistant_endpoint(self.profile, self.one, 2)
         with self.assertRaises(ProviderConnectionError):
             self.manager.assistant_endpoint(uuid4(), self.one, 1)
+
+    def test_workspace_changes_are_fenced_to_owner_and_connection_generation(self):
+        endpoint = self.manager.endpoint(self.profile, self.one)
+        record = self.post(endpoint[0], "/v1/runs/async", {"task": "fixture"})
+        slot = self.manager.slots[(self.profile, self.one, 1, "graph")]
+        projection = WorkspaceChanges(
+            run_id=record["run_id"],
+            source_hash="source",
+            post_run_hash="after",
+            patch_hash="patch",
+            patch="content",
+        )
+        slot.runner.workspace_changes = Mock(return_value=projection)
+        value = self.manager.workspace_changes(self.profile, record["run_id"])
+        self.assertEqual(value.connection_id, self.one)
+        self.assertEqual(value.generation, 1)
+        self.assertEqual(value.changes, projection)
+        self.assertEqual(slot.operations, 0)
+        with self.assertRaises(ProviderConnectionError):
+            self.manager.workspace_changes(uuid4(), record["run_id"])
+        self.records[0] = self.records[0].model_copy(update={"generation": 2})
+        self.service._save(self.profile, self.records)
+        with self.assertRaises(ProviderConnectionError):
+            self.manager.workspace_changes(self.profile, record["run_id"])
+        self.assertEqual(slot.operations, 0)
 
     def test_restart_recovers_assistant_scope_without_a_graph_controller(self):
         self.manager.assistant_endpoint(self.profile, self.one, 1)

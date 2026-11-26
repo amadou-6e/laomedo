@@ -5,6 +5,16 @@ from typing import Any, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, SecretStr
+from laomedo.agents.workspaces.models import WorkspaceChanges
+
+
+class OwnedWorkspaceChanges(BaseModel):
+    """A host-only projection bound to one profile connection generation."""
+
+    model_config = ConfigDict(strict=True, frozen=True, extra="forbid")
+    connection_id: UUID
+    generation: int
+    changes: WorkspaceChanges = Field(repr=False)
 
 
 class ConnectionRecord(BaseModel):

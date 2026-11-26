@@ -32,6 +32,11 @@ class VerifiedChangesTests(unittest.TestCase):
             changes = BaseAgent.workspace_changes(runner, "run")
             self.assertIn("+new", changes.patch)
             self.assertTrue(changes.patch_hash.startswith("sha256:"))
+            self.assertNotIn("patch", changes.model_dump())
+            (after / "code.py").write_text("old\n", encoding="utf-8")
+            record["post_run_hash"] = _hash_tree(after)
+            with self.assertRaisesRegex(RunnerError, "workspace_changes_empty"):
+                BaseAgent.workspace_changes(runner, "run")
             record["status"] = "running"
             with self.assertRaisesRegex(
                 RunnerError, "workspace_changes_run_incomplete"

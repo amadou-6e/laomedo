@@ -399,6 +399,8 @@ class BaseAgent(ABC):
             post_run_hash=record["post_run_hash"],
             imported_artifacts=record.get("imported_artifacts"),
         )
+        if not patch:
+            raise RunnerError("workspace_changes_empty")
         observed = self.status(run_id)
         if any(
             observed.get(key) != record.get(key)

@@ -40,6 +40,10 @@ preserve independent per-harness selections.
 
 ProviderControllers admits requests only on the original credential generation,
 inventories owned runs and reserves durable resumes before native startup.
+Its internal `workspace_changes(profile_id, run_id)` resolves exactly one graph
+run owned by the profile, checks the current connection generation, and returns
+its private snapshot-bound changes only while the connection remains admitted.
+This host-only observation does not authorize a graph or reviewer dispatch.
 Saved admission facades borrow or check only that exact connection; no active-account
 fallback or host-login copying exists. Runtime HTTP gateways remain host-owned.
 

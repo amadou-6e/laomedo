@@ -14,6 +14,7 @@ from laomedo.agents.connections.credentials import SavedClaudeConnection
 from laomedo.docker import DockerRuntime
 from laomedo.agents.connections.errors import ProviderConnectionError
 from laomedo.agents.connections.models import ControllerSlot
+from laomedo.agents.connections.models import OwnedWorkspaceChanges
 from laomedo.host.runner.http.server import RunnerServer
 from laomedo.host.runner.http.handler import RunnerRequestHandler
 from laomedo.agents.errors import RunnerError
@@ -293,6 +294,34 @@ class ProviderControllers:
             if len(matches) != 1:
                 raise ProviderConnectionError("provider_connection_unavailable")
             return matches.pop()
+
+    def workspace_changes(self, profile_id, run_id):
+        """Observe one currently admitted profile-owned graph run, without dispatch."""
+        run_id = str(UUID(str(run_id)))
+        with self.service._lock:
+            matches = [
+                slot
+                for slot in self.slots.values()
+                if slot.profile_id == profile_id
+                and slot.scope == "graph"
+                and (slot.state / "runs" / run_id / "record.json").is_file()
+            ]
+            if len(matches) != 1 or matches[0].runner is None:
+                raise ProviderConnectionError("provider_connection_unavailable")
+            slot = matches[0]
+            self.admit_operation(slot)
+        try:
+            changes = slot.runner.workspace_changes(run_id)
+            with self.service._lock:
+                self.service.admitted(profile_id, slot.connection_id, slot.generation)
+                return OwnedWorkspaceChanges(
+                    connection_id=slot.connection_id,
+                    generation=slot.generation,
+                    changes=changes,
+                )
+        finally:
+            with self.service._lock:
+                slot.operations -= 1
 
     def endpoint(self, profile_id, connection_id, *, run_id=None):
         """Return a host-only URL/token path; retained runs resolve their original epoch."""

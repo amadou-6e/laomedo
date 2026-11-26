@@ -36,7 +36,7 @@ class WorkspaceSnapshot(BaseModel):
 
 
 class WorkspaceChanges(BaseModel):
-    """Snapshot-bound host projection; content is private and never a credential."""
+    """Private snapshot projection; protected paths are refused, content is not scanned."""
 
     model_config = ConfigDict(strict=True, frozen=True, extra="forbid")
     run_id: str
@@ -44,5 +44,5 @@ class WorkspaceChanges(BaseModel):
     post_run_hash: str
     patch_hash: str
     patch: str = Field(
-        repr=False, description="Exact bounded host-derived change text."
+        repr=False, exclude=True, description="Exact bounded host-derived change text."
     )
