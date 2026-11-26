@@ -391,6 +391,12 @@ class ProviderControllerTests(unittest.TestCase):
         target_endpoint = self.manager.endpoint(self.profile, self.two)
         self.assertTrue(target_endpoint)
         target = self.manager.slots[(self.profile, self.two, 1, "graph")]
+        with self.assertRaisesRegex(
+            ProviderConnectionError, "verified_review_unavailable"
+        ):
+            self.manager.stage_review_request(
+                self.profile, "lease", run["run_id"], target, {}
+            )
         self.records[1] = self.records[1].model_copy(update={"provider": "claude"})
         self.service._save(self.profile, self.records)
         changes = WorkspaceChanges(

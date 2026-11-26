@@ -451,6 +451,12 @@ class ProviderControllers:
         """
         from laomedo.agents.mcp.client import McpAccess
 
+        if (
+            not isinstance(body, dict)
+            or not isinstance(body.get("request_id"), str)
+            or not isinstance(body.get("task"), str)
+        ):
+            raise ProviderConnectionError("verified_review_unavailable")
         source = self.workspace_changes(profile_id, source_run)
         token = self.stage_verified_review(
             profile_id,
