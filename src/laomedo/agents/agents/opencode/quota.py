@@ -133,7 +133,7 @@ except Exception:
     def project(cls, payload) -> SubscriptionSnapshot:
         """Preserve every documented meter, without inventing missing scalar values."""
         if not isinstance(payload, dict) or not isinstance(payload.get("usage"), dict):
-            raise ValueError("usage_unavailable")
+            raise ValueError()
         windows = []
         for name, kind, minutes in (
             ("rolling", "primary", 300),
@@ -147,7 +147,7 @@ except Exception:
                 "ok",
                 "rate-limited",
             }:
-                raise ValueError("usage_invalid")
+                raise ValueError()
             percent = meter.get("percent")
             if (
                 isinstance(percent, bool)
