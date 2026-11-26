@@ -181,6 +181,8 @@ contains no patch text. Its `to_record()` outcome is the typed model's JSON
 projection. The provenance is an internal runner argument, never a graph input.
 Verified-review reservations accept only Claude requests without skills or
 additional capabilities, and bind the provenance into request deduplication.
+`request_reservation()` refuses immediately when a verified review encounters
+an occupied request lock, avoiding a wait on that lock under the lifecycle fence.
 
 Provider execution, cancellation, recovery and historical readers still own the
 existing mutable dictionary lifecycle. The preparation model is a writer, not a strict

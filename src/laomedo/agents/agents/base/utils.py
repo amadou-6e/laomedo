@@ -9,6 +9,18 @@ import json
 from laomedo.agents.errors import RunnerError
 import os
 import time
+from contextlib import contextmanager
+
+
+@contextmanager
+def request_reservation(lock, *, nonblocking=False):
+    """Acquire the runner reservation lock or refuse immediately under a host fence."""
+    if not lock.acquire(blocking=not nonblocking):
+        raise RunnerError("verified_review_unavailable")
+    try:
+        yield
+    finally:
+        lock.release()
 
 
 def failure_observation(error=None, *, stage="execution", code=None):

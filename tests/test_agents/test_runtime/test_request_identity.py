@@ -156,6 +156,9 @@ class EarlyRunnerTests(unittest.TestCase):
             post_run_hash="post",
             patch_hash="patch",
         )
+        with self.runner.request_lock:
+            with self.assertRaisesRegex(RunnerError, "verified_review_unavailable"):
+                self.runner.start_async(body, verified_review=provenance)
         gate = threading.Event()
         first = self.runner.start_async(
             body, response_gate=gate, verified_review=provenance

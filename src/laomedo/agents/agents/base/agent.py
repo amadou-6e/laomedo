@@ -48,6 +48,7 @@ from laomedo.agents.agents.base.utils import _json
 from laomedo.agents.agents.base.utils import _private
 from laomedo.agents.agents.base.utils import _read
 from laomedo.agents.agents.base.utils import failure_observation
+from laomedo.agents.agents.base.utils import request_reservation
 from laomedo.agents.workspaces.errors import GitWorkspaceError
 from laomedo.agents.workspaces.workspace import AgentWorkspace
 from laomedo.agents.workspaces.models import WorkspacePaths
@@ -550,7 +551,9 @@ class BaseAgent(ABC):
                 ).encode("utf-8")
             ).hexdigest()
         )
-        with self.request_lock:
+        with request_reservation(
+            self.request_lock, nonblocking=verified_review is not None
+        ):
             for record_path in (self.state / "runs").glob("*/record.json"):
                 prior = _read(record_path)
                 if prior.get("client_request_id") == request_id:
