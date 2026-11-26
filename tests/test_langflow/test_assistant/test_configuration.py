@@ -399,6 +399,50 @@ class ConfigurationTests(unittest.IsolatedAsyncioTestCase):
         )
         self.runtime.models.assert_not_awaited()
 
+    async def test_verified_review_is_not_reported_ready_without_isolation(self):
+        import json
+
+        root = Path(__file__).resolve().parents[3]
+        components = {}
+        for filename, kind in (
+            ("codex.json", "LaomedoCodexAgent"),
+            ("claude.json", "LaomedoClaudeAgent"),
+        ):
+            path = root / "tests/test_agents/test_examples/data" / filename
+            flow = json.loads(path.read_text(encoding="utf-8"))
+            components[kind] = next(
+                node["data"]["node"]
+                for node in flow["data"]["nodes"]
+                if node["data"]["type"] == kind
+            )
+        workflows = SimpleNamespace(catalog=ComponentCatalog({"laomedo": components}))
+        spec = DraftGraph.model_validate(
+            {
+                "nodes": [
+                    {"key": "codex", "component_type": "laomedo/LaomedoCodexAgent"},
+                    {"key": "claude", "component_type": "laomedo/LaomedoClaudeAgent"},
+                ],
+                "edges": [
+                    {
+                        "source": "codex",
+                        "output": "run",
+                        "target": "claude",
+                        "input": "verified_changes",
+                    }
+                ],
+            }
+        )
+        result = await self.configuration.validate(self.context, workflows, spec=spec)
+        self.assertFalse(result["ready"])
+        self.assertTrue(
+            any(
+                issue["code"] == "verified_review_isolation_unavailable"
+                and issue["field"] == "verified_changes"
+                for issue in result["diagnostics"]
+            )
+        )
+        self.runtime.models.assert_not_awaited()
+
     async def test_protected_endpoints_and_unknown_fields_remain_denied(self):
         self.catalog.snapshot["laomedo"]["LaomedoCodexAgent"]["template"][
             "runner_url"

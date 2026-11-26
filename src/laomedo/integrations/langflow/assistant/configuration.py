@@ -601,6 +601,20 @@ class WorkflowConfiguration:
         from laomedo.integrations.langflow.assistant.models import GraphConnection
 
         nodes = {node["id"]: node for node in data.get("nodes", [])}
+        for node_id, field in connected:
+            node = nodes.get(node_id, {})
+            if (
+                field == "verified_changes"
+                and node.get("data", {}).get("type") == "LaomedoClaudeAgent"
+            ):
+                diagnostics.append(
+                    FlowDiagnostic(
+                        code="verified_review_isolation_unavailable",
+                        node_id=node_id,
+                        field=field,
+                        message="Secure review is not available in this installation.",
+                    )
+                )
         for edge in data.get("edges", []):
             try:
                 definition = GraphConnection(

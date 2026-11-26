@@ -42,6 +42,9 @@ cannot satisfy that resolution; saved-account access remains separately scoped.
 The assistant checks the saved Issue source and pin against its exact run snapshot
 at approval and dispatch. A plain Langflow run outside the assistant uses that
 graph's current node configuration and is not covered by the assistant check.
+Readiness validation reports a connected Claude Verified Changes input as
+unavailable while its isolated authority is absent. It may be saved as an
+incomplete draft, but validation must not describe it as runnable.
 
 The digest-pinned MCPTools adapter uses the installed `component_as_tool` /
 `to_toolkit` Toolset contract. It saves `tool_mode=True` and removes the single-tool
