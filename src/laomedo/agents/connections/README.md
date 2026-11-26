@@ -49,6 +49,10 @@ reviewer generations, run identity, snapshot and patch digests, request identity
 and instruction digest. Admission is single-use and must hold the lifecycle lock
 until the runner reserves the request; it rederives changes and constructs the
 review task from host bytes. No patch or credential is stored in the grant.
+`SavedRunnerRequestHandler._start_async()` consumes that grant for a saved
+runner, reserves the host-built task in the same thread, and records its source
+provenance. A grant cannot be replayed. This dispatch is not yet exposed to graph
+nodes; lock duration includes snapshot derivation and run preparation.
 Saved admission facades borrow or check only that exact connection; no active-account
 fallback or host-login copying exists. Runtime HTTP gateways remain host-owned.
 

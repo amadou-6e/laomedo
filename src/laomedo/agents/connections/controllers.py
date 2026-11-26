@@ -19,6 +19,7 @@ from laomedo.agents.connections.errors import ProviderConnectionError
 from laomedo.agents.connections.models import ControllerSlot
 from laomedo.agents.connections.models import OwnedWorkspaceChanges
 from laomedo.agents.connections.models import VerifiedReviewGrant
+from laomedo.agents.agents.base.models import VerifiedReviewProvenance
 from laomedo.agents.connections.settings import MAX_PENDING_VERIFIED_REVIEWS
 from laomedo.agents.connections.settings import VERIFIED_REVIEW_GRANT_SECONDS
 from laomedo.host.runner.http.server import RunnerServer
@@ -41,6 +42,22 @@ class SavedRunnerRequestHandler(RunnerRequestHandler):
 
     def log_message(self, *_args):
         """Do not emit private request identifiers or native bodies to host logs."""
+
+    def _start_async(self, body, response_gate):
+        """Consume a host grant and reserve the exact review while fenced."""
+        tokens = self.headers.get_all("X-Laomedo-Verified-Review")
+        if not tokens:
+            return super()._start_async(body, response_gate)
+        if len(tokens) != 1:
+            raise ProviderConnectionError("verified_review_unavailable")
+        with self.server.manager.admit_verified_review(
+            tokens[0], self.server.slot, body
+        ) as (admitted, provenance):
+            return self.server.runner.start_async(
+                admitted,
+                response_gate=response_gate,
+                verified_review=VerifiedReviewProvenance(**provenance),
+            )
 
     def _serve(self, method):
         """Track native-starting requests before crossing the lifecycle fence."""

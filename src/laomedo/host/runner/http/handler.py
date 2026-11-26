@@ -117,9 +117,7 @@ class RunnerRequestHandler(BaseHTTPRequestHandler):
             )
             if parts == ["v1", "runs", "async"]:
                 response_gate = threading.Event()
-                result = self.server.runner.start_async(
-                    body, response_gate=response_gate
-                )
+                result = self._start_async(body, response_gate)
                 self._reply(202, result)
                 return
             if (
@@ -223,6 +221,12 @@ class RunnerRequestHandler(BaseHTTPRequestHandler):
                 self.server.runner.release_mcp(parts[2], expected=mcp_access)
             if response_gate is not None:
                 response_gate.set()
+
+    def _start_async(self, body, response_gate):
+        """Reserve normal requests; host-owned handlers may add admission fences."""
+        if self.headers.get_all("X-Laomedo-Verified-Review"):
+            raise RunnerError("invalid_request")
+        return self.server.runner.start_async(body, response_gate=response_gate)
 
     def _reply(self, code: int, value: dict, *, failure=None):
         """Serialize the response using the existing JSON status and content length."""

@@ -4,6 +4,7 @@ import json
 from importlib.util import find_spec
 import tempfile
 import threading
+import time
 import unittest
 from pathlib import Path
 from urllib.error import HTTPError
@@ -155,6 +156,9 @@ class ProviderControllerTests(unittest.TestCase):
         self.assertEqual(value.connection_id, self.one)
         self.assertEqual(value.generation, 1)
         self.assertEqual(value.changes, projection)
+        deadline = time.monotonic() + 3
+        while slot.operations and time.monotonic() < deadline:
+            time.sleep(0.01)
         self.assertEqual(slot.operations, 0)
         slot.runner.pending.append({"run_id": record["run_id"]})
         with self.assertRaises(ProviderConnectionError):
@@ -217,6 +221,7 @@ class ProviderControllerTests(unittest.TestCase):
         with self.assertRaises(ProviderConnectionError):
             with self.manager.admit_verified_review(token, target, body):
                 pass
+
         for altered in (
             {**body, "task": "Different instruction"},
             {**body, "skill_refs": ["unapproved"]},
@@ -263,6 +268,65 @@ class ProviderControllerTests(unittest.TestCase):
         with self.assertRaises(ProviderConnectionError):
             with self.manager.admit_verified_review(token, target, body):
                 pass
+
+    def test_verified_review_dispatch_consumes_grant_and_reserves_host_patch(self):
+        source_endpoint = self.manager.endpoint(self.profile, self.one)
+        source_run = self.post(
+            source_endpoint[0], "/v1/runs/async", {"task": "fixture"}
+        )
+        source_slot = self.manager.slots[(self.profile, self.one, 1, "graph")]
+        source_slot.runner.workspace_changes = Mock(
+            return_value=WorkspaceChanges(
+                run_id=source_run["run_id"],
+                source_hash="source",
+                post_run_hash="post",
+                patch_hash="patch",
+                patch="host patch",
+            )
+        )
+        target_endpoint = self.manager.endpoint(self.profile, self.two)
+        target = self.manager.slots[(self.profile, self.two, 1, "graph")]
+        self.records[1] = self.records[1].model_copy(update={"provider": "claude"})
+        self.service._save(self.profile, self.records)
+        target.runner.start_async = Mock(wraps=target.runner.start_async)
+        body = {
+            "request_id": str(uuid4()),
+            "task": "Review",
+            "model": "m",
+            "effort": "low",
+            "skill_refs": [],
+        }
+        grant = self.manager.stage_verified_review(
+            self.profile,
+            "lease",
+            source_run["run_id"],
+            self.two,
+            1,
+            body["request_id"],
+            body["task"],
+        )
+
+        def dispatch():
+            request = Request(
+                target_endpoint[0] + "/v1/runs/async",
+                data=json.dumps(body).encode(),
+                method="POST",
+                headers={
+                    "Content-Type": "application/json",
+                    "Authorization": "Bearer " + "0" * 64,
+                    "X-Laomedo-Verified-Review": grant,
+                },
+            )
+            return urlopen(request, timeout=3)
+
+        with dispatch() as response:
+            self.assertEqual(response.status, 202)
+        args, kwargs = target.runner.start_async.call_args
+        self.assertIn("host patch", args[0]["task"])
+        self.assertEqual(kwargs["verified_review"].patch_hash, "patch")
+        with self.assertRaises(HTTPError):
+            dispatch()
+        self.assertEqual(target.runner.start_async.call_count, 1)
 
     def test_restart_recovers_assistant_scope_without_a_graph_controller(self):
         self.manager.assistant_endpoint(self.profile, self.one, 1)
