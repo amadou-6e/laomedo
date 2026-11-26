@@ -12,6 +12,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from unittest.mock import Mock, patch
 
 from laomedo.agents.agents.opencode.quota import OpenCodeSubscriptionQuota
+from laomedo.agents.agents.opencode.agent import OpenCodeAgent
 from laomedo.agents.agents.opencode.settings import GO_USAGE_MAX_BYTES
 from laomedo.agents.agents.opencode.settings import GO_USAGE_URL
 from laomedo.agents.errors import RunnerError
@@ -212,3 +213,24 @@ class GoQuotaTests(unittest.TestCase):
             with self.assertRaises(RunnerError):
                 self.quota.read()
             run.assert_not_called()
+
+    def test_agent_quota_obeys_execution_lock_and_releases_after_failure(self):
+        agent = object.__new__(OpenCodeAgent)
+        agent.profile = self.profile
+        agent.lock = threading.Lock()
+        agent.lock.acquire()
+        with patch(
+            "laomedo.agents.agents.opencode.agent.OpenCodeSubscriptionQuota"
+        ) as quota:
+            with self.assertRaises(RunnerError) as caught:
+                agent.subscription_limits()
+            self.assertEqual(caught.exception.code, "provider_connection_busy")
+            quota.assert_not_called()
+            agent.lock.release()
+            quota.return_value.read.side_effect = RunnerError(
+                "provider_subscription_limits_unavailable"
+            )
+            with self.assertRaises(RunnerError):
+                agent.subscription_limits()
+            self.assertFalse(agent.lock.locked())
+            quota.assert_called_once_with(self.profile)
