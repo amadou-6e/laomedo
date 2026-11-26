@@ -146,6 +146,7 @@ class EarlyRunnerTests(unittest.TestCase):
 
     def test_verified_review_provenance_is_retained_and_binds_request_identity(self):
         self.runner.provider = "claude"
+        self.runner._supports_verified_review = True
         body = {key: value for key, value in self.body.items() if key != "skill_ref"}
         body["skill_refs"] = []
         provenance = VerifiedReviewProvenance(

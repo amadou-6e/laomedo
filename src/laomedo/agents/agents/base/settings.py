@@ -199,6 +199,8 @@ RUNNER_FAILURE_CODES = frozenset(
         "resume_after_runner_restart_forbidden",
         "resume_auth_identity_mismatch",
         "resume_binding_mismatch",
+        "verified_review_resume_not_supported",
+        "verified_review_unavailable",
         "resume_provider_binding_mismatch",
         "run_not_active_in_this_process",
         "run_not_dispatchable",

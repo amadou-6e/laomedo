@@ -71,6 +71,7 @@ class BaseAgent(ABC):
     """Template-method lifecycle; concrete providers own protocol and runtime policy."""
 
     _supports_run_timeout = False
+    _supports_verified_review = False
 
     def __init__(
         self,
@@ -523,7 +524,7 @@ class BaseAgent(ABC):
             raise RunnerError("invalid_request_id") from None
         body = {key: value for key, value in request.items() if key != "request_id"}
         if verified_review is not None and (
-            self.provider != "claude"
+            not self._supports_verified_review
             or set(body)
             - {"task", "model", "effort", "skill_refs", "run_timeout_seconds"}
             or body.get("skill_refs") != []

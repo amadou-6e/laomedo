@@ -55,6 +55,7 @@ class ClaudeAgent(BaseAgent):
     """Own Claude admission, native turn orchestration and durable run finalization."""
 
     _supports_run_timeout = True
+    _supports_verified_review = True
 
     credential_type = ClaudeCredentialProvider
     catalog_type = ClaudeModelCatalog

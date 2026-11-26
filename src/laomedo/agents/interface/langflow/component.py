@@ -202,6 +202,8 @@ _ROUTABLE_ERRORS = {
     "request_timeout:turn/start",
     "resume_auth_identity_mismatch",
     "resume_binding_mismatch",
+    "verified_review_resume_not_supported",
+    "verified_review_unavailable",
     "run_and_grant_store_must_differ",
     "runner_api_token_file_empty",
     "runner_api_token_file_unavailable",

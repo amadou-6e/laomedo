@@ -321,12 +321,12 @@ class VerifiedReviewProvenance(BaseModel):
     """Host-admitted source identity and hashes, without workspace contents."""
 
     model_config = ConfigDict(strict=True, frozen=True, extra="forbid")
-    source_run: str
-    source_connection: str
-    source_generation: int
-    source_hash: str
-    post_run_hash: str
-    patch_hash: str
+    source_run: str = Field(description="Completed source run identity.")
+    source_connection: str = Field(description="Source connection identity.")
+    source_generation: int = Field(description="Admitted source connection generation.")
+    source_hash: str = Field(description="Verified source snapshot digest.")
+    post_run_hash: str = Field(description="Verified post-run snapshot digest.")
+    patch_hash: str = Field(description="Verified workspace patch digest.")
 
     def to_record(self) -> dict:
         """Project the provenance into the private run record."""

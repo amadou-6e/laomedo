@@ -159,6 +159,16 @@
     "description": "The observed workspace snapshot does not match the recorded post-run snapshot.",
     "recovery": "Preserve the run and its workspace. Ask the operator to investigate snapshot integrity before resuming or starting a replacement."
   },
+  "verified_review_resume_not_supported": {
+    "title": "This review cannot be continued",
+    "description": "The review is tied to a specific set of workspace changes.",
+    "recovery": "Start a new review to review changes or ask another question."
+  },
+  "verified_review_unavailable": {
+    "title": "The changes could not be reviewed",
+    "description": "The source run or review connection is unavailable or has changed.",
+    "recovery": "Check the source run and selected account, then try again."
+  },
   "resume_binding_mismatch": {
     "title": "The previous run does not match this operation",
     "description": "The provider, model, session, or workspace no longer matches the saved run.",
