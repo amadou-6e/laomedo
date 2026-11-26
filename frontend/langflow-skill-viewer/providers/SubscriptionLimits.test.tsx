@@ -162,7 +162,7 @@ test("Go key custody permits explicit quota with all three meters", async () => 
 
 test.each([
   ["authentication_failed", "OpenCode did not accept this key."],
-  ["not_entitled", "This key cannot access Go subscription limits."],
+  ["not_entitled", "Check this key?s Go subscription in OpenCode Console."],
   ["rate_limited", "OpenCode is limiting usage checks."],
 ])("Go %s refusal retains honest availability", async (reason, message) => {
   (readSubscriptionLimits as jest.Mock).mockResolvedValue({ ...empty, state: "unavailable", reason });
@@ -172,7 +172,7 @@ test.each([
   expect(screen.queryByRole("meter")).not.toBeInTheDocument();
   if (reason === "not_entitled") {
     expect(screen.getByText("Go access required")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Open OpenCode Console" })).toHaveAttribute("href", "https://opencode.ai/console");
+    expect(screen.getByRole("link", { name: "OpenCode Console" })).toHaveAttribute("href", "https://opencode.ai/console");
   }
   expect(screen.getByRole("button")).toBeEnabled();
 });

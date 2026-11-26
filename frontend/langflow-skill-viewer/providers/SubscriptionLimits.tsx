@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { CircleAlert, RefreshCw } from "lucide-react";
+import { CircleAlert, ExternalLink, RefreshCw } from "lucide-react";
 import { describeNodeFailure } from "@/components/laomedoErrors/nodeErrors";
 import { Button } from "@/components/ui/button";
 import {
@@ -281,7 +281,7 @@ function AccountLimits({
               <CircleAlert size={20} className="pc-quota-notice-icon" aria-hidden="true" />
               <div className="pc-quota-notice-content">
                 <h3>{quotaFailure?.title || "Limits temporarily unavailable"}</h3>
-                <p>{failure ||
+                <p>{observation?.reason === "not_entitled" ? "Check this key?s Go subscription in OpenCode Console." : failure ||
                 (observation?.reason === "busy"
                   ? "Account is busy. Try again when its run finishes."
                   : quotaFailure
@@ -290,7 +290,8 @@ function AccountLimits({
                 </p>
                 {observation?.reason === "not_entitled" && (
                   <a href="https://opencode.ai/console" target="_blank" rel="noopener noreferrer" className="pc-manage-account">
-                    Open OpenCode Console
+                    OpenCode Console
+                    <ExternalLink size={14} aria-hidden="true" />
                   </a>
                 )}
               </div>

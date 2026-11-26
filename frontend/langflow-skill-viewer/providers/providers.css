@@ -89,9 +89,9 @@
 .github-connections .gc-focus > a:not(.gc-link) { width: fit-content; justify-self: start; }
 
 /* Quota failures follow Settings typography, spacing and outline actions. */
-.pc-quota-notice { display: flex; align-items: flex-start; gap: 12px; padding: 20px 0 4px; border-top: 1px solid hsl(var(--border)); }
+.pc-quota-notice { display: flex; align-items: flex-start; gap: 12px; padding: 8px 0 4px; }
 .pc-quota-notice-icon { flex: none; margin-top: 2px; color: hsl(var(--muted-foreground)); }
 .pc-quota-notice-content { display: grid; gap: 12px; min-width: 0; max-width: 560px; }
 .pc-quota-notice-content h3 { margin: 0; font-size: 14px; line-height: 1.5; font-weight: 500; }
 .pc-quota-notice-content p { overflow-wrap: anywhere; }
-.pc-quota-notice-content .pc-manage-account { margin-top: 4px; color: hsl(var(--foreground)); text-decoration: none; }
+.pc-quota-notice-content .pc-manage-account { margin-top: 4px; gap: 8px; color: hsl(var(--foreground)); text-decoration: none; }
