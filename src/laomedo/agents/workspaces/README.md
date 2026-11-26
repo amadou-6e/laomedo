@@ -17,6 +17,7 @@ Repository authorization and protected-file policy stay with their callers.
 | Run-local skill exclusion and integrity | `skills/utils.py` | `_exclude`, `install`, `verify`; existing signatures and record shapes |
 | Admission and preparation failures | `errors.py`, `skills/errors.py` | Existing `GitWorkspaceError`, `WorkspaceSkillError`; code/args/inheritance preserved |
 | Independent file-tree operations | `utils.py` | Hash and copy complete trees; reject unreadable directories instead of silently omitting them |
+| Verified change projection | `changes.py` | `verified_changes`: derive a bounded text patch only from matching immutable snapshots |
 
 Workspace names working state, Paths its source/directory binding, and Snapshot
 the preparation observation. AgentWorkspace is an actual preparation owner, not
@@ -31,6 +32,7 @@ to call either function. The shared Git runner remains their native process owne
 | --- | --- |
 | `AgentWorkspace.prepare(canonical, *, git)` | Prepare the run directory and canonical snapshot; return WorkspaceSnapshot. Git mode preserves admitted history; directory mode copies admitted files. |
 | Workspace filesystem failures | Report `workspace_access_failed` without exposing private paths; no incomplete source snapshot is accepted. |
+| `verified_changes(canonical, post_run, *, source_hash, post_run_hash)` | Recheck both snapshot hashes before and after producing a deterministic bounded text patch. Refuse protected paths, binary files and oversized changes. |
 | `AgentWorkspace.prepare_git()` | Admit a clean trusted repository root, clone independent objects, detach its observed baseline and remove remotes. |
 | `initialize(workspace)` | Refuse pre-existing Git metadata; create the existing independent baseline through GitRepository/GitCommandRunner. Never copy host Git metadata or hooks. |
 | `remove_owned_tree(path, state)` | Refuse the state root, an outside path or a linked target; retain existing read-only-file retry admission and removal behavior. |
