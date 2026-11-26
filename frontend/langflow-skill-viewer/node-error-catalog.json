@@ -1864,6 +1864,11 @@
     "description": "The isolated command exceeded its output limit. The runner stopped it and confirmed container cleanup before reporting this failure.",
     "recovery": "Check the current workspace changes before deciding whether to run another command. Limit the command output; the original command may already have changed files."
   },
+  "workspace_access_failed": {
+    "title": "The Agent workspace could not be accessed",
+    "description": "The runner could not read or copy the complete workspace. The Agent was not started.",
+    "recovery": "Check the workspace permissions and available disk space, or select an accessible workspace, then try again."
+  },
   "workspace_copy_mismatch": {
     "title": "The copied workspace did not match the source",
     "description": "The copied file tree failed its hash check. The runner did not accept that snapshot.",

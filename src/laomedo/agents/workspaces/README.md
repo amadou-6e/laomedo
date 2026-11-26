@@ -16,7 +16,7 @@ Repository authorization and protected-file policy stay with their callers.
 | Owned failed-run removal | `cleanup.py` | `remove_owned_tree(path, state)`; refuse paths outside owned run state |
 | Run-local skill exclusion and integrity | `skills/utils.py` | `_exclude`, `install`, `verify`; existing signatures and record shapes |
 | Admission and preparation failures | `errors.py`, `skills/errors.py` | Existing `GitWorkspaceError`, `WorkspaceSkillError`; code/args/inheritance preserved |
-| Independent file-tree operations | `utils.py` | Existing hashing/copy functions for preparation, restore and verification |
+| Independent file-tree operations | `utils.py` | Hash and copy complete trees; reject unreadable directories instead of silently omitting them |
 
 Workspace names working state, Paths its source/directory binding, and Snapshot
 the preparation observation. AgentWorkspace is an actual preparation owner, not
@@ -30,6 +30,7 @@ to call either function. The shared Git runner remains their native process owne
 | Interface | Effects and preserved guarantees |
 | --- | --- |
 | `AgentWorkspace.prepare(canonical, *, git)` | Prepare the run directory and canonical snapshot; return WorkspaceSnapshot. Git mode preserves admitted history; directory mode copies admitted files. |
+| Workspace filesystem failures | Report `workspace_access_failed` without exposing private paths; no incomplete source snapshot is accepted. |
 | `AgentWorkspace.prepare_git()` | Admit a clean trusted repository root, clone independent objects, detach its observed baseline and remove remotes. |
 | `initialize(workspace)` | Refuse pre-existing Git metadata; create the existing independent baseline through GitRepository/GitCommandRunner. Never copy host Git metadata or hooks. |
 | `remove_owned_tree(path, state)` | Refuse the state root, an outside path or a linked target; retain existing read-only-file retry admission and removal behavior. |

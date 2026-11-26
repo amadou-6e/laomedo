@@ -81,6 +81,7 @@ _ROUTABLE_ERRORS = {
     "git_workspace_snapshot_limit",
     "invalid_workspace",
     "unsafe_workspace_entry",
+    "workspace_access_failed",
     "workspace_copy_mismatch",
     "workspace_git_initialization_failed",
     "workspace_git_metadata_conflict",

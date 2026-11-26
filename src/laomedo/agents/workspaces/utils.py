@@ -12,6 +12,11 @@ from .settings import (
 )
 
 
+def _raise_walk_error(error: OSError) -> None:
+    """Reject an unreadable directory instead of silently skipping its contents."""
+    raise error
+
+
 def _hash_tree(path: Path, *, exclude_root_git: bool = False) -> str:
     """Hash regular files and directories, including empty directories."""
     if not path.is_dir() or path.is_symlink():
@@ -19,7 +24,9 @@ def _hash_tree(path: Path, *, exclude_root_git: bool = False) -> str:
     files = {}
     directories = []
     total_bytes = 0
-    for parent, dirs, names in os.walk(path, followlinks=False):
+    for parent, dirs, names in os.walk(
+        path, followlinks=False, onerror=_raise_walk_error
+    ):
         if exclude_root_git and Path(parent) == path:
             dirs[:] = [name for name in dirs if name != ".git"]
             names = [name for name in names if name != ".git"]

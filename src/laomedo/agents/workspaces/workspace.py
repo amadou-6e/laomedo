@@ -28,6 +28,13 @@ class AgentWorkspace:
 
     def prepare(self, canonical: Path, *, git: bool) -> WorkspaceSnapshot:
         """Prepare the working directory and its canonical snapshot in existing order."""
+        try:
+            return self._prepare(canonical, git=git)
+        except (OSError, shutil.Error):
+            raise RunnerError("workspace_access_failed") from None
+
+    def _prepare(self, canonical: Path, *, git: bool) -> WorkspaceSnapshot:
+        """Copy the complete admitted tree or fail without accepting a snapshot."""
         if git:
             baseline = self.prepare_git()
             source_hash = _copy_tree(
