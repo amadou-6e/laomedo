@@ -86,3 +86,21 @@ class VerifiedChangesTests(unittest.TestCase):
                 RunnerError, "workspace_changes_directories_unsupported"
             ):
                 verified_changes(before, after, **kwargs)
+
+    def test_unicode_and_control_separators_do_not_split_diff_lines(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            before, after = root / "before", root / "after"
+            before.mkdir()
+            after.mkdir()
+            (before / "a.txt").write_bytes("old\u2028one\rpart\fend\n".encode())
+            (after / "a.txt").write_bytes("new\u2028one\rpart\fend\n".encode())
+            patch = verified_changes(
+                before,
+                after,
+                source_hash=_hash_tree(before),
+                post_run_hash=_hash_tree(after),
+                imported_artifacts=[],
+            )
+            self.assertIn("+new\u2028one\rpart\fend\n", patch)
+            self.assertNotIn("No newline at end of file", patch)

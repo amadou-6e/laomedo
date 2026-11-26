@@ -4,6 +4,7 @@ from difflib import unified_diff
 from pathlib import Path
 import hashlib
 import os
+import re
 import stat
 
 from laomedo.agents.artifacts.errors import ArtifactError
@@ -102,8 +103,8 @@ def verified_changes(
                 f"File: {name} ({'added' if old is None else 'deleted' if new is None else 'modified'})\n"
             )
             for line in unified_diff(
-                old_text.splitlines(keepends=True),
-                new_text.splitlines(keepends=True),
+                re.findall(r"[^\n]*\n|[^\n]+", old_text),
+                re.findall(r"[^\n]*\n|[^\n]+", new_text),
                 fromfile="a/" + name,
                 tofile="b/" + name,
             ):
