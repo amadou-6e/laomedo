@@ -19,6 +19,14 @@ def _raise_walk_error(error: OSError) -> None:
 
 def _hash_tree(path: Path, *, exclude_root_git: bool = False) -> str:
     """Hash regular files and directories, including empty directories."""
+    try:
+        return _hash_tree_checked(path, exclude_root_git=exclude_root_git)
+    except OSError:
+        raise RunnerError("workspace_access_failed") from None
+
+
+def _hash_tree_checked(path: Path, *, exclude_root_git: bool = False) -> str:
+    """Read every workspace entry before calculating its digest."""
     if not path.is_dir() or path.is_symlink():
         raise RunnerError("invalid_workspace")
     files = {}
@@ -76,6 +84,15 @@ def _hash_tree(path: Path, *, exclude_root_git: bool = False) -> str:
 
 
 def _copy_tree(source: Path, target: Path, *, exclude_root_git: bool = False) -> str:
+    try:
+        return _copy_tree_checked(source, target, exclude_root_git=exclude_root_git)
+    except OSError:
+        raise RunnerError("workspace_access_failed") from None
+
+
+def _copy_tree_checked(
+    source: Path, target: Path, *, exclude_root_git: bool = False
+) -> str:
     expected = _hash_tree(source, exclude_root_git=exclude_root_git)
     ignore = (
         (

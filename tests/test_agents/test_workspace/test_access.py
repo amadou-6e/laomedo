@@ -21,7 +21,7 @@ class WorkspaceAccessTests(unittest.TestCase):
                 return iter(())
 
             with patch("laomedo.agents.workspaces.utils.os.walk", side_effect=walk):
-                with self.assertRaises(PermissionError):
+                with self.assertRaisesRegex(RunnerError, "^workspace_access_failed$"):
                     _hash_tree(Path(directory))
 
     def test_copy_failure_has_safe_domain_error(self):

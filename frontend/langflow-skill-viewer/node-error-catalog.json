@@ -1866,8 +1866,8 @@
   },
   "workspace_access_failed": {
     "title": "The Agent workspace could not be accessed",
-    "description": "The runner could not read or copy the complete workspace. The Agent was not started.",
-    "recovery": "Check the workspace permissions and available disk space, or select an accessible workspace, then try again."
+    "description": "The runner could not read or copy the complete workspace, so it could not verify the files.",
+    "recovery": "Check workspace permissions and available disk space. Check the run status before starting new work."
   },
   "workspace_copy_mismatch": {
     "title": "The copied workspace did not match the source",
