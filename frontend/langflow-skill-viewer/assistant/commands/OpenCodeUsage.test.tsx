@@ -13,7 +13,10 @@ test("usage is a command snapshot with no reload, close or polling controls", as
   ]}]}});
   try {
     const view = render(<OpenCodeUsage connection="account" generation={1} />);
-    expect(await screen.findByText(/87% remaining/)).toHaveTextContent("100% remaining");
+    expect(await screen.findByText("87% remaining")).toBeInTheDocument();
+    expect(screen.getByText("100% remaining")).toBeInTheDocument();
+    expect(screen.getAllByRole("meter")).toHaveLength(3);
+    expect(screen.getByRole("meter", {name: "Weekly limit remaining"})).toHaveAttribute("aria-valuenow", "87");
     expect(screen.getByText(/82% remaining/)).toBeInTheDocument();
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
     await act(async () => { jest.advanceTimersByTime(30000); });
