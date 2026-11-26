@@ -9,7 +9,7 @@ import unittest
 from unittest.mock import Mock, patch
 from urllib.error import HTTPError, URLError
 
-from laomedo.agents.agents.opencode.quota import GoUsageRedirectHandler
+from laomedo.host.http import NoRedirect
 from laomedo.agents.agents.opencode.quota import OpenCodeSubscriptionQuota
 from laomedo.agents.agents.opencode.settings import GO_USAGE_MAX_BYTES
 from laomedo.agents.agents.opencode.settings import GO_USAGE_URL
@@ -108,15 +108,12 @@ class GoQuotaTests(unittest.TestCase):
         response.__exit__.assert_called_once()
         self.assertEqual(result.submitted_turns, 0)
         self.assertTrue(
-            any(
-                isinstance(handler, GoUsageRedirectHandler)
-                for handler in build.call_args.args
-            )
+            any(isinstance(handler, NoRedirect) for handler in build.call_args.args)
         )
 
     def test_redirect_handler_never_forwards_credentials(self):
         self.assertIsNone(
-            GoUsageRedirectHandler().redirect_request(
+            NoRedirect().redirect_request(
                 None, None, 302, "redirect", {}, "https://other.example"
             )
         )

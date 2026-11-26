@@ -6,7 +6,7 @@ import json
 import math
 from pathlib import Path
 from urllib.error import HTTPError, URLError
-from urllib.request import HTTPRedirectHandler, ProxyHandler, Request, build_opener
+from urllib.request import ProxyHandler, Request, build_opener
 
 from laomedo.agents.agents.base.models import SubscriptionBucket
 from laomedo.agents.agents.base.models import SubscriptionSnapshot
@@ -16,14 +16,7 @@ from laomedo.agents.agents.opencode.settings import GO_USAGE_TIMEOUT_SECONDS
 from laomedo.agents.agents.opencode.settings import GO_USAGE_URL
 from laomedo.agents.agents.opencode.utils import check_auth_fresh
 from laomedo.agents.errors import RunnerError
-
-
-class GoUsageRedirectHandler(HTTPRedirectHandler):
-    """Refuse redirects so the saved key is sent only to the fixed Go endpoint."""
-
-    def redirect_request(self, req, fp, code, msg, headers, newurl):
-        """Let urllib produce a bounded failure without following another address."""
-        return None
+from laomedo.host.http import NoRedirect
 
 
 class OpenCodeSubscriptionQuota:
@@ -52,7 +45,7 @@ class OpenCodeSubscriptionQuota:
                 method="GET",
             )
             # Ignore ambient proxy configuration; no other host receives this key.
-            opener = build_opener(ProxyHandler({}), GoUsageRedirectHandler())
+            opener = build_opener(ProxyHandler({}), NoRedirect())
             with opener.open(request, timeout=GO_USAGE_TIMEOUT_SECONDS) as response:
                 if response.status != 200:
                     raise ValueError()
