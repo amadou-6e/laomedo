@@ -354,6 +354,23 @@ class WorkflowConfiguration:
             await self.runtime.authorize(context)
         else:
             await self.runtime.check_session(context.owner_id, context.session_key)
+        nodes = {
+            node.get("id"): node
+            for node in (data or {}).get("nodes", [])
+            if isinstance(node, dict)
+        }
+        for edge in (data or {}).get("edges", []):
+            if not isinstance(edge, dict):
+                continue
+            details = edge.get("data") or {}
+            handle = details.get("targetHandle") if isinstance(details, dict) else None
+            target = nodes.get(edge.get("target"), {})
+            if (
+                isinstance(handle, dict)
+                and handle.get("fieldName") == "verified_changes"
+                and target.get("data", {}).get("type") == "LaomedoClaudeAgent"
+            ):
+                raise AssistantError("verified_review_isolation_unavailable", 409)
         for node in (data or {}).get("nodes", []):
             node_data = node.get("data", {})
             template = node_data.get("node", {}).get("template", {})
@@ -590,13 +607,14 @@ class WorkflowConfiguration:
                 if expected_revision != revision:
                     raise AssistantError("assistant_source_revision_changed", 409)
                 data = flow.data
-        connected = {
-            (
-                edge.get("target"),
-                edge.get("data", {}).get("targetHandle", {}).get("fieldName"),
-            )
-            for edge in data.get("edges", [])
-        }
+        connected = set()
+        for edge in data.get("edges", []):
+            if not isinstance(edge, dict):
+                continue
+            details = edge.get("data")
+            handle = details.get("targetHandle") if isinstance(details, dict) else None
+            if isinstance(handle, dict):
+                connected.add((edge.get("target"), handle.get("fieldName")))
         from laomedo.integrations.langflow.assistant.graph import GraphEditor
         from laomedo.integrations.langflow.assistant.models import GraphConnection
 
@@ -624,7 +642,7 @@ class WorkflowConfiguration:
                     input=edge.get("data", {}).get("targetHandle", {}).get("fieldName"),
                 )
                 GraphEditor(workflows.catalog).connection(definition, nodes)
-            except (AssistantError, ValueError, KeyError, TypeError):
+            except (AssistantError, ValueError, KeyError, TypeError, AttributeError):
                 diagnostics.append(
                     FlowDiagnostic(
                         code="invalid_connection",

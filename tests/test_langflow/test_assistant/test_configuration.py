@@ -441,6 +441,13 @@ class ConfigurationTests(unittest.IsolatedAsyncioTestCase):
                 for issue in result["diagnostics"]
             )
         )
+        data, _ = workflows.catalog.compile(
+            spec.model_copy(update={"allow_incomplete": True})
+        )
+        with self.assertRaisesRegex(
+            AssistantError, "verified_review_isolation_unavailable"
+        ):
+            await self.configuration.check_graph(self.context, workflows.catalog, data)
         self.runtime.models.assert_not_awaited()
 
     async def test_protected_endpoints_and_unknown_fields_remain_denied(self):
