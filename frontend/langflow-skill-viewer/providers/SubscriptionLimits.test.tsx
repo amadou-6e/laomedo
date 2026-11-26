@@ -88,16 +88,16 @@ beforeEach(() => {
 
 afterEach(() => jest.useRealTimers());
 
-test("mount reads cache only; explicit refresh renders native buckets, over-limit and separate credits", async () => {
+test("mount refreshes limits; manual refresh renders native buckets, over-limit and separate credits", async () => {
   render(<SubscriptionLimits flowId="graph-one" accounts={[account]} />);
-  await screen.findByRole("button", { name: /Check limits for/ });
+  await screen.findByRole("button", { name: /Refresh limits for/ });
   expect(readSubscriptionLimits).toHaveBeenCalledTimes(1);
   expect((readSubscriptionLimits as jest.Mock).mock.calls[0][3].refresh).toBe(
-    false,
+    true,
   );
   (readSubscriptionLimits as jest.Mock).mockResolvedValueOnce(ready);
   fireEvent.click(
-    screen.getByRole("button", { name: "Check limits for Personal Codex" }),
+    screen.getByRole("button", { name: "Refresh limits for Personal Codex" }),
   );
   await screen.findByText("75% remaining");
   expect(screen.getByText("0% remaining")).toBeInTheDocument();
@@ -148,8 +148,8 @@ test("Go key custody permits explicit quota with all three meters", async () => 
   ] }] } };
   (readSubscriptionLimits as jest.Mock).mockResolvedValueOnce(empty).mockResolvedValueOnce(monthly);
   render(<SubscriptionLimits flowId="graph-one" accounts={[go]} />);
-  await screen.findByRole("button", { name: /Check limits for/ });
-  const refresh = screen.getByRole("button", { name: "Check limits for Personal Go" });
+  await screen.findByRole("button", { name: /Refresh limits for/ });
+  const refresh = screen.getByRole("button", { name: "Refresh limits for Personal Go" });
   expect(refresh).toBeEnabled();
   fireEvent.click(refresh);
   await screen.findByText("Monthly window");
@@ -195,7 +195,7 @@ test("Claude uses the same explicit-refresh allowance panel", async () => {
     });
   render(<SubscriptionLimits flowId="graph-one" accounts={[claude]} />);
   await waitFor(() => expect(readSubscriptionLimits).toHaveBeenCalledTimes(1));
-  fireEvent.click(screen.getByRole("button", { name: "Check limits for Personal Claude" }));
+  fireEvent.click(screen.getByRole("button", { name: "Refresh limits for Personal Claude" }));
   await screen.findByText("75% remaining");
   expect(screen.getByText("Claude")).toBeInTheDocument();
   expect(screen.queryByText("model-opaque-identifier")).not.toBeInTheDocument();
@@ -244,7 +244,7 @@ test("late account results cannot appear after account and graph selection chang
     connection_id: other.connection_id,
   });
   view.rerender(<SubscriptionLimits flowId="graph-two" accounts={[other]} />);
-  await screen.findByRole("button", { name: /Check limits for/ });
+  await screen.findByRole("button", { name: /Refresh limits for/ });
   await act(async () => {
     finish(ready);
   });
@@ -272,25 +272,34 @@ test("late old-generation results cannot appear on a reconnected account", async
       accounts={[{ ...account, generation: 2 }]}
     />,
   );
-  await screen.findByRole("button", { name: /Check limits for/ });
+  await screen.findByRole("button", { name: /Refresh limits for/ });
   await act(async () => {
     finish(ready);
   });
   expect(screen.queryByText("75% remaining")).not.toBeInTheDocument();
 });
 
-test("age marks cached values stale without an automatic native refresh", async () => {
+test("refreshes every ten seconds and stops on unmount", async () => {
   jest.useFakeTimers();
-  (readSubscriptionLimits as jest.Mock).mockResolvedValue({
-    ...ready,
-    stale_after: Date.now() / 1000 + 1,
-  });
-  render(<SubscriptionLimits flowId="graph-one" accounts={[account]} />);
+  (readSubscriptionLimits as jest.Mock).mockResolvedValue(ready);
+  const view = render(<SubscriptionLimits flowId="graph-one" accounts={[account]} />);
   await act(async () => {});
-  expect(screen.getByText("75% remaining")).toBeInTheDocument();
-  act(() => {
-    jest.advanceTimersByTime(15000);
-  });
-  expect(screen.getByText("Out of date")).toBeInTheDocument();
   expect(readSubscriptionLimits).toHaveBeenCalledTimes(1);
+  await act(async () => { jest.advanceTimersByTime(10000); });
+  expect(readSubscriptionLimits).toHaveBeenCalledTimes(2);
+  expect((readSubscriptionLimits as jest.Mock).mock.calls[1][3].refresh).toBe(true);
+  view.unmount();
+  await act(async () => { jest.advanceTimersByTime(20000); });
+  expect(readSubscriptionLimits).toHaveBeenCalledTimes(2);
+});
+
+test("polling never overlaps an unfinished quota request", async () => {
+  jest.useFakeTimers();
+  (readSubscriptionLimits as jest.Mock).mockReturnValue(new Promise(() => {}));
+  const view = render(<SubscriptionLimits flowId="graph-one" accounts={[account]} />);
+  await act(async () => { jest.advanceTimersByTime(30000); });
+  expect(readSubscriptionLimits).toHaveBeenCalledTimes(1);
+  const signal = (readSubscriptionLimits as jest.Mock).mock.calls[0][3].signal;
+  view.unmount();
+  expect(signal.aborted).toBe(true);
 });

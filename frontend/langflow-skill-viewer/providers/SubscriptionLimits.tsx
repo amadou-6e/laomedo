@@ -129,14 +129,21 @@ function AccountLimits({
         );
       }
     } finally {
-      if (sequence === request.current && !controller.signal.aborted)
+      if (sequence === request.current && !controller.signal.aborted) {
+        active.current = null;
         setBusy(false);
+      }
     }
   }
 
   useEffect(() => {
-    if (supported && eligible) void load(false);
+    if (!supported || !eligible) return;
+    void load(true);
+    const timer = setInterval(() => {
+      if (!active.current) void load(true);
+    }, 10000);
     return () => {
+      clearInterval(timer);
       ++request.current;
       active.current?.abort();
     };
@@ -157,8 +164,6 @@ function AccountLimits({
     (observation?.snapshot &&
       observation.stale_after !== null &&
       now / 1000 >= observation.stale_after);
-  const firstCheck = !observation?.snapshot;
-  const actionLabel = firstCheck ? "Check limits" : "Refresh limits";
   const status = !supported
     ? "Not available"
     : !eligible
@@ -183,9 +188,9 @@ function AccountLimits({
           {supported && (
             <Button
               variant="ghost"
-              size={firstCheck ? "sm" : "icon"}
-              aria-label={`${actionLabel} for ${account.label}`}
-              title={`${actionLabel} for ${account.label}`}
+              size="icon"
+              aria-label={`Refresh limits for ${account.label}`}
+              title={`Refresh limits for ${account.label}`}
               disabled={busy || !eligible}
               onClick={() => void load(true)}
             >
@@ -194,7 +199,6 @@ function AccountLimits({
                 className={busy ? "animate-spin" : undefined}
                 aria-hidden="true"
               />
-              {firstCheck && <span className="ml-2">{busy ? "Checking?" : "Check limits"}</span>}
             </Button>
           )}
         </div>

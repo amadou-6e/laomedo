@@ -115,7 +115,7 @@ Disconnect confirmation rereads discard stale permission and return to details.
 ## Live allowance (#300)
 
 `SubscriptionLimits.tsx` owns account-bound quota rows and native-window/credit
-presentation. `AccountLimits` performs cache-only mount reads and explicit refresh,
+presentation. `AccountLimits` refreshes on mount and every 10 seconds without overlapping requests,
 ignores aborted/superseded responses, and is keyed by graph/account/generation.
 `AllowanceWindow` renders only observed percentages/durations/reset times; stale
 values never imply a replenishment. `api.ts` validates the canonical safe response
@@ -123,4 +123,4 @@ and rejects an unexpected account/generation or nonzero submitted-turn count.
 Provider-specific wire payloads remain outside rendering. PC-09 and P13-P16/Q0-Q5
 in the canonical provider workshop own behavior, including narrow layout.
 
-Before any observation exists, show a labelled **Check limits** action rather than an unexplained Not checked badge. Opening a tab still reads cache only. A Go entitlement refusal is labelled **Go access required**, with a direct OpenCode Console recovery link; it does not imply exhausted allowance or change the saved connection.
+Subscription limits refresh when the panel opens and every 10 seconds while mounted. Polls do not overlap; closing the panel cancels the request and timer. The manual refresh control remains icon-only. Go access refusals link to OpenCode Console without changing the saved connection.
