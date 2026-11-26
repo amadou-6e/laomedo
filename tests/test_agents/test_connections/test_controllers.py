@@ -1,6 +1,7 @@
 """Synthetic saved-runner ownership and fencing checks, not native acceptance."""
 
 import json
+import hashlib
 from importlib.util import find_spec
 import tempfile
 import threading
@@ -311,15 +312,27 @@ class ProviderControllerTests(unittest.TestCase):
             "effort": "low",
             "skill_refs": [],
         }
-        grant = self.manager.stage_verified_review(
-            self.profile,
-            "lease",
-            source_run["run_id"],
-            self.two,
-            1,
-            body["request_id"],
-            body["task"],
+        from laomedo.integrations.langflow.provider_connections.bindings import (
+            ProviderGraphBindings,
         )
+        from laomedo.agents.mcp.client import McpAccess
+
+        session = ProviderGraphBindings.session.set(
+            SimpleNamespace(profile_id=self.profile, lease_hash="lease")
+        )
+        try:
+            with (
+                patch.object(ProviderGraphBindings, "service", self.service),
+                patch.object(ProviderGraphBindings, "owner", return_value=self.profile),
+                patch.object(ProviderControllers, "current", return_value=self.manager),
+            ):
+                grant, expected_hash = ProviderGraphBindings.stage_review(
+                    SimpleNamespace(_saved_endpoint=target_endpoint),
+                    source_run["run_id"],
+                    body,
+                )
+        finally:
+            ProviderGraphBindings.session.reset(session)
 
         def dispatch():
             request = Request(
@@ -339,6 +352,22 @@ class ProviderControllerTests(unittest.TestCase):
         args, kwargs = target.runner.start_async.call_args
         self.assertIn("host patch", args[0]["task"])
         self.assertEqual(kwargs["verified_review"].patch_hash, "patch")
+        admitted_body = {
+            key: value for key, value in args[0].items() if key != "request_id"
+        }
+        semantic = {
+            "request": McpAccess.semantic_request(admitted_body),
+            "verified_review": kwargs["verified_review"].to_record(),
+        }
+        actual_hash = (
+            "sha256:"
+            + hashlib.sha256(
+                json.dumps(
+                    semantic, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+                ).encode("utf-8")
+            ).hexdigest()
+        )
+        self.assertEqual(expected_hash, actual_hash)
         with self.assertRaises(HTTPError):
             dispatch()
         self.assertEqual(target.runner.start_async.call_count, 1)
