@@ -4,9 +4,10 @@ from datetime import datetime
 import hashlib
 import json
 import math
+import os
+import subprocess
+import sys
 from pathlib import Path
-from urllib.error import HTTPError, URLError
-from urllib.request import ProxyHandler, Request, build_opener
 
 from laomedo.agents.agents.base.models import SubscriptionBucket
 from laomedo.agents.agents.base.models import SubscriptionSnapshot
@@ -16,11 +17,39 @@ from laomedo.agents.agents.opencode.settings import GO_USAGE_TIMEOUT_SECONDS
 from laomedo.agents.agents.opencode.settings import GO_USAGE_URL
 from laomedo.agents.agents.opencode.utils import check_auth_fresh
 from laomedo.agents.errors import RunnerError
-from laomedo.host.http import NoRedirect
 
 
 class OpenCodeSubscriptionQuota:
     """Read one admitted Go profile without inference or credential modification."""
+
+    # Isolated standard-library HTTP reader. The key crosses stdin only, never
+    # argv/environment. Process timeout bounds DNS, headers and slow bodies too.
+    _HTTP_READER = r"""
+import sys
+from urllib.error import HTTPError
+from urllib.request import HTTPRedirectHandler, ProxyHandler, Request, build_opener
+class NoRedirect(HTTPRedirectHandler):
+    def redirect_request(self, *args, **kwargs):
+        return None
+try:
+    key = sys.stdin.buffer.read(8193).decode('utf-8')
+    if not key or len(key.encode()) > 8192 or '\r' in key or '\n' in key:
+        sys.exit(1)
+    request = Request(sys.argv[1], headers={'Authorization': 'Bearer ' + key, 'Accept': 'application/json'}, method='GET')
+    with build_opener(ProxyHandler({}), NoRedirect()).open(request, timeout=float(sys.argv[3])) as response:
+        if response.status != 200:
+            sys.exit(1)
+        body = response.read(int(sys.argv[2]) + 1)
+    if len(body) > int(sys.argv[2]):
+        sys.exit(1)
+    sys.stdout.buffer.write(body)
+except HTTPError as error:
+    status = error.code
+    error.close()
+    sys.exit({401: 11, 403: 13, 429: 29}.get(status, 1))
+except Exception:
+    sys.exit(1)
+"""
 
     def __init__(self, profile):
         """Bind an existing provider-owned credential directory without reading it."""
@@ -36,20 +65,38 @@ class OpenCodeSubscriptionQuota:
             if not isinstance(key, str) or not key or any(c in key for c in "\r\n"):
                 raise ValueError()
             fingerprint = hashlib.sha256(key.encode()).hexdigest()
-            request = Request(
-                GO_USAGE_URL,
-                headers={
-                    "Authorization": "Bearer " + key,
-                    "Accept": "application/json",
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-I",
+                    "-S",
+                    "-c",
+                    self._HTTP_READER,
+                    GO_USAGE_URL,
+                    str(GO_USAGE_MAX_BYTES),
+                    str(GO_USAGE_TIMEOUT_SECONDS),
+                ],
+                input=key.encode(),
+                stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL,
+                timeout=GO_USAGE_TIMEOUT_SECONDS,
+                env={
+                    name: os.environ[name]
+                    for name in ("SYSTEMROOT", "WINDIR", "TEMP", "TMP")
+                    if name in os.environ
                 },
-                method="GET",
+                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+                check=False,
             )
-            # Ignore ambient proxy configuration; no other host receives this key.
-            opener = build_opener(ProxyHandler({}), NoRedirect())
-            with opener.open(request, timeout=GO_USAGE_TIMEOUT_SECONDS) as response:
-                if response.status != 200:
-                    raise ValueError()
-                payload = response.read(GO_USAGE_MAX_BYTES + 1)
+            if result.returncode:
+                raise RunnerError(
+                    {
+                        11: "opencode_go_usage_authentication_failed",
+                        13: "opencode_go_usage_not_entitled",
+                        29: "opencode_go_usage_rate_limited",
+                    }.get(result.returncode, "provider_subscription_limits_unavailable")
+                )
+            payload = result.stdout
             if len(payload) > GO_USAGE_MAX_BYTES:
                 raise ValueError()
             snapshot = self.project(json.loads(payload))
@@ -60,19 +107,21 @@ class OpenCodeSubscriptionQuota:
             if hashlib.sha256(current.encode()).hexdigest() != fingerprint:
                 raise ValueError()
             return snapshot
-        except HTTPError as error:
-            status = error.code
-            error.close()
-            code = {
-                401: "opencode_go_usage_authentication_failed",
-                403: "opencode_go_usage_not_entitled",
-                429: "opencode_go_usage_rate_limited",
-            }.get(status, "provider_subscription_limits_unavailable")
+        except RunnerError as error:
+            code = (
+                error.code
+                if error.code
+                in {
+                    "opencode_go_usage_authentication_failed",
+                    "opencode_go_usage_not_entitled",
+                    "opencode_go_usage_rate_limited",
+                }
+                else "provider_subscription_limits_unavailable"
+            )
             raise RunnerError(code) from None
         except (
-            RunnerError,
             OSError,
-            URLError,
+            subprocess.SubprocessError,
             ValueError,
             KeyError,
             TypeError,

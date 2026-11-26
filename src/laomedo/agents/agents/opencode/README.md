@@ -4,7 +4,10 @@
 
 `OpenCodeSubscriptionQuota` in `quota.py` reads the fixed HTTPS Go usage endpoint
 with the same admitted private profile key used for execution. `read()` validates
-key custody before and after one bounded GET; redirects, retries, native sessions
+key custody before and after one bounded GET. A standard-library HTTP subprocess
+receives the key only on stdin; a hard 15-second timeout kills and joins that
+process even during DNS or a slowly streaming body. Its environment excludes
+provider credentials and its stderr is discarded. Redirects, retries, native sessions
 and model prompts are forbidden. `project()` returns the reported rolling,
 weekly and calendar-month meters as primary, secondary and monthly windows.
 Monthly resets come from the provider, never an assumed 30-day duration.
