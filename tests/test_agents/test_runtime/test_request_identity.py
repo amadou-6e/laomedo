@@ -145,6 +145,9 @@ class EarlyRunnerTests(unittest.TestCase):
         self.assertFalse((self.state / "turn-ledger.json").exists())
 
     def test_verified_review_provenance_is_retained_and_binds_request_identity(self):
+        self.runner.provider = "claude"
+        body = {key: value for key, value in self.body.items() if key != "skill_ref"}
+        body["skill_refs"] = []
         provenance = VerifiedReviewProvenance(
             source_run=str(uuid4()),
             source_connection=str(uuid4()),
@@ -155,19 +158,24 @@ class EarlyRunnerTests(unittest.TestCase):
         )
         gate = threading.Event()
         first = self.runner.start_async(
-            self.body, response_gate=gate, verified_review=provenance
+            body, response_gate=gate, verified_review=provenance
         )
         self.assertEqual(first["verified_review"], provenance.to_record())
         self.assertEqual(
-            self.runner.start_async(self.body, verified_review=provenance)["run_id"],
+            self.runner.start_async(body, verified_review=provenance)["run_id"],
             first["run_id"],
         )
         with self.assertRaisesRegex(RunnerError, "request_identity_conflict"):
-            self.runner.start_async(self.body)
+            self.runner.start_async(body)
         with self.assertRaisesRegex(RunnerError, "request_identity_conflict"):
             self.runner.start_async(
-                self.body,
+                body,
                 verified_review=provenance.model_copy(update={"patch_hash": "other"}),
+            )
+        with self.assertRaisesRegex(RunnerError, "invalid_request"):
+            self.runner.start_async(
+                {**body, "github_authorization_ref": "unapproved"},
+                verified_review=provenance,
             )
         self.runner.cancel(first["run_id"])
         gate.set()

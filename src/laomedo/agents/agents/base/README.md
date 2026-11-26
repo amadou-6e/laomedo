@@ -179,6 +179,8 @@ JSON record, including explicit nulls and an omitted absent `github_scope`.
 generation and snapshot/patch hashes when a verified review is reserved; it
 contains no patch text. Its `to_record()` outcome is the typed model's JSON
 projection. The provenance is an internal runner argument, never a graph input.
+Verified-review reservations accept only Claude requests without skills or
+additional capabilities, and bind the provenance into request deduplication.
 
 Provider execution, cancellation, recovery and historical readers still own the
 existing mutable dictionary lifecycle. The preparation model is a writer, not a strict

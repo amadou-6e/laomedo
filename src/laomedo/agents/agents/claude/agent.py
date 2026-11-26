@@ -575,7 +575,10 @@ class ClaudeAgent(BaseAgent):
         )
         service, telemetry, session = None, None, None
         native_completed = False
-        output_only = record.get("output_correction_count", 0) > 0
+        output_only = (
+            record.get("output_correction_count", 0) > 0
+            or record.get("verified_review") is not None
+        )
         try:
             plugin = root / "native-skill-plugin"
             (plugin / ".claude-plugin").mkdir(parents=True, exist_ok=True)

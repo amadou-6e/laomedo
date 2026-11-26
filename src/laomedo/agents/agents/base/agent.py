@@ -521,6 +521,13 @@ class BaseAgent(ABC):
         except (TypeError, ValueError, AttributeError):
             raise RunnerError("invalid_request_id") from None
         body = {key: value for key, value in request.items() if key != "request_id"}
+        if verified_review is not None and (
+            self.provider != "claude"
+            or set(body)
+            - {"task", "model", "effort", "skill_refs", "run_timeout_seconds"}
+            or body.get("skill_refs") != []
+        ):
+            raise RunnerError("invalid_request")
         manifest = self._mcp_manifest(body)
         if manifest:
             body["mcp_manifest"] = manifest.model_dump(mode="json")
