@@ -33,3 +33,16 @@ class WorkspaceSnapshot(BaseModel):
         default=None,
         description="Observed source commit for Git mode; absent for a copied directory.",
     )
+
+
+class WorkspaceChanges(BaseModel):
+    """Snapshot-bound host projection; content is private and never a credential."""
+
+    model_config = ConfigDict(strict=True, frozen=True, extra="forbid")
+    run_id: str
+    source_hash: str
+    post_run_hash: str
+    patch_hash: str
+    patch: str = Field(
+        repr=False, description="Exact bounded host-derived change text."
+    )

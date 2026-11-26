@@ -65,6 +65,11 @@ a prior successful cache. Readiness remains the separate existing Agent check.
 workspace freezing and artifact selection. It composes provider execution hooks;
 it must not import concrete providers or their credential implementations.
 
+`workspace_changes(run_id)` derives a private, hash-bound change projection only
+for an existing completed run with a finished snapshot. This internal operation
+does not grant cross-profile access or dispatch a reviewer; a caller must enforce
+the authenticated owner, connection generation and session before using it.
+
 `models.py` defines canonical `RuntimeBinding` and `CredentialBinding` values.
 These are public identity metadata, never login material. `settings.py` owns
 shared bounds. `acp/` owns protocol communication; native policy stays local.

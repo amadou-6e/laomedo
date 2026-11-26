@@ -50,6 +50,8 @@ from laomedo.agents.agents.base.utils import failure_observation
 from laomedo.agents.workspaces.errors import GitWorkspaceError
 from laomedo.agents.workspaces.workspace import AgentWorkspace
 from laomedo.agents.workspaces.models import WorkspacePaths
+from laomedo.agents.workspaces.models import WorkspaceChanges
+from laomedo.agents.workspaces.changes import verified_changes
 from laomedo.host.mediation.errors import MediationError
 from laomedo.skills.registry.store import SkillStore
 from laomedo.agents.workspaces.skills.errors import WorkspaceSkillError
@@ -377,6 +379,45 @@ class BaseAgent(ABC):
     def status(self, run_id: str) -> dict:
         """Read an admitted retained run record without dispatching or repeating native work."""
         return _read(self._run_dir(run_id) / "record.json")
+
+    def workspace_changes(self, run_id: str) -> WorkspaceChanges:
+        """Derive private snapshot-bound changes without admitting a new run."""
+        record = self.status(run_id)
+        if (
+            record.get("run_id") != run_id
+            or record.get("status") != "completed"
+            or record.get("snapshot_ready") is not True
+            or not isinstance(record.get("source_hash"), str)
+            or not isinstance(record.get("post_run_hash"), str)
+        ):
+            raise RunnerError("workspace_changes_run_incomplete")
+        root = self._run_dir(run_id)
+        patch = verified_changes(
+            root / "canonical",
+            root / "post-run",
+            source_hash=record["source_hash"],
+            post_run_hash=record["post_run_hash"],
+            imported_artifacts=record.get("imported_artifacts"),
+        )
+        observed = self.status(run_id)
+        if any(
+            observed.get(key) != record.get(key)
+            for key in (
+                "status",
+                "snapshot_ready",
+                "source_hash",
+                "post_run_hash",
+                "imported_artifacts",
+            )
+        ):
+            raise RunnerError("workspace_snapshot_mismatch")
+        return WorkspaceChanges(
+            run_id=run_id,
+            source_hash=record["source_hash"],
+            post_run_hash=record["post_run_hash"],
+            patch_hash="sha256:" + hashlib.sha256(patch.encode("utf-8")).hexdigest(),
+            patch=patch,
+        )
 
     def lookup_request(self, request_id: str) -> dict:
         """Find one durable async run without starting or changing it."""

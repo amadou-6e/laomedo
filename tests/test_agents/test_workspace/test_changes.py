@@ -3,13 +3,41 @@
 from pathlib import Path
 import tempfile
 import unittest
+from types import SimpleNamespace
 
 from laomedo.agents.errors import RunnerError
+from laomedo.agents.agents.base.agent import BaseAgent
 from laomedo.agents.workspaces.changes import verified_changes
 from laomedo.agents.workspaces.utils import _hash_tree
 
 
 class VerifiedChangesTests(unittest.TestCase):
+    def test_runner_projects_only_completed_snapshot(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            before, after = root / "canonical", root / "post-run"
+            before.mkdir()
+            after.mkdir()
+            (before / "code.py").write_text("old\n", encoding="utf-8")
+            (after / "code.py").write_text("new\n", encoding="utf-8")
+            record = {
+                "run_id": "run",
+                "status": "completed",
+                "snapshot_ready": True,
+                "source_hash": _hash_tree(before),
+                "post_run_hash": _hash_tree(after),
+                "imported_artifacts": [],
+            }
+            runner = SimpleNamespace(status=lambda _: record, _run_dir=lambda _: root)
+            changes = BaseAgent.workspace_changes(runner, "run")
+            self.assertIn("+new", changes.patch)
+            self.assertTrue(changes.patch_hash.startswith("sha256:"))
+            record["status"] = "running"
+            with self.assertRaisesRegex(
+                RunnerError, "workspace_changes_run_incomplete"
+            ):
+                BaseAgent.workspace_changes(runner, "run")
+
     def test_real_snapshots_produce_patch_and_reject_tampering(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -41,6 +69,8 @@ class VerifiedChangesTests(unittest.TestCase):
     def test_protected_and_binary_changes_are_refused(self):
         for name, content, expected in (
             (".env", b"private", "workspace_changes_protected"),
+            ("secrets.json", b"private", "workspace_changes_protected"),
+            ("readme\u202etxt", b"changed", "workspace_changes_protected"),
             ("file.bin", b"\x00", "workspace_changes_binary"),
         ):
             with self.subTest(name=name), tempfile.TemporaryDirectory() as directory:

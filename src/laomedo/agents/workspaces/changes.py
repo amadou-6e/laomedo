@@ -6,6 +6,7 @@ import hashlib
 import os
 import re
 import stat
+import unicodedata
 
 from laomedo.agents.artifacts.errors import ArtifactError
 from laomedo.agents.artifacts.utils import relative_path
@@ -13,6 +14,8 @@ from laomedo.agents.errors import RunnerError
 from laomedo.agents.workspaces.settings import MAX_CHANGE_FILES
 from laomedo.agents.workspaces.settings import MAX_CHANGE_FILE_BYTES
 from laomedo.agents.workspaces.settings import MAX_CHANGE_PATCH_BYTES
+from laomedo.agents.workspaces.settings import MAX_GIT_WORKSPACE_SNAPSHOT_BYTES
+from laomedo.agents.workspaces.settings import MAX_GIT_WORKSPACE_SNAPSHOT_ENTRIES
 from laomedo.agents.workspaces.utils import _hash_tree
 
 
@@ -49,6 +52,19 @@ def _file_digest(path):
     return digest.digest()
 
 
+def _bounded_tree(root):
+    """Refuse excessive trees before the existing in-memory snapshot hash runs."""
+    total, count = 0, 0
+    for parent, directories, names in os.walk(root, onerror=_raise_walk_error):
+        count += len(directories) + len(names)
+        if count > MAX_GIT_WORKSPACE_SNAPSHOT_ENTRIES:
+            raise RunnerError("workspace_changes_too_large")
+        for name in names:
+            total += (Path(parent) / name).lstat().st_size
+            if total > MAX_GIT_WORKSPACE_SNAPSHOT_BYTES:
+                raise RunnerError("workspace_changes_too_large")
+
+
 def verified_changes(
     canonical, post_run, *, source_hash, post_run_hash, imported_artifacts
 ):
@@ -57,6 +73,8 @@ def verified_changes(
     try:
         if imported_artifacts != []:
             raise RunnerError("workspace_changes_imports_unsupported")
+        _bounded_tree(canonical)
+        _bounded_tree(post_run)
         if (
             _hash_tree(canonical) != source_hash
             or _hash_tree(post_run) != post_run_hash
@@ -80,7 +98,16 @@ def verified_changes(
             raise RunnerError("workspace_changes_too_large")
         parts = []
         for name in changed:
-            if any(ord(char) < 32 or ord(char) == 127 for char in name):
+            if any(
+                unicodedata.category(char) in {"Cc", "Cf", "Zl", "Zp"} for char in name
+            ):
+                raise RunnerError("workspace_changes_protected")
+            if any(
+                part.casefold() in {"id_ecdsa", "id_dsa"}
+                or part.casefold().startswith(("secrets.", "service-account"))
+                or part.casefold().endswith((".pfx", ".ppk", ".jks", ".kdbx"))
+                for part in name.split("/")
+            ):
                 raise RunnerError("workspace_changes_protected")
             try:
                 relative_path(name)
@@ -116,6 +143,8 @@ def verified_changes(
         patch = "".join(parts)
         if len(patch.encode("utf-8")) > MAX_CHANGE_PATCH_BYTES:
             raise RunnerError("workspace_changes_too_large")
+        _bounded_tree(canonical)
+        _bounded_tree(post_run)
         if (
             _hash_tree(canonical) != source_hash
             or _hash_tree(post_run) != post_run_hash
