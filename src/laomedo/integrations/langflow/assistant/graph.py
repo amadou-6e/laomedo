@@ -41,6 +41,17 @@ class GraphEditor:
         source, target = nodes.get(definition.source), nodes.get(definition.target)
         if source is None or target is None:
             raise AssistantError("assistant_edge_node_unknown", 422)
+        if (
+            target.get("data", {}).get("type") == "LaomedoGitHubIssue"
+            and target.get("data", {})
+            .get("node", {})
+            .get("template", {})
+            .get("public_service_only", {})
+            .get("value")
+            is True
+            and definition.input == "operation"
+        ):
+            raise AssistantError("assistant_port_unknown", 422)
         compiled, _ = self.catalog.compile(
             DraftGraph(
                 nodes=[

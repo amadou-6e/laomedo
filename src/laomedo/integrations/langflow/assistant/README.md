@@ -39,6 +39,9 @@ The exact-source GitHub Issue adapter resolves repository and issue selectors
 only through a host service that enforces anonymous public reads. Its internal
 public-only pin is preserved at execution. Credentialed or private issue services
 cannot satisfy that resolution; saved-account access remains separately scoped.
+The assistant checks the saved Issue source and pin against its exact run snapshot
+at approval and dispatch. A plain Langflow run outside the assistant uses that
+graph's current node configuration and is not covered by the assistant check.
 
 The digest-pinned MCPTools adapter uses the installed `component_as_tool` /
 `to_toolkit` Toolset contract. It saves `tool_mode=True` and removes the single-tool

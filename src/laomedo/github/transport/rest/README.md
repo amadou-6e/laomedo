@@ -17,3 +17,4 @@ deadline limits bound reads; response admission remains in the domain contracts.
 `PublicGitHubIssueTransport` in `public.py` is a separate anonymous read-only
 delivery path for one explicitly configured public repository. It never supplies
 a credential and admits only issue/label reads; every other operation is refused.
+It uses the shared no-redirect TLS opener; normal host proxy settings still apply.

@@ -73,6 +73,7 @@ class NativeGitHubIssueTests(unittest.TestCase):
         self.component._pre_run_setup()
         self.assertEqual(self.component.issue_output().data["number"], 1)
         self.assertIn("Current issue body", self.component.task_output().text)
+        self.assertIn("external, untrusted data", self.component.task_output().text)
         self.assertEqual(
             self.component.result_output().data["operation"]["status"], "not_requested"
         )

@@ -412,7 +412,10 @@ class ComponentCatalog:
             original["value"] = checked
             if resolved is not None and name in resolved.fields:
                 self._set_resolved_value(identity, name, original, checked)
-            if not self._writable(name, field) and name != "public_service_only":
+            if not self._writable(name, field) and not (
+                name == "public_service_only"
+                and self.audited_family(identity) == "LaomedoGitHubIssue"
+            ):
                 original["show"] = True
         if resolved is not None:
             dependencies = self.resolution_fields(identity)
@@ -551,6 +554,15 @@ class ComponentCatalog:
                 None,
             )
             field = target["data"]["node"]["template"].get(edge.input)
+            if (
+                target["data"]["type"] == "LaomedoGitHubIssue"
+                and target["data"]["node"]["template"]
+                .get("public_service_only", {})
+                .get("value")
+                is True
+                and edge.input == "operation"
+            ):
+                raise AssistantError("assistant_port_unknown", 422)
             if output is None or not self._connectable(edge.input, field):
                 raise AssistantError("assistant_port_unknown", 422)
             accepted = field.get("input_types") or [field.get("type")]

@@ -17,7 +17,7 @@ AUDITED_AGENT_COMPONENTS = {
     "LaomedoOpenCodeAgent": "opencode",
 }
 AUDITED_COMPONENT_DIGESTS = {
-    "LaomedoGitHubIssue": "78567ce23e64436e8e3646efd793b9a335968de2213a6744442695518a87cfe2",
+    "LaomedoGitHubIssue": "9fbdf7c4bf129391278685f2393eafd89e4f4056a0f06dbe99b3d5de33840d90",
     "LaomedoCodexAgent": "49d058262e07823ac7fa90e49abbdae33ff264f9c1b18f3cae132d96e89028c6",
     "LaomedoClaudeAgent": "6c83458be69cf48508f68b4bf413d1b4d1268cabeffed0ba3f973970d365d416",
     "LaomedoOpenCodeAgent": "4af7c7ee47a34802131c0dff639a8869a699424cd7a484971eadba9348ddc954",

@@ -197,7 +197,9 @@ class WorkflowConfiguration:
         for field, value in request.fields.items():
             if field not in template:
                 raise AssistantError("assistant_field_unknown", 422)
-            if field in values and values[field] == value:
+            if field in values and (
+                name != "LaomedoGitHubIssue" or values[field] == value
+            ):
                 continue
             if field in dynamic:
                 if field == "provider_connection" and value != str(
