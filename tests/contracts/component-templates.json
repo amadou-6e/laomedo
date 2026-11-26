@@ -10,7 +10,7 @@
           "has_code_hash": true
         }
       ],
-      "graph_values_sha256": "1d9f4952e69ad6d751b0aeff6a4fd621a8929712274154d9cf51ba8fa5bdf673"
+      "graph_values_sha256": "49b4f3c34c724d16fcc5407e74b13653b2d1301e00e383e8f756a16e8699a052"
     },
     {
       "path": "tests/test_agents/test_examples/data/claude.json",
@@ -26,7 +26,7 @@
           "has_code_hash": true
         }
       ],
-      "graph_values_sha256": "165cd6a6397c3590b94fb8bb46cc126fd8358bf9a04406cda9e274def1d0e0aa"
+      "graph_values_sha256": "49a0b7245ddaafad693d00a2978af0d61aae136b0134ba8c48bb11989e3d8dbc"
     },
     {
       "path": "tests/test_agents/test_examples/data/codex.json",

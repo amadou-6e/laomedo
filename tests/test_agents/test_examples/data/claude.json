@@ -939,7 +939,7 @@
             "edited": false,
             "metadata": {
               "module": "custom_components.laomedo_claude_agent",
-              "code_hash": "cf4ba891d85a",
+              "code_hash": "e78cc453e5ae",
               "dependencies": {
                 "total_dependencies": 2,
                 "dependencies": [
