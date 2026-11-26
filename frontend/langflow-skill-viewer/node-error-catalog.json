@@ -169,6 +169,56 @@
     "description": "The source run or review connection is unavailable or has changed.",
     "recovery": "Check the source run and selected account, then try again."
   },
+  "workspace_changes_empty": {
+    "title": "There are no changes to review",
+    "description": "The connected run did not make any workspace edits.",
+    "recovery": "Connect a completed run that made changes."
+  },
+  "workspace_changes_run_incomplete": {
+    "title": "The source run is not ready",
+    "description": "The connected run has not finished with a verified workspace.",
+    "recovery": "Wait for the run to complete, then try again."
+  },
+  "provider_run_not_settled": {
+    "title": "The source run is still active",
+    "description": "Its workspace is not ready for review yet.",
+    "recovery": "Wait for the run to finish, then try again."
+  },
+  "workspace_changes_too_large": {
+    "title": "The changes are too large to review",
+    "description": "The workspace or its changes exceed the supported review size.",
+    "recovery": "Review a smaller set of changes."
+  },
+  "workspace_changes_binary": {
+    "title": "Some changes cannot be reviewed",
+    "description": "The changes include binary files.",
+    "recovery": "Review a run containing text changes only."
+  },
+  "workspace_changes_protected": {
+    "title": "Some changes cannot be reviewed",
+    "description": "The changes include protected paths.",
+    "recovery": "Remove protected files from the changes and try again."
+  },
+  "workspace_changes_directories_unsupported": {
+    "title": "Some changes cannot be reviewed",
+    "description": "The changes include directory additions or removals.",
+    "recovery": "Review changes within existing directories."
+  },
+  "workspace_changes_mode_unsupported": {
+    "title": "Some changes cannot be reviewed",
+    "description": "The changes include file permission changes.",
+    "recovery": "Review a run without file permission changes."
+  },
+  "workspace_changes_imports_unsupported": {
+    "title": "This run cannot be reviewed",
+    "description": "The run includes imported artifacts.",
+    "recovery": "Review a run that did not import artifacts."
+  },
+  "workspace_snapshot_mismatch": {
+    "title": "The workspace could not be verified",
+    "description": "The saved workspace no longer matches the completed run.",
+    "recovery": "Start a new run and review its changes."
+  },
   "resume_binding_mismatch": {
     "title": "The previous run does not match this operation",
     "description": "The provider, model, session, or workspace no longer matches the saved run.",
