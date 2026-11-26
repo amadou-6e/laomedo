@@ -95,7 +95,7 @@ Absent handler support or advertisement fails before a prompt; no model fallback
 
 ## Saved-account quota discovery
 
-`CodexAgent.subscription_limits()` uses the same `_discovery()` temporary lifecycle
+`CodexSubscriptionQuota.read()` uses the same `_discovery()` temporary lifecycle
 as model discovery, with the selected credential provider and exact close receipts.
 `CodexAgentRuntime.subscription_limits()` admits only the empty-parameter
 `laomedo/codexRateLimits` extension. The adapter forwards exactly
@@ -242,3 +242,5 @@ New connections use the current registered recipe.
 Native-volume connections do not enable the host-updated bearer-file capability.
 That capability belongs only to retained token-sharing credentials; native OAuth
 refresh remains inside the official client and saved volume.
+
+`quota.py` owns the codex implementation of `BaseSubscriptionQuota.read()`. The Agent exposes it through the optional `quota` property; callers use the shared contract. Native protocol, credential and teardown ownership is preserved.

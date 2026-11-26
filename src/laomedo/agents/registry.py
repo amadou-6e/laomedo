@@ -100,3 +100,13 @@ class AgentProviderRegistry:
             (item for item in cls.descriptors() if item.provider == provider), None
         )
         return bool(descriptor is not None and getattr(descriptor, capability))
+
+    @classmethod
+    def supports_subscription_quota(cls, provider: str, client_id: str) -> bool:
+        """Select supported saved credential methods without runtime construction."""
+        methods = {
+            "codex": frozenset({"codex-native"}),
+            "claude": frozenset({"claude-native"}),
+            "opencode": frozenset({"opencode-go"}),
+        }
+        return client_id in methods.get(provider, frozenset())

@@ -9,6 +9,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+from laomedo.agents.agents.base.base import BaseSubscriptionQuota
 from laomedo.agents.agents.base.models import SubscriptionBucket
 from laomedo.agents.agents.base.models import SubscriptionSnapshot
 from laomedo.agents.agents.base.models import SubscriptionWindow
@@ -19,7 +20,7 @@ from laomedo.agents.agents.opencode.utils import check_auth_fresh
 from laomedo.agents.errors import RunnerError
 
 
-class OpenCodeSubscriptionQuota:
+class OpenCodeSubscriptionQuota(BaseSubscriptionQuota):
     """Read one admitted Go profile without inference or credential modification."""
 
     # Isolated standard-library HTTP reader. The key crosses stdin only, never
@@ -51,11 +52,22 @@ except Exception:
     sys.exit(1)
 """
 
-    def __init__(self, profile):
+    def __init__(self, profile, *, lock=None):
         """Bind an existing provider-owned credential directory without reading it."""
         self.profile = Path(profile)
+        self.lock = lock
 
     def read(self) -> SubscriptionSnapshot:
+        """Preserve the execution lock around the entire saved-key observation."""
+        if self.lock is not None and not self.lock.acquire(blocking=False):
+            raise RunnerError("provider_connection_busy")
+        try:
+            return self._read()
+        finally:
+            if self.lock is not None:
+                self.lock.release()
+
+    def _read(self) -> SubscriptionSnapshot:
         """Return safe meters after custody revalidation; never retain raw errors."""
         try:
             check_auth_fresh(self.profile)

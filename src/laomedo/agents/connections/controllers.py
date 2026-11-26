@@ -17,6 +17,9 @@ from laomedo.agents.connections.credentials import SavedClaudeConnection
 from laomedo.docker import DockerRuntime
 from laomedo.agents.connections.errors import ProviderConnectionError
 from laomedo.agents.connections.models import ControllerSlot
+from laomedo.agents.connections.models import SubscriptionBinding
+from laomedo.agents.agents.base.base import BaseSubscriptionQuota
+from laomedo.agents.agents.base.models import SubscriptionSnapshot
 from laomedo.host.runner.http.server import RunnerServer
 from laomedo.host.runner.http.handler import RunnerRequestHandler
 from laomedo.agents.errors import RunnerError
@@ -328,7 +331,7 @@ class ProviderControllers:
             slot.state / "api-token",
         )
 
-    def subscription_limits(self, binding):
+    def subscription_limits(self, binding: SubscriptionBinding) -> SubscriptionSnapshot:
         """Reserve the existing exact-account discovery fence until native teardown settles."""
         slot = self._create(
             binding.profile_id, binding.connection_id, binding.generation
@@ -340,7 +343,10 @@ class ProviderControllers:
             raise ProviderConnectionError("provider_runner_unavailable")
         self.admit_operation(slot, catalog=True)
         try:
-            return slot.runner.subscription_limits()
+            quota: BaseSubscriptionQuota | None = slot.runner.quota
+            if quota is None:
+                raise ProviderConnectionError("provider_method_unavailable")
+            return quota.read()
         finally:
             with self.service._lock:
                 slot.operations -= 1

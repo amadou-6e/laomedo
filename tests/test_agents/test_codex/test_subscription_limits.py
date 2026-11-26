@@ -141,7 +141,7 @@ class SubscriptionDiscoveryTests(unittest.TestCase):
         self.agent._open_server = Mock(return_value=self.server)
 
     def test_named_read_finishes_teardown_without_creating_a_model_session(self):
-        result = self.agent.subscription_limits()
+        result = self.agent.quota.read()
         self.assertEqual(result.submitted_turns, 0)
         self.server.initialize.assert_awaited_once()
         self.server.subscription_limits.assert_awaited_once()
@@ -153,4 +153,4 @@ class SubscriptionDiscoveryTests(unittest.TestCase):
     def test_cleanup_failure_never_returns_a_successful_snapshot(self):
         self.server.close.side_effect = RunnerError("runner_transport_failed")
         with self.assertRaisesRegex(RunnerError, "runner_transport_failed"):
-            self.agent.subscription_limits()
+            self.agent.quota.read()

@@ -240,7 +240,7 @@ for reserved, running or uncertain continuations without starting work. Connecti
 inventory and cleanup include these reservations even when the retained parent
 run still has a terminal status. Only settled journal entries leave that inventory.
 
-`BaseAgent.subscription_limits()` declares the optional zero-turn quota capability.
+`BaseAgent.quota` exposes the optional `BaseSubscriptionQuota` capability; absence is `None`.
 Providers without a supported implementation refuse it with `provider_method_unavailable`;
 Codex returns the native account observation without starting a model turn.
 
@@ -252,3 +252,5 @@ model turn, persisted history or cleanup. `BaseAgent.close()` is the shared
 teardown entry point. Providers retaining resources override it to close those
 resources on their original native thread after requesting active cancellation.
 Completed control commands and cleanup remain separate observations.
+
+Quota is an optional composed capability: `BaseAgent.quota -> BaseSubscriptionQuota | None`. `base.py` owns `BaseSubscriptionQuota.read() -> SubscriptionSnapshot`: no model turn, exact admitted credentials, bounded reads and cleanup before success; failures propagate stable RunnerError codes. Codex quota.py owns its discovery orchestration; native extension decoding stays in runtime.py. Claude and OpenCode implement the same contract. Registry metadata declares supported credential methods without constructing a runtime. Controllers retain the admission fence and call quota.read(); unsupported agents expose None.

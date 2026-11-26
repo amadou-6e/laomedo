@@ -140,3 +140,5 @@ and parent, refuses links/reparse points, and retries only read-only copies
 within that checked directory. Source skill attributes are never changed.
 
 `connection.py` is the provider boundary. GoConnection owns save/profile/summary/erase for explicit Go subscription keys. It reports custody rather than verified identity and has no asynchronous browser login workers. Exact repeated keys reuse the existing connection. The shared Agent connection service owns admission/index fencing; host storage and profile authorization remain separate.
+
+`quota.py` owns the opencode implementation of `BaseSubscriptionQuota.read()`. The Agent exposes it through the optional `quota` property; callers use the shared contract. Native protocol, credential and teardown ownership is preserved.

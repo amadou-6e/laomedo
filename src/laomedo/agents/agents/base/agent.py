@@ -60,6 +60,7 @@ from laomedo.agents.workspaces.skills.utils import verify
 
 
 from laomedo.agents.agents.base.base import BaseModelCatalog
+from laomedo.agents.agents.base.base import BaseSubscriptionQuota
 from laomedo.agents.agents.base.settings import ROLE_INIT_LOCK
 
 
@@ -554,9 +555,10 @@ class BaseAgent(ABC):
             raise ArtifactError("artifact_source_changed_during_selection")
         return selections(result)
 
-    def subscription_limits(self):
-        """Refuse quota reads unless a provider implements the zero-turn capability."""
-        raise RunnerError("provider_method_unavailable")
+    @property
+    def quota(self) -> BaseSubscriptionQuota | None:
+        """Expose no quota capability unless this provider composes one."""
+        return None
 
     def _mcp_manifest(self, request):
         """Validate paired external admission fields before identity lookup or effects."""

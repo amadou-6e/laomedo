@@ -221,18 +221,16 @@ class GoQuotaTests(unittest.TestCase):
         agent.profile = self.profile
         agent.lock = threading.Lock()
         agent.lock.acquire()
-        with patch(
-            "laomedo.agents.agents.opencode.agent.OpenCodeSubscriptionQuota"
-        ) as quota:
-            with self.assertRaises(RunnerError) as caught:
-                agent.subscription_limits()
-            self.assertEqual(caught.exception.code, "provider_connection_busy")
-            quota.assert_not_called()
-            agent.lock.release()
-            quota.return_value.read.side_effect = RunnerError(
-                "provider_subscription_limits_unavailable"
-            )
+        with self.assertRaises(RunnerError) as caught:
+            agent.quota.read()
+        self.assertEqual(caught.exception.code, "provider_connection_busy")
+        agent.lock.release()
+        with patch.object(
+            OpenCodeSubscriptionQuota,
+            "_read",
+            side_effect=RunnerError("provider_subscription_limits_unavailable"),
+        ) as read:
             with self.assertRaises(RunnerError):
-                agent.subscription_limits()
-            self.assertFalse(agent.lock.locked())
-            quota.assert_called_once_with(self.profile)
+                agent.quota.read()
+            read.assert_called_once_with()
+        self.assertFalse(agent.lock.locked())

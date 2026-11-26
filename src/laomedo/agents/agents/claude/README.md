@@ -94,3 +94,5 @@ belong to admitted catalog, quota and execution operations.
 ClaudeCommands.builtin_skills reads the root native SDK init skills list in isolated built-in-only sessions. Discovery retains this session binding and includes the observed skill set in the catalog revision; absent evidence never creates a skill.
 
 The pinned adapter forwards SDK builtin markers. ClaudeCommands.skill_reason intersects those markers with the root init skill list and the capability table; expansion_receipt requires the native canonical slash-expansion marker. Admitted skill turns use ordinary native model completion, activity and usage, never local-control or compaction receipts. Personal skill/plugin sync is disabled in the invocation settings.
+
+`quota.py` owns the claude implementation of `BaseSubscriptionQuota.read()`. The Agent exposes it through the optional `quota` property; callers use the shared contract. Native protocol, credential and teardown ownership is preserved.

@@ -25,6 +25,7 @@ from laomedo.agents.agents.opencode.commands import OpenCodeCommands
 from laomedo.agents.agents.base.models import NativeCommandInvocation
 from laomedo.agents.errors import RunnerError
 from laomedo.agents.agents.base.agent import BaseAgent
+from laomedo.agents.agents.base.base import BaseSubscriptionQuota
 from laomedo.agents.agents.base.models import RuntimeBinding
 from laomedo.agents.workspaces.utils import _hash_tree
 from laomedo.agents.agents.base.utils import _id
@@ -95,16 +96,14 @@ class OpenCodeAgent(BaseAgent):
             config_sha256=None,
         )
 
-    def subscription_limits(self):
-        """Read saved Go allowances without a model turn or overlapping agent work."""
-        if self.profile is None:
-            raise RunnerError("provider_method_unavailable")
-        if not self.lock.acquire(blocking=False):
-            raise RunnerError("provider_connection_busy")
-        try:
-            return OpenCodeSubscriptionQuota(self.profile).read()
-        finally:
-            self.lock.release()
+    @property
+    def quota(self) -> BaseSubscriptionQuota | None:
+        """Compose the provider-owned zero-turn quota reader without native effects."""
+        return (
+            OpenCodeSubscriptionQuota(self.profile, lock=self.lock)
+            if self.profile is not None
+            else None
+        )
 
     def recover_interrupted(self, record):
         """Constructor recovery reconciles receipts across prior runs before dispatch."""

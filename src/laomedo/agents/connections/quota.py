@@ -4,6 +4,7 @@ from collections import OrderedDict
 from concurrent.futures import Future, TimeoutError
 import time
 
+from laomedo.agents.registry import AgentProviderRegistry
 from laomedo.host.credentials.siwc.errors import AuthError
 from laomedo.agents.errors import RunnerError
 from laomedo.agents.connections.errors import ProviderConnectionError
@@ -110,10 +111,9 @@ class SubscriptionObservations:
     @staticmethod
     def _supported(record):
         """Admit only implemented native account/key quota methods."""
-        return record.provider == "claude" or (record.provider, record.client_id) in {
-            ("codex", "codex-native"),
-            ("opencode", "opencode-go"),
-        }
+        return AgentProviderRegistry.supports_subscription_quota(
+            record.provider, record.client_id
+        )
 
     def _check(self, binding, lease_hash=None):
         """Require exact ownership, live local credential metadata and a nonrevoked lease."""

@@ -200,7 +200,7 @@ reuses fresh data and gates publication on the current lease/generation. Native
 single-flight and lease visibility have separate keys. Memory-only retention and
 retry/freshness bounds live in `settings.py`. Safe observation/cache contracts live
 in `models.py`; canonical provider quota values live in `agents/base/models.py`.
-`ProviderControllers.subscription_limits()` reserves the existing discovery fence
+`ProviderControllers.subscription_limits()` selects `runner.quota` and reserves the existing discovery fence
 and releases it after exact native cleanup, preserving disconnect/cancel behavior.
 `ProviderConnections.check_lease()` refuses requests from a browser lease already
 revoked by logout/profile switching, including reads and account-management

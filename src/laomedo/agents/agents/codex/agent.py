@@ -66,7 +66,9 @@ from laomedo.host.leases.models import LeaseCleanupObservation
 from laomedo.host.leases.utils import cleanup_exact
 from laomedo.host.mediation.authority import RunGrantAuthority
 from laomedo.agents.workspaces.skills.utils import verify
+from laomedo.agents.agents.codex.quota import CodexSubscriptionQuota
 from laomedo.agents.agents.base.agent import BaseAgent
+from laomedo.agents.agents.base.base import BaseSubscriptionQuota
 from laomedo.agents.agents.base.models import CredentialBinding
 from laomedo.agents.agents.base.models import RuntimeBinding
 
@@ -450,9 +452,10 @@ class CodexAgent(BaseAgent):
             native_command=native_command,
         )
 
-    def subscription_limits(self):
-        """Observe this admitted account without a thread or model prompt; cleanup failures propagate."""
-        return asyncio.run(self._subscription_limits())
+    @property
+    def quota(self) -> BaseSubscriptionQuota | None:
+        """Compose the provider-owned zero-turn quota reader without native effects."""
+        return CodexSubscriptionQuota(self)
 
     def prepare_initial_command(self, request: dict) -> str:
         """Admit only exact control-only status on a newly created native session."""
@@ -769,11 +772,6 @@ class CodexAgent(BaseAgent):
             if defaults:
                 result["default_model_id"] = defaults[0]
             return result
-
-    async def _subscription_limits(self):
-        """Finish native teardown before returning the safe provider quota snapshot."""
-        async with self._discovery("quota") as server:
-            return await server.subscription_limits()
 
     async def _preflight(self) -> dict:
         """Hold native custody across the existing permission-check lifecycle."""

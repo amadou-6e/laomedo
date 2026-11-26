@@ -43,6 +43,7 @@ from laomedo.agents.agents.claude.utils import normalize_models
 from laomedo.agents.agents.claude.utils import terminal_result
 from laomedo.agents.errors import RunnerError
 from laomedo.agents.agents.base.agent import BaseAgent
+from laomedo.agents.agents.base.base import BaseSubscriptionQuota
 from laomedo.agents.agents.base.models import RuntimeBinding
 from laomedo.agents.agents.base.models import CredentialRequest
 from laomedo.agents.workspaces.utils import _hash_tree
@@ -110,9 +111,10 @@ class ClaudeAgent(BaseAgent):
         """Perform the provider-specific explicit refresh without submitting a model turn."""
         return self.model_catalog(refresh=True)
 
-    def subscription_limits(self):
-        """Observe this saved native account's plan without a model prompt."""
-        return ClaudeSubscriptionQuota(self).read()
+    @property
+    def quota(self) -> BaseSubscriptionQuota | None:
+        """Compose the provider-owned zero-turn quota reader without native effects."""
+        return ClaudeSubscriptionQuota(self)
 
     def prepare_resume(self, run_id, body):
         """Validate provider resume extensions and credential admission before reusing native identity."""

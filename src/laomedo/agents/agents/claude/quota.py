@@ -7,13 +7,14 @@ import math
 import unicodedata
 from uuid import uuid4
 
+from laomedo.agents.agents.base.base import BaseSubscriptionQuota
 from laomedo.agents.agents.base.models import SubscriptionBucket
 from laomedo.agents.agents.base.models import SubscriptionSnapshot
 from laomedo.agents.agents.base.models import SubscriptionWindow
 from laomedo.agents.errors import RunnerError
 
 
-class ClaudeSubscriptionQuota:
+class ClaudeSubscriptionQuota(BaseSubscriptionQuota):
     """Read the pinned official client's experimental structured usage control."""
 
     def __init__(self, agent):
