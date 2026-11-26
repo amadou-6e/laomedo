@@ -222,6 +222,21 @@ class ProviderControllerTests(unittest.TestCase):
             with self.manager.admit_verified_review(token, target, body):
                 pass
 
+        token = self.manager.stage_verified_review(
+            self.profile,
+            "lease",
+            record["run_id"],
+            self.two,
+            1,
+            request_id,
+            body["task"],
+            request_body=body,
+        )
+        with self.assertRaises(ProviderConnectionError):
+            with self.manager.admit_verified_review(
+                token, target, {**body, "model": "other"}
+            ):
+                pass
         for altered in (
             {**body, "task": "Different instruction"},
             {**body, "skill_refs": ["unapproved"]},

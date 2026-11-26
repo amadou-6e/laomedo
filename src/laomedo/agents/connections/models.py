@@ -33,6 +33,7 @@ class VerifiedReviewGrant(BaseModel):
     target_generation: int
     request_id: str
     instruction_hash: str
+    request_body_hash: str | None = None
     expires_at: float
 
 

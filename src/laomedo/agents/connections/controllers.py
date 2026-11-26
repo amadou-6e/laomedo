@@ -365,6 +365,8 @@ class ProviderControllers:
         target_generation,
         request_id,
         instruction,
+        *,
+        request_body=None,
     ):
         """Stage one opaque, non-content grant after checking both owned sources."""
         try:
@@ -413,6 +415,18 @@ class ProviderControllers:
                 instruction_hash=hashlib.sha256(
                     instruction.encode("utf-8")
                 ).hexdigest(),
+                request_body_hash=(
+                    hashlib.sha256(
+                        json.dumps(
+                            request_body,
+                            sort_keys=True,
+                            separators=(",", ":"),
+                            ensure_ascii=False,
+                        ).encode("utf-8")
+                    ).hexdigest()
+                    if request_body is not None
+                    else None
+                ),
                 expires_at=now + VERIFIED_REVIEW_GRANT_SECONDS,
             )
             return token
@@ -451,6 +465,18 @@ class ProviderControllers:
                 }
                 or body.get("skill_refs") != []
                 or body.get("request_id") != grant.request_id
+                or (
+                    grant.request_body_hash is not None
+                    and hashlib.sha256(
+                        json.dumps(
+                            body,
+                            sort_keys=True,
+                            separators=(",", ":"),
+                            ensure_ascii=False,
+                        ).encode("utf-8")
+                    ).hexdigest()
+                    != grant.request_body_hash
+                )
                 or not isinstance(body.get("task"), str)
                 or hashlib.sha256(body["task"].encode("utf-8")).hexdigest()
                 != grant.instruction_hash
