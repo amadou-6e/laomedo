@@ -443,6 +443,50 @@ class ProviderControllers:
             + patch
         )
 
+    def stage_review_request(self, profile_id, lease_hash, source_run, target, body):
+        """Stage exact host-derived review bytes and return only a grant and digest.
+
+        This is host-internal groundwork, not an isolation boundary: callers in
+        the same Python process can still reach controller state directly.
+        """
+        from laomedo.agents.mcp.client import McpAccess
+
+        source = self.workspace_changes(profile_id, source_run)
+        token = self.stage_verified_review(
+            profile_id,
+            lease_hash,
+            source_run,
+            target.connection_id,
+            target.generation,
+            body["request_id"],
+            body["task"],
+            request_body=body,
+        )
+        changes = source.changes
+        provenance = VerifiedReviewProvenance(
+            source_run=changes.run_id,
+            source_connection=str(source.connection_id),
+            source_generation=source.generation,
+            source_hash=changes.source_hash,
+            post_run_hash=changes.post_run_hash,
+            patch_hash=changes.patch_hash,
+        )
+        admitted = {key: value for key, value in body.items() if key != "request_id"}
+        admitted["task"] = self.review_task(body["task"], changes.patch)
+        semantic = {
+            "request": McpAccess.semantic_request(admitted),
+            "verified_review": provenance.to_record(),
+        }
+        digest = (
+            "sha256:"
+            + hashlib.sha256(
+                json.dumps(
+                    semantic, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+                ).encode("utf-8")
+            ).hexdigest()
+        )
+        return token, digest
+
     @contextmanager
     def admit_verified_review(self, token, slot, body):
         """Hold both lifecycle fences until the target runner reserves exact review bytes."""

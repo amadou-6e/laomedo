@@ -15,7 +15,6 @@ from langflow.services.auth.context import (
     set_current_auth_context,
 )
 from laomedo.agents.connections.models import BrowserProviderSession
-from laomedo.agents.workspaces.models import WorkspaceChanges
 from laomedo.agents.connections.errors import ProviderConnectionError
 from laomedo.integrations.langflow.provider_connections.bindings import (
     ProviderGraphBindings,
@@ -83,16 +82,6 @@ class ProviderBindingTests(unittest.IsolatedAsyncioTestCase):
     def test_verified_review_staging_binds_session_owner_slot_and_request(self):
         connection = uuid4()
         source_run = str(uuid4())
-        changes = WorkspaceChanges(
-            run_id=source_run,
-            source_hash="source",
-            post_run_hash="post",
-            patch_hash="patch",
-            patch="actual",
-        )
-        source = SimpleNamespace(
-            connection_id=connection, generation=1, changes=changes
-        )
         slot = SimpleNamespace(
             profile_id=self.profile,
             scope="graph",
@@ -101,9 +90,7 @@ class ProviderBindingTests(unittest.IsolatedAsyncioTestCase):
             generation=1,
         )
         manager = Mock(slots={"target": slot})
-        manager.workspace_changes.return_value = source
-        manager.stage_verified_review.return_value = "grant"
-        manager.review_task.return_value = "host prompt"
+        manager.stage_review_request.return_value = ("grant", "sha256:identity")
         service = ProviderGraphBindings.service
         service._lock = threading.RLock()
         session = SimpleNamespace(profile_id=self.profile, lease_hash="lease")
@@ -130,12 +117,8 @@ class ProviderBindingTests(unittest.IsolatedAsyncioTestCase):
                 )
             self.assertEqual(token, "grant")
             self.assertTrue(digest.startswith("sha256:"))
-            self.assertEqual(
-                manager.stage_verified_review.call_args.kwargs["request_body"], body
-            )
-            self.assertEqual(
-                manager.stage_verified_review.call_args.args[:3],
-                (self.profile, "lease", source_run),
+            manager.stage_review_request.assert_called_once_with(
+                self.profile, "lease", source_run, slot, body
             )
         finally:
             ProviderGraphBindings.session.reset(context)
