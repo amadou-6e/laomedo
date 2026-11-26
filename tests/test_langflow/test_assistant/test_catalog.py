@@ -2,6 +2,7 @@
 
 import json
 import unittest
+from pathlib import Path
 
 from laomedo.integrations.langflow.assistant.catalog import ComponentCatalog
 from laomedo.integrations.langflow.assistant.errors import AssistantError
@@ -165,3 +166,43 @@ class CatalogTests(unittest.TestCase):
         graph.allow_incomplete = False
         _, diagnostics = self.catalog.compile(graph)
         self.assertEqual(diagnostics, [])
+
+    def test_agent_run_reference_connects_to_verified_review_input(self):
+        root = Path(__file__).resolve().parents[3]
+        components = {}
+        for filename, kind in (
+            ("codex.json", "LaomedoCodexAgent"),
+            ("claude.json", "LaomedoClaudeAgent"),
+        ):
+            graph = json.loads(
+                (root / "tests/test_agents/test_examples/data" / filename).read_text(
+                    encoding="utf-8"
+                )
+            )
+            components[kind] = next(
+                node["data"]["node"]
+                for node in graph["data"]["nodes"]
+                if node["data"]["type"] == kind
+            )
+        catalog = ComponentCatalog({"laomedo": components})
+        draft = DraftGraph.model_validate(
+            {
+                "allow_incomplete": True,
+                "nodes": [
+                    {"key": "codex", "component_type": "laomedo/LaomedoCodexAgent"},
+                    {"key": "claude", "component_type": "laomedo/LaomedoClaudeAgent"},
+                ],
+                "edges": [
+                    {
+                        "source": "codex",
+                        "output": "run",
+                        "target": "claude",
+                        "input": "verified_changes",
+                    }
+                ],
+            }
+        )
+        data, _ = catalog.compile(draft)
+        self.assertEqual(
+            data["edges"][0]["data"]["targetHandle"]["fieldName"], "verified_changes"
+        )
