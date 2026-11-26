@@ -338,6 +338,23 @@ class ClaudeComponentTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaisesRegex(ValueError, "verified_review_unavailable"):
             conflicting._prepare()
 
+    def test_verified_changes_refuse_before_dispatch_without_isolation(self):
+        node = self.node(verified_changes={"run_id": "source-id"}, skill_reference=None)
+        with (
+            patch.object(ProviderGraphBindings, "service", Mock()),
+            patch.object(
+                ProviderGraphBindings,
+                "endpoint",
+                return_value=("http://127.0.0.1:1234", "token"),
+            ),
+            patch.object(node, "_http") as dispatch,
+        ):
+            with self.assertRaisesRegex(
+                ValueError, "verified_review_isolation_unavailable"
+            ):
+                node._prepare()
+        dispatch.assert_not_called()
+
     async def test_outputs_share_one_dispatch_and_keep_claude_provider(self):
         import asyncio
 
