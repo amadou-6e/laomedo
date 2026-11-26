@@ -6,13 +6,16 @@ import json
 import io
 import os
 import tempfile
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from laomedo import __path__
 
 __path__.append(str(Path(__file__).resolve().parents[2] / "components/laomedo"))
 from laomedo.claude_agent import LaomedoClaudeAgent
 from laomedo.agents.interface.output.utils import requirements
+from laomedo.integrations.langflow.provider_connections.bindings import (
+    ProviderGraphBindings,
+)
 
 
 class ClaudeComponentTests(unittest.IsolatedAsyncioTestCase):
@@ -88,10 +91,19 @@ class ClaudeComponentTests(unittest.IsolatedAsyncioTestCase):
         base = LaomedoClaudeAgent.__bases__[0]
         expected = [item for item in base.inputs if item.name != "handoff_reference"]
         self.assertEqual(
-            [item.name for item in LaomedoClaudeAgent.inputs],
+            [
+                item.name
+                for item in LaomedoClaudeAgent.inputs
+                if item.name != "verified_changes"
+            ],
             [item.name for item in expected] + ["run_timeout_seconds"],
         )
-        for actual, reference in zip(LaomedoClaudeAgent.inputs, expected):
+        matching = [
+            item
+            for item in LaomedoClaudeAgent.inputs
+            if item.name != "verified_changes"
+        ]
+        for actual, reference in zip(matching, expected):
             self.assertIs(type(actual), type(reference))
             self.assertEqual(actual.show, reference.show)
             self.assertEqual(actual.advanced, reference.advanced)
@@ -103,6 +115,7 @@ class ClaudeComponentTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(fields["run_timeout_seconds"].advanced)
         self.assertNotIn("handoff_reference", fields)
         self.assertEqual(fields["run_timeout_seconds"].value, 180)
+        self.assertIn("verified_changes", fields)
 
     async def test_catalogue_failure_does_not_add_unrequested_inputs(self):
         node = self.node()
@@ -296,6 +309,34 @@ class ClaudeComponentTests(unittest.IsolatedAsyncioTestCase):
                 "tree_hash": "sha256:" + "a" * 64,
             }
         return node
+
+    def test_verified_changes_stage_only_the_run_id_and_use_the_grant_on_start(self):
+        reference = {"run_id": "source-id", "answer": "untrusted"}
+        node = self.node(verified_changes=reference, skill_reference=None)
+        with (
+            patch.object(ProviderGraphBindings, "service", Mock()),
+            patch.object(
+                ProviderGraphBindings,
+                "endpoint",
+                return_value=("http://127.0.0.1:1234", "token"),
+            ),
+            patch.object(
+                ProviderGraphBindings,
+                "stage_review",
+                return_value=("opaque", "sha256:identity"),
+            ) as stage,
+        ):
+            endpoint, body, method = node._prepare()
+        self.assertEqual(stage.call_args.args[1], "source-id")
+        self.assertEqual(stage.call_args.args[2], body)
+        self.assertEqual(
+            node._request_headers(endpoint, method),
+            {"X-Laomedo-Verified-Review": "opaque"},
+        )
+        self.assertEqual(node._request_headers(endpoint, "GET"), {})
+        conflicting = self.node(verified_changes=reference, mcp_tools=["tool"])
+        with self.assertRaisesRegex(ValueError, "verified_review_unavailable"):
+            conflicting._prepare()
 
     async def test_outputs_share_one_dispatch_and_keep_claude_provider(self):
         import asyncio

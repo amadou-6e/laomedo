@@ -3,6 +3,7 @@
 import asyncio
 from contextlib import asynccontextmanager
 import unittest
+import threading
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 from uuid import uuid4
@@ -14,6 +15,7 @@ from langflow.services.auth.context import (
     set_current_auth_context,
 )
 from laomedo.agents.connections.models import BrowserProviderSession
+from laomedo.agents.workspaces.models import WorkspaceChanges
 from laomedo.agents.connections.errors import ProviderConnectionError
 from laomedo.integrations.langflow.provider_connections.bindings import (
     ProviderGraphBindings,
@@ -77,6 +79,66 @@ class ProviderBindingTests(unittest.IsolatedAsyncioTestCase):
         previous = get_current_auth_context()
         self.addCleanup(set_current_auth_context, previous)
         set_current_auth_context(AuthCredentialContext(method="jwt"))
+
+    def test_verified_review_staging_binds_session_owner_slot_and_request(self):
+        connection = uuid4()
+        source_run = str(uuid4())
+        changes = WorkspaceChanges(
+            run_id=source_run,
+            source_hash="source",
+            post_run_hash="post",
+            patch_hash="patch",
+            patch="actual",
+        )
+        source = SimpleNamespace(
+            connection_id=connection, generation=1, changes=changes
+        )
+        slot = SimpleNamespace(
+            profile_id=self.profile,
+            scope="graph",
+            server=SimpleNamespace(server_address=("127.0.0.1", 1234)),
+            connection_id=connection,
+            generation=1,
+        )
+        manager = Mock(slots={"target": slot})
+        manager.workspace_changes.return_value = source
+        manager.stage_verified_review.return_value = "grant"
+        manager.review_task.return_value = "host prompt"
+        service = ProviderGraphBindings.service
+        service._lock = threading.RLock()
+        session = SimpleNamespace(profile_id=self.profile, lease_hash="lease")
+        context = ProviderGraphBindings.session.set(session)
+        body = {
+            "request_id": str(uuid4()),
+            "task": "Review",
+            "model": "m",
+            "effort": "low",
+            "skill_refs": [],
+        }
+        try:
+            with patch(
+                "laomedo.integrations.langflow.provider_connections.bindings.ProviderControllers.current",
+                return_value=manager,
+            ):
+                token, digest = ProviderGraphBindings.stage_review(
+                    SimpleNamespace(
+                        user_id=self.profile,
+                        _saved_endpoint=("http://127.0.0.1:1234", "token"),
+                    ),
+                    source_run,
+                    body,
+                )
+            self.assertEqual(token, "grant")
+            self.assertTrue(digest.startswith("sha256:"))
+            self.assertEqual(
+                manager.stage_verified_review.call_args.kwargs["request_body"], body
+            )
+            self.assertEqual(
+                manager.stage_verified_review.call_args.args[:3],
+                (self.profile, "lease", source_run),
+            )
+        finally:
+            ProviderGraphBindings.session.reset(context)
 
     async def test_graph_default_is_used_only_without_explicit_node_override(self):
         """The authenticated owner and graph select a default; an explicit node wins."""

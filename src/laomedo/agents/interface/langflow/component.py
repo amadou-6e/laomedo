@@ -1215,6 +1215,10 @@ class AgentComponent(Component):
         except (RuntimeError, ValueError) as exc:
             self.status = f"Laomedo Stop: {exc}; remote outcome unknown"
 
+    def _request_headers(self, endpoint, method):
+        """Return trusted adapter-specific headers for the runner request."""
+        return {}
+
     def _http(self, endpoint, payload, method):
         self._validate_adapter()
         token = self._token()
@@ -1224,6 +1228,7 @@ class AgentComponent(Component):
             headers={
                 "Content-Type": "application/json",
                 "Authorization": "Bearer " + token,
+                **self._request_headers(endpoint, method),
             },
             method=method,
         )
@@ -1458,7 +1463,9 @@ class AgentComponent(Component):
                         for key, value in payload.items()
                         if key != "request_id"
                     }
-                self._stop_request_hash = (
+                self._stop_request_hash = getattr(
+                    self, "_verified_expected_request_hash", None
+                ) or (
                     "sha256:"
                     + hashlib.sha256(
                         json.dumps(

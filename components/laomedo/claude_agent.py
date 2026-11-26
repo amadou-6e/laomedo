@@ -9,7 +9,7 @@ from laomedo.agents.interface.langflow.errors import RunnerRequestError
 from laomedo.integrations.langflow.provider_connections.bindings import (
     ProviderGraphBindings,
 )
-from langflow.io import IntInput
+from langflow.io import DataInput, IntInput
 
 
 class LaomedoClaudeAgent(Component):
@@ -49,6 +49,15 @@ class LaomedoClaudeAgent(Component):
         elif _field.name == "runner_url":
             _field.value = "http://host.docker.internal:8769"
     del _field
+    inputs.insert(
+        next(index for index, field in enumerate(inputs) if field.name == "mcp_tools")
+        + 1,
+        DataInput(
+            name="verified_changes",
+            display_name="Verified Changes",
+            info="Connect the Run Reference of a completed agent that made workspace edits.",
+        ),
+    )
     inputs.append(
         IntInput(
             name="run_timeout_seconds",
@@ -60,6 +69,22 @@ class LaomedoClaudeAgent(Component):
     )
 
     def _prepare(self):
+        self._verified_review_grant = None
+        self._verified_expected_request_hash = None
+        verified = getattr(self, "verified_changes", None)
+        verified = getattr(verified, "data", verified)
+        if verified not in (None, "", []):
+            if (
+                self.operation not in {"fresh", "start"}
+                or not isinstance(verified, dict)
+                or not isinstance(verified.get("run_id"), str)
+                or getattr(self, "run_reference", None) not in (None, "", [])
+                or getattr(self, "run_reference_json", "")
+                or getattr(self, "skill_reference", None) not in (None, "", [])
+                or getattr(self, "mcp_tools", None) not in (None, "", [])
+                or self._bridge_base()
+            ):
+                raise ValueError("verified_review_unavailable")
         if str(self.effort) not in EFFORTS:
             raise ValueError("unsupported_claude_effort")
         prior = getattr(self, "run_reference", None)
@@ -78,7 +103,33 @@ class LaomedoClaudeAgent(Component):
             if type(timeout) is not int or not 1 <= timeout <= 86400:
                 raise ValueError("claude_turn_timeout_invalid")
             payload.get("runner_body", payload)["run_timeout_seconds"] = timeout
+        if verified not in (None, "", []):
+            if set(payload) - {
+                "request_id",
+                "task",
+                "model",
+                "effort",
+                "skill_refs",
+                "run_timeout_seconds",
+            }:
+                raise ValueError("verified_review_unavailable")
+            self._verified_review_grant, self._verified_expected_request_hash = (
+                ProviderGraphBindings.stage_review(self, verified["run_id"], payload)
+            )
         return endpoint, payload, method
+
+    def _request_headers(self, endpoint, method):
+        """Send a staged grant only to its saved runner's async start route."""
+        grant = getattr(self, "_verified_review_grant", None)
+        saved = getattr(self, "_saved_endpoint", None)
+        if (
+            grant
+            and saved
+            and method == "POST"
+            and endpoint == saved[0] + "/v1/runs/async"
+        ):
+            return {"X-Laomedo-Verified-Review": grant}
+        return {}
 
     def _token_file_path(self):
         return super()._token_file_path()
@@ -100,6 +151,7 @@ class LaomedoClaudeAgent(Component):
                 == "runner_model_catalog_unavailable_check_runner_connection"
                 and failure.diagnostics.get("http_status") == 400
                 and failure.diagnostics.get("runner_code") == failure.code
+                and not getattr(self, "_verified_review_grant", None)
             ):
                 raise
             self._model_catalog({}, saved_endpoint=pinned)

@@ -2,6 +2,9 @@
 
 from uuid import UUID
 from contextvars import ContextVar
+import hashlib
+import json
+from urllib.parse import urlsplit
 
 from laomedo.agents.connections.controllers import ProviderControllers
 from laomedo.agents.connections.errors import ProviderConnectionError
@@ -59,6 +62,66 @@ class ProviderGraphBindings:
             for row in cls.service.list(cls.owner(component))
             if row.lifecycle == "connected" and row.provider == component.provider_id
         ]
+
+    @classmethod
+    def stage_review(cls, component, source_run, body):
+        """Bind a graph review to its authenticated owner, target and exact request."""
+        from laomedo.agents.mcp.client import McpAccess
+
+        owner = cls.owner(component)
+        session = cls.session.get()
+        endpoint = getattr(component, "_saved_endpoint", None)
+        if session is None or not endpoint or session.profile_id != owner:
+            raise ProviderConnectionError("verified_review_unavailable")
+        port = urlsplit(endpoint[0]).port
+        manager = ProviderControllers.current()
+        with cls.service._lock:
+            matches = [
+                slot
+                for slot in manager.slots.values()
+                if slot.profile_id == owner
+                and slot.scope == "graph"
+                and slot.server is not None
+                and slot.server.server_address[1] == port
+            ]
+            if len(matches) != 1:
+                raise ProviderConnectionError("verified_review_unavailable")
+            target = matches[0]
+        source = manager.workspace_changes(owner, source_run)
+        token = manager.stage_verified_review(
+            owner,
+            session.lease_hash,
+            source_run,
+            target.connection_id,
+            target.generation,
+            body["request_id"],
+            body["task"],
+            request_body=body,
+        )
+        changes = source.changes
+        provenance = {
+            "source_run": changes.run_id,
+            "source_connection": str(source.connection_id),
+            "source_generation": source.generation,
+            "source_hash": changes.source_hash,
+            "post_run_hash": changes.post_run_hash,
+            "patch_hash": changes.patch_hash,
+        }
+        admitted = {key: value for key, value in body.items() if key != "request_id"}
+        admitted["task"] = manager.review_task(body["task"], changes.patch)
+        semantic = {
+            "request": McpAccess.semantic_request(admitted),
+            "verified_review": provenance,
+        }
+        digest = (
+            "sha256:"
+            + hashlib.sha256(
+                json.dumps(
+                    semantic, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+                ).encode("utf-8")
+            ).hexdigest()
+        )
+        return token, digest
 
     @classmethod
     def endpoint(cls, component, selected, *, run_id=None):
