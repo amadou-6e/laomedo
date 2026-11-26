@@ -815,12 +815,16 @@ class ClaudeRunnerTests(unittest.TestCase):
         self.assertIn("strict-mcp-config", options["extraArgs"])
         self.assertIn("Bash", options["disallowedTools"])
         self.assertFalse(options["allowDangerouslySkipPermissions"])
-        self.assertEqual(
-            ClaudePolicy(model="sonnet", effort="low", output_only=True).sdk_options()[
-                "allowedTools"
-            ],
-            [],
-        )
+        review = ClaudePolicy(
+            model="sonnet",
+            effort="low",
+            output_only=True,
+            skill_ids=("unavailable",),
+            external_tools=("unavailable",),
+        ).sdk_options()
+        self.assertEqual(review["tools"], [])
+        self.assertEqual(review["allowedTools"], [])
+        self.assertNotIn("plugins", review)
 
     def test_fresh_and_resume_keep_provider_skills_and_bound_snapshot(self):
         with self.invoke():

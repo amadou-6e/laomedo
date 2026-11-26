@@ -1,6 +1,7 @@
 """Internal saved-graph serialization controls; not current example acceptance."""
 
 import json
+import hashlib
 from pathlib import Path
 from support.paths import repository_root
 import unittest
@@ -46,6 +47,16 @@ class NativeFlowTests(unittest.TestCase):
                 fields = agent["data"]["node"]["template"]
                 self.assertEqual(fields["code"]["value"], source)
                 self.assertFalse(fields["skill_reference"]["required"])
+                from laomedo.integrations.langflow.assistant.settings import (
+                    AUDITED_COMPONENT_DIGESTS,
+                )
+
+                digest = hashlib.sha256(
+                    fields["code"]["value"].replace("\r\n", "\n").strip().encode()
+                ).hexdigest()
+                self.assertEqual(
+                    digest, AUDITED_COMPONENT_DIGESTS["LaomedoClaudeAgent"]
+                )
 
     def test_connection_handles_match_serialized_port_schemas(self):
         root = repository_root()

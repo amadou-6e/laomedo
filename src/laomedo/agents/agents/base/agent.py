@@ -71,6 +71,8 @@ class BaseAgent(ABC):
     """Template-method lifecycle; concrete providers own protocol and runtime policy."""
 
     _supports_run_timeout = False
+    # Providers enabling this must run verified reviews without tools, plugins,
+    # external MCP servers or GitHub capabilities.
     _supports_verified_review = False
 
     def __init__(
