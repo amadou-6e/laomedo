@@ -384,6 +384,45 @@ class ProviderControllerTests(unittest.TestCase):
         with self.assertRaises(HTTPError):
             urlopen(wrong_route, timeout=3)
 
+    def test_review_staging_refuses_a_changed_snapshot_between_observations(self):
+        source_endpoint = self.manager.endpoint(self.profile, self.one)
+        run = self.post(source_endpoint[0], "/v1/runs/async", {"task": "fixture"})
+        source = self.manager.slots[(self.profile, self.one, 1, "graph")]
+        target_endpoint = self.manager.endpoint(self.profile, self.two)
+        self.assertTrue(target_endpoint)
+        target = self.manager.slots[(self.profile, self.two, 1, "graph")]
+        self.records[1] = self.records[1].model_copy(update={"provider": "claude"})
+        self.service._save(self.profile, self.records)
+        changes = WorkspaceChanges(
+            run_id=run["run_id"],
+            source_hash="source",
+            post_run_hash="post",
+            patch_hash="first",
+            patch="first patch",
+        )
+        source.runner.workspace_changes = Mock(
+            side_effect=[
+                changes,
+                changes.model_copy(
+                    update={"patch_hash": "second", "patch": "second patch"}
+                ),
+            ]
+        )
+        body = {
+            "request_id": str(uuid4()),
+            "task": "Review",
+            "model": "m",
+            "effort": "low",
+            "skill_refs": [],
+        }
+        with self.assertRaisesRegex(
+            ProviderConnectionError, "workspace_snapshot_mismatch"
+        ):
+            self.manager.stage_review_request(
+                self.profile, "lease", run["run_id"], target, body
+            )
+        self.assertEqual(self.manager._review_grants, {})
+
     def test_restart_recovers_assistant_scope_without_a_graph_controller(self):
         self.manager.assistant_endpoint(self.profile, self.one, 1)
         self.manager.close()

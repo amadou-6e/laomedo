@@ -463,6 +463,17 @@ class ProviderControllers:
             request_body=body,
         )
         changes = source.changes
+        with self.service._lock:
+            grant = self._review_grants.get(token)
+            if grant is None or (
+                grant.source_connection != source.connection_id
+                or grant.source_generation != source.generation
+                or grant.source_hash != changes.source_hash
+                or grant.post_run_hash != changes.post_run_hash
+                or grant.patch_hash != changes.patch_hash
+            ):
+                self._review_grants.pop(token, None)
+                raise ProviderConnectionError("workspace_snapshot_mismatch")
         provenance = VerifiedReviewProvenance(
             source_run=changes.run_id,
             source_connection=str(source.connection_id),
