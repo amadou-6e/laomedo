@@ -21,7 +21,7 @@ export default function OpenCodeUsage({ connection, generation }: { connection: 
     }).catch(() => { if (!controller.signal.aborted) setText("Could not check subscription limits. Try /usage again."); });
     return () => controller.abort();
   }, [connection, generation]);
-  return <section aria-label="OpenCode usage" className="space-y-5">
+  return <section aria-label="OpenCode usage" className="space-y-5 [&>section]:w-full [&>section]:max-w-md">
     <UserMessage text="/usage" command />
     {text ? <NativeUsage text={text} provider="OpenCode" collapsible={false} windows={windows} /> : <p role="status" className="text-xs text-muted-foreground">Checking usage...</p>}
   </section>;
