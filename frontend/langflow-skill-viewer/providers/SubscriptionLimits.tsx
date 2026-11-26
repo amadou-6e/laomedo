@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { RefreshCw } from "lucide-react";
+import { CircleAlert, RefreshCw } from "lucide-react";
 import { describeNodeFailure } from "@/components/laomedoErrors/nodeErrors";
 import { Button } from "@/components/ui/button";
 import {
@@ -255,11 +255,6 @@ function AccountLimits({
               ))}
             </div>
           )}
-          {observation?.reason === "not_entitled" && (
-            <a href="https://opencode.ai/console" target="_blank" rel="noopener noreferrer" className="underline underline-offset-4">
-              Open OpenCode Console
-            </a>
-          )}
           {observation?.observed_at !== null &&
             observation?.observed_at !== undefined && (
               <p
@@ -282,14 +277,24 @@ function AccountLimits({
             observation?.reason === "authentication_failed" ||
             observation?.reason === "not_entitled" ||
             observation?.reason === "rate_limited") && (
-            <p role="alert">
-              {failure ||
+            <div className="pc-quota-notice" role="alert">
+              <CircleAlert size={20} className="pc-quota-notice-icon" aria-hidden="true" />
+              <div className="pc-quota-notice-content">
+                <h3>{quotaFailure?.title || "Limits temporarily unavailable"}</h3>
+                <p>{failure ||
                 (observation?.reason === "busy"
                   ? "Account is busy. Try again when its run finishes."
                   : quotaFailure
                     ? `${quotaFailure.description} ${quotaFailure.recovery}`
                     : "Could not refresh. Try again.")}
-            </p>
+                </p>
+                {observation?.reason === "not_entitled" && (
+                  <a href="https://opencode.ai/console" target="_blank" rel="noopener noreferrer" className="pc-manage-account">
+                    Open OpenCode Console
+                  </a>
+                )}
+              </div>
+            </div>
           )}
         </>
       )}
