@@ -7,6 +7,7 @@ param(
     [Parameter(Mandatory=$true)][string]$FrontendPath,
     [Parameter(Mandatory=$true)][string]$RuntimeRoot,
     [ValidateRange(1024,65535)][int]$Port = 17866,
+    [ValidateRange(0,65535)][int]$PublicIssuePort = 0,
     [string]$ProviderSourceWorkspace,
     [string]$LangflowSourceRoot
 )
@@ -105,6 +106,18 @@ $config = @{
     LAOMEDO_ASSISTANT_STATE_ROOT=(Join-Path $runtime "assistant")
     LAOMEDO_PROVIDER_SOURCE_WORKSPACE=$providerSource
     PYTHONPATH=($pythonSources -join [IO.Path]::PathSeparator)
+}
+if ($PublicIssuePort -ne 0) {
+    if ($PublicIssuePort -lt 1024 -or $PublicIssuePort -eq $Port) { throw 'Public Issue service port is invalid.' }
+    $issueToken = Join-Path $runtime 'public-issue/api-token'
+    if (-not (Test-Path -LiteralPath $issueToken -PathType Leaf)) { throw 'Public Issue service token file is missing.' }
+    foreach ($path in @((Join-Path $runtime 'public-issue'), $issueToken)) {
+        if ((Get-Item -LiteralPath $path -Force).Attributes -band [IO.FileAttributes]::ReparsePoint) {
+            throw 'Public Issue service state must not be linked.'
+        }
+    }
+    $config['LAOMEDO_GITHUB_ISSUE_URL'] = "http://127.0.0.1:$PublicIssuePort"
+    $config['LAOMEDO_GITHUB_ISSUE_TOKEN_FILE'] = $issueToken
 }
 $originalLocation = Get-Location
 try {
