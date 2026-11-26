@@ -33,6 +33,13 @@ class AgentWorkspace:
         except OSError:
             raise RunnerError("workspace_access_failed") from None
 
+    def prepare_git(self) -> str:
+        """Clone only an admitted clean root; retain cleanup uncertainty on failure."""
+        try:
+            return self._prepare_git()
+        except GitCommandTimeout as error:
+            raise GitWorkspaceError(error.code) from error
+
     def _prepare(self, canonical: Path, *, git: bool) -> WorkspaceSnapshot:
         """Copy the complete admitted tree or fail without accepting a snapshot."""
         if git:
@@ -46,13 +53,6 @@ class AgentWorkspace:
             if _copy_tree(self.paths.source, canonical) != source_hash:
                 raise RunnerError("source_changed_during_snapshot")
         return WorkspaceSnapshot(source_hash=source_hash, baseline=baseline)
-
-    def prepare_git(self) -> str:
-        """Clone only an admitted clean root; retain cleanup uncertainty on failure."""
-        try:
-            return self._prepare_git()
-        except GitCommandTimeout as error:
-            raise GitWorkspaceError(error.code) from error
 
     def _prepare_git(self) -> str:
         """Keep Agent-specific admission separate from generic repository mechanics."""
