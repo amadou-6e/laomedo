@@ -1,3 +1,4 @@
+jest.mock("@/modals/graphAgents/components", () => ({ MessageMarkdown: ({text}: {text: string}) => <p>{text}</p> }));
 import { readSubscriptionLimits } from "@/components/laomedoProviders/api";
 jest.mock("@/components/laomedoProviders/api", () => ({ ...jest.requireActual("@/components/laomedoProviders/api"), readSubscriptionLimits: jest.fn() }));
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
@@ -1036,7 +1037,8 @@ test("OpenCode /usage shows the bound saved account without model submission", a
   jest.mocked(assistantRequest).mockClear();
   fireEvent.click(screen.getByRole("button", {name: "Send"}));
   const usage = await screen.findByRole("region", {name: "OpenCode usage"});
-  expect(usage).toHaveTextContent("Laomedo");
+  expect(screen.queryByRole("button", {name: "Close usage"})).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", {name: /Refresh limits/})).not.toBeInTheDocument();
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   expect(screen.getByLabelText("Assistant messages and saved drafts")).toContainElement(usage);
   await waitFor(() => expect(readSubscriptionLimits).toHaveBeenCalledWith("", id, 2, expect.objectContaining({refresh: true})));

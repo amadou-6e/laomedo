@@ -1,6 +1,4 @@
-import SubscriptionLimits from "@/components/laomedoProviders/SubscriptionLimits";
-import { connectionSchema } from "@/components/laomedoProviders/api";
-import "@/components/laomedoProviders/providers.css";
+import OpenCodeUsage from "./commands/OpenCodeUsage";
 import useConversationExport from "./conversation/useConversationExport";
 import useSavedAccounts from "./composer/useSavedAccounts";
 import useModelDiscovery from "./composer/useModelDiscovery";
@@ -169,6 +167,7 @@ export default function AssistantPage({
   const { accounts, accountsLoading, accountsOwner, account, setAccount } =
     useSavedAccounts({ owner, locked, selected, chosenProvider, fail });
   const [usageOpen, setUsageOpen] = useState(false);
+  const [usageRevision, setUsageRevision] = useState(0);
   const boundAccount = selected
     ? detail?.conversation.id === selected
       ? detail.conversation
@@ -484,6 +483,7 @@ export default function AssistantPage({
       const nextDrafts = { ...drafts, [selected]: "" };
       if (appCommand.action === "usage") {
         setUsageOpen(true);
+        setUsageRevision(value => value + 1);
         setDrafts(nextDrafts);
         setCommandsDismissed(true);
       } else if (appCommand.action === "accounts") {
@@ -1098,17 +1098,8 @@ export default function AssistantPage({
                 onFailure={fail}
                 onRetry={(submission) => void send(submission)}
               />
-              {usageOpen && !locked && (
-                <section aria-label="OpenCode usage" className="rounded-xl border bg-muted/50 px-3 py-2 text-[11px] text-muted-foreground">
-                  <div className="mb-3 flex items-center justify-between">
-                    <span className="text-xs">Usage <span className="ml-2 text-muted-foreground">Laomedo</span></span>
-                    <button type="button" className="hover:text-foreground" onClick={() => setUsageOpen(false)} aria-label="Close usage">Close</button>
-                  </div>
-                  {accounts.filter(row => row.connection_id === connectionId && row.generation === connectionGeneration).map(row => {
-                    const parsed = connectionSchema.safeParse(row);
-                    return parsed.success ? <SubscriptionLimits key={`${row.connection_id}:${row.generation}`} flowId="" accounts={[parsed.data]} /> : <p>Account unavailable. Open Settings to reconnect.</p>;
-                  })}
-                </section>
+              {usageOpen && !locked && connectionId && connectionGeneration && (
+                <OpenCodeUsage key={`${binding}:${usageRevision}`} connection={connectionId} generation={connectionGeneration} />
               )}
               {!waiting && !usageOpen &&
                 (!selected || (detail && !detail.messages.length)) && (
