@@ -455,6 +455,11 @@ class ConfigurationTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaisesRegex(AssistantError, "assistant_input_invalid"):
             await self.configuration.check_graph(self.context, workflows.catalog, data)
         node["id"] = original_id
+        data["edges"][0]["target"] = original_id
+        data["nodes"].append({"id": original_id, "data": {}})
+        with self.assertRaisesRegex(AssistantError, "assistant_input_invalid"):
+            await self.configuration.check_graph(self.context, workflows.catalog, data)
+        data["nodes"].pop()
         data["edges"][0]["target"] = []
         with self.assertRaisesRegex(AssistantError, "assistant_input_invalid"):
             await self.configuration.check_graph(self.context, workflows.catalog, data)

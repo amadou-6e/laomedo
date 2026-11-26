@@ -360,6 +360,7 @@ class WorkflowConfiguration:
                 not isinstance(node, dict)
                 or not isinstance(node.get("id"), str)
                 or not isinstance(node.get("data"), dict)
+                or node["id"] in nodes
             ):
                 raise AssistantError("assistant_input_invalid", 422)
             nodes[node["id"]] = node
