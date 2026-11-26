@@ -111,6 +111,11 @@ class RunnerRequestHandler(BaseHTTPRequestHandler):
         mcp_access = None
         try:
             parts = self.path.strip("/").split("/")
+            if (
+                self.headers.get_all("X-Laomedo-Verified-Review")
+                and parts != ["v1", "runs", "async"]
+            ):
+                raise RunnerError("invalid_request")
             body = self._body()
             is_cancel_endpoint = (
                 len(parts) == 4 and parts[:2] == ["v1", "runs"] and parts[3] == "cancel"

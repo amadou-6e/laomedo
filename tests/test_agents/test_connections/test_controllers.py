@@ -327,6 +327,18 @@ class ProviderControllerTests(unittest.TestCase):
         with self.assertRaises(HTTPError):
             dispatch()
         self.assertEqual(target.runner.start_async.call_count, 1)
+        wrong_route = Request(
+            target_endpoint[0] + "/v1/runs",
+            data=b"{}",
+            method="POST",
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": "Bearer " + "0" * 64,
+                "X-Laomedo-Verified-Review": grant,
+            },
+        )
+        with self.assertRaises(HTTPError):
+            urlopen(wrong_route, timeout=3)
 
     def test_restart_recovers_assistant_scope_without_a_graph_controller(self):
         self.manager.assistant_endpoint(self.profile, self.one, 1)
