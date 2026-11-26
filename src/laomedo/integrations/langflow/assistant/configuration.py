@@ -2,6 +2,7 @@
 
 import asyncio
 from collections import OrderedDict
+import hashlib
 import time
 from uuid import UUID
 
@@ -32,6 +33,8 @@ class WorkflowConfiguration:
     def required_fields(self, catalog, identity):
         """Add audited runtime requirements absent from installed editor metadata."""
         fields = set(catalog.resolution_fields(identity))
+        if catalog.audited_family(identity) == "LaomedoGitHubIssue":
+            return {"repository_url", "issue_choice", "public_service_only"}
         if catalog.audited_family(identity) in AUDITED_AGENT_COMPONENTS:
             fields.add("task")
         return fields
@@ -85,6 +88,56 @@ class WorkflowConfiguration:
                     if request.fields.get("effort") not in (None, *selected["efforts"]):
                         raise AssistantError("assistant_model_unavailable", 422)
             elif any(field in request.fields for field in dynamic):
+                raise AssistantError("assistant_configuration_required", 422)
+        elif name == "LaomedoGitHubIssue":
+            from laomedo.github.contract import labels_value, repository_from_url
+            from laomedo.github.interface.issues.client import issue_request
+
+            dynamic = {
+                "repository_url",
+                "labels",
+                "state",
+                "issue_choice",
+                "public_service_only",
+            }
+            if request.fields.get("public_service_only", True) is not True:
+                raise AssistantError("assistant_configuration_required", 422)
+            values["public_service_only"] = True
+            repository_url = request.fields.get("repository_url")
+            if repository_url is not None:
+                try:
+                    repository_from_url(repository_url)
+                    labels = labels_value(request.fields.get("labels", []))
+                    state = request.fields.get("state", "open")
+                    if state not in {"open", "closed", "all"}:
+                        raise ValueError("issue_state_invalid")
+                    found = await asyncio.to_thread(
+                        issue_request,
+                        "discover",
+                        repository_url=repository_url,
+                        labels=labels,
+                        state=state,
+                        public_only=True,
+                    )
+                    choices = [item["choice"] for item in found["issues"]]
+                    if not isinstance(found["labels"], list) or not all(
+                        isinstance(item, str) for item in choices
+                    ):
+                        raise ValueError("issue_discovery_invalid")
+                except (ValueError, KeyError, TypeError):
+                    raise AssistantError(
+                        "assistant_resource_unavailable", 422
+                    ) from None
+                values.update(repository_url=repository_url, labels=labels, state=state)
+                options.update(labels=found["labels"], issue_choice=choices)
+                chosen = request.fields.get("issue_choice")
+                if chosen is not None:
+                    if chosen not in choices:
+                        raise AssistantError("assistant_resource_unavailable", 422)
+                    values["issue_choice"] = chosen
+            elif any(
+                key in request.fields for key in ("labels", "state", "issue_choice")
+            ):
                 raise AssistantError("assistant_configuration_required", 422)
         elif name == "LaomedoSkill":
             dynamic = {"skill_id", "revision_id"}
@@ -144,7 +197,7 @@ class WorkflowConfiguration:
         for field, value in request.fields.items():
             if field not in template:
                 raise AssistantError("assistant_field_unknown", 422)
-            if field in values:
+            if field in values and values[field] == value:
                 continue
             if field in dynamic:
                 if field == "provider_connection" and value != str(
@@ -324,6 +377,21 @@ class WorkflowConfiguration:
                     raise AssistantError("assistant_configuration_stale", 409)
             await self.check_resources(context, binding.resources)
             template = node.get("data", {}).get("node", {}).get("template", {})
+            if catalog.audited_family(identity) == "LaomedoGitHubIssue":
+                from laomedo.integrations.langflow.assistant.settings import (
+                    AUDITED_COMPONENT_DIGESTS,
+                )
+
+                code = template.get("code", {}).get("value")
+                if (
+                    template.get("public_service_only", {}).get("value") is not True
+                    or not isinstance(code, str)
+                    or hashlib.sha256(
+                        code.replace("\r\n", "\n").strip().encode()
+                    ).hexdigest()
+                    != AUDITED_COMPONENT_DIGESTS["LaomedoGitHubIssue"]
+                ):
+                    raise AssistantError("assistant_configuration_stale", 409)
             for resource in binding.resources:
                 if resource.kind == "skill":
                     if (
@@ -413,6 +481,22 @@ class WorkflowConfiguration:
                     continue
                 value = template.get(name, {}).get("value")
                 safe = isinstance(value, str) and len(value) <= 200
+                if (
+                    name == "public_service_only"
+                    and catalog.audited_family(identity) == "LaomedoGitHubIssue"
+                ):
+                    safe = value is True
+                if (
+                    name == "labels"
+                    and catalog.audited_family(identity) == "LaomedoGitHubIssue"
+                ):
+                    safe = (
+                        isinstance(value, list)
+                        and len(value) <= 100
+                        and all(
+                            isinstance(item, str) and len(item) <= 100 for item in value
+                        )
+                    )
                 if name == "mcp_server" and isinstance(value, dict):
                     safe = (
                         set(value) == {"name"}

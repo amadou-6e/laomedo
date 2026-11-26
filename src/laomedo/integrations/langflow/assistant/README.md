@@ -35,6 +35,11 @@ selections. This is not a live capability catalogue; explicit refresh and runtim
 admission remain authoritative. New drafts omit cached dynamic choices, and
 unresolved audited string selectors use an empty string for the native editor.
 
+The exact-source GitHub Issue adapter resolves repository and issue selectors
+only through a host service that enforces anonymous public reads. Its internal
+public-only pin is preserved at execution. Credentialed or private issue services
+cannot satisfy that resolution; saved-account access remains separately scoped.
+
 The digest-pinned MCPTools adapter uses the installed `component_as_tool` /
 `to_toolkit` Toolset contract. It saves `tool_mode=True` and removes the single-tool
 selection requirement; discovery does not invoke its refresh hook. Its name-only

@@ -230,7 +230,21 @@ class ComponentCatalog:
             else (
                 {"skill_id": [], "revision_id": ["skill_id"]}
                 if family == "LaomedoSkill"
-                else {"mcp_server": []} if family == "MCPTools" else {}
+                else (
+                    {"mcp_server": []}
+                    if family == "MCPTools"
+                    else (
+                        {
+                            "repository_url": [],
+                            "labels": ["repository_url"],
+                            "state": ["repository_url"],
+                            "issue_choice": ["repository_url", "labels", "state"],
+                            "public_service_only": [],
+                        }
+                        if family == "LaomedoGitHubIssue"
+                        else {}
+                    )
+                )
             )
         )
 
@@ -342,8 +356,21 @@ class ComponentCatalog:
     def _set_resolved_value(self, identity, name, field, value):
         """Present only the verified selected string, never a cached account catalogue."""
         field["value"] = value
+        if (
+            name == "public_service_only"
+            and self.audited_family(identity) == "LaomedoGitHubIssue"
+        ):
+            field["show"] = False
+            return
         field["show"] = True
-        if name in self.resolution_fields(identity) and isinstance(value, str):
+        if (
+            name in self.resolution_fields(identity)
+            and isinstance(value, str)
+            and not (
+                self.audited_family(identity) == "LaomedoGitHubIssue"
+                and name == "repository_url"
+            )
+        ):
             field["options"] = [value] if value else []
             if "options_metadata" in field:
                 field["options_metadata"] = [{}] if value else []
@@ -385,7 +412,7 @@ class ComponentCatalog:
             original["value"] = checked
             if resolved is not None and name in resolved.fields:
                 self._set_resolved_value(identity, name, original, checked)
-            if not self._writable(name, field):
+            if not self._writable(name, field) and name != "public_service_only":
                 original["show"] = True
         if resolved is not None:
             dependencies = self.resolution_fields(identity)

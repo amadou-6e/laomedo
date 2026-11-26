@@ -95,7 +95,10 @@ def main():
 
     gateway = GitHubIssueGateway({args.repository: transport}, mediation, grant)
     IssueServer(
-        gateway, args.api_token_file.read_text(encoding="utf-8").strip(), port=args.port
+        gateway,
+        args.api_token_file.read_text(encoding="utf-8").strip(),
+        port=args.port,
+        public_only=args.public_read_only,
     ).serve_forever()
 
 

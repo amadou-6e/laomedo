@@ -4,7 +4,7 @@ import time
 from pathlib import Path
 import unittest
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, Mock
+from unittest.mock import AsyncMock, Mock, patch
 from uuid import UUID, uuid4
 
 from laomedo.integrations.langflow.assistant.catalog import ComponentCatalog
@@ -89,6 +89,94 @@ class ConfigurationTests(unittest.IsolatedAsyncioTestCase):
                 }
             }
         )
+
+    async def test_issue_resolution_requires_public_service_and_pins_runtime_mode(self):
+        identity = "laomedo/LaomedoGitHubIssue"
+        source = (
+            Path(__file__).resolve().parents[3] / "components/laomedo/github_issue.py"
+        ).read_text(encoding="utf-8")
+        catalog = ComponentCatalog(
+            {
+                "laomedo": {
+                    "LaomedoGitHubIssue": {
+                        "name": "LaomedoGitHubIssue",
+                        "template": {
+                            "code": {"value": source},
+                            "repository_url": {
+                                "type": "str",
+                                "real_time_refresh": True,
+                                "value": "",
+                            },
+                            "labels": {
+                                "type": "str",
+                                "list": True,
+                                "real_time_refresh": True,
+                                "value": [],
+                                "options": [],
+                            },
+                            "state": {
+                                "type": "str",
+                                "real_time_refresh": True,
+                                "value": "open",
+                                "options": ["open", "closed", "all"],
+                            },
+                            "issue_choice": {
+                                "type": "str",
+                                "real_time_refresh": True,
+                                "value": "",
+                                "options": [],
+                            },
+                            "public_service_only": {
+                                "type": "bool",
+                                "show": False,
+                                "value": False,
+                            },
+                        },
+                        "outputs": [{"name": "task", "types": ["Message"]}],
+                    }
+                }
+            }
+        )
+        self.assertEqual(catalog.audited_family(identity), "LaomedoGitHubIssue")
+        request = ConfigurationRequest(
+            component_type=identity,
+            fields={
+                "repository_url": "https://github.com/owner/repo",
+                "issue_choice": "#1 Test",
+            },
+        )
+        with patch(
+            "laomedo.github.interface.issues.client.issue_request",
+            return_value={"labels": [], "issues": [{"choice": "#1 Test"}]},
+        ) as discover:
+            result = await self.configuration.resolve(self.context, catalog, request)
+        self.assertTrue(discover.call_args.kwargs["public_only"])
+        self.assertTrue(result["fields"]["public_service_only"])
+        node = DraftNode(
+            key="issue",
+            component_type=identity,
+            fields=result["fields"],
+            resolution_id=UUID(result["resolution_id"]),
+        )
+        await self.configuration.prepare(self.context, catalog, [node])
+        graph, _ = catalog.compile(DraftGraph(nodes=[node]))
+        pin = graph["nodes"][0]["data"]["node"]["template"]["public_service_only"]
+        self.assertTrue(pin["value"])
+        self.assertFalse(pin["show"])
+        await self.configuration.check_graph(self.context, catalog, graph)
+        pin["value"] = False
+        with self.assertRaises(AssistantError):
+            await self.configuration.check_graph(self.context, catalog, graph)
+        pin["value"] = True
+        graph["nodes"][0]["data"]["node"]["template"]["code"]["value"] += "\n# changed"
+        with self.assertRaises(AssistantError):
+            await self.configuration.check_graph(self.context, catalog, graph)
+        with patch(
+            "laomedo.github.interface.issues.client.issue_request",
+            side_effect=ValueError("private"),
+        ):
+            with self.assertRaises(AssistantError):
+                await self.configuration.resolve(self.context, catalog, request)
 
     async def resolved(self):
         return await self.configuration.resolve(
