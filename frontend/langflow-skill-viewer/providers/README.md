@@ -59,8 +59,11 @@ never infer remaining hourly/weekly/monthly allowances from run activity.
 Saved Codex connections use one official native ChatGPT sign-in for execution
 and quota. Sign in again stages a verified native account and requires explicit
 replacement confirmation while preserving the connection ID and graph selections.
-Claude reads limits through its existing native saved profile. OpenCode Go limits
-remain unavailable pending a working supported usage read. No host login import
+Claude reads limits through its existing native saved profile. OpenCode Go uses
+the saved execution key for one bounded read-only HTTPS usage request. Its rolling,
+weekly and calendar-month meters remain separate; monthly has no inferred minute
+duration. Authentication, entitlement and throttling refusals use safe shared
+catalogue messages and preserve the saved connection and any stale snapshot. No host login import
 or exported-token fallback is offered; fixture responses are not live acceptance.
 
 Graph settings follow GitHub Primer's plain, left-aligned settings sections:

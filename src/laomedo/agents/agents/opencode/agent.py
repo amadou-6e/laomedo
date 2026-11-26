@@ -5,6 +5,7 @@ from laomedo.agents.activity.models import ActivityPage
 from laomedo.agents.agents.base.models import ReadinessObservation
 from laomedo.docker import DockerRuntime
 from laomedo.agents.agents.opencode.catalog import OpenCodeModelCatalog
+from laomedo.agents.agents.opencode.quota import OpenCodeSubscriptionQuota
 
 from uuid import uuid4
 import hashlib
@@ -67,6 +68,7 @@ class OpenCodeAgent(BaseAgent):
 
             transport_factory = partial(OpenCodeAgentRuntime, profile=profile)
         self.transport_factory = transport_factory
+        self.profile = profile
         self.active_backends = {}
         super().__init__(
             state,
@@ -92,6 +94,17 @@ class OpenCodeAgent(BaseAgent):
             cli_version="opencode " + CLI_VERSION,
             config_sha256=None,
         )
+
+    def subscription_limits(self):
+        """Read saved Go allowances without a model turn or overlapping agent work."""
+        if self.profile is None:
+            raise RunnerError("provider_method_unavailable")
+        if not self.lock.acquire(blocking=False):
+            raise RunnerError("provider_connection_busy")
+        try:
+            return OpenCodeSubscriptionQuota(self.profile).read()
+        finally:
+            self.lock.release()
 
     def recover_interrupted(self, record):
         """Constructor recovery reconciles receipts across prior runs before dispatch."""

@@ -304,7 +304,16 @@ class SubscriptionObservation(BaseModel):
         description="Observed availability; unavailable is never a zero balance."
     )
     reason: (
-        Literal["unsupported", "refresh_failed", "account_unavailable", "busy"] | None
+        Literal[
+            "unsupported",
+            "refresh_failed",
+            "account_unavailable",
+            "busy",
+            "authentication_failed",
+            "not_entitled",
+            "rate_limited",
+        ]
+        | None
     ) = Field(
         default=None,
         description="Allowlisted recovery category, never a raw provider error.",
@@ -342,7 +351,16 @@ class SubscriptionCacheEntry(BaseModel):
     attempted_at: float = Field(
         description="Most recent refresh attempt, used to bound failed retries and retention."
     )
-    reason: Literal["refresh_failed", "busy"] | None = Field(
+    reason: (
+        Literal[
+            "refresh_failed",
+            "busy",
+            "authentication_failed",
+            "not_entitled",
+            "rate_limited",
+        ]
+        | None
+    ) = Field(
         default=None,
         description="Safe latest refresh outcome; a previous snapshot is stale on failure.",
     )

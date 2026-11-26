@@ -139,16 +139,38 @@ test("unknown percentages and reset timestamps stay unknown rather than zero", a
   expect(screen.queryByRole("meter")).not.toBeInTheDocument();
 });
 
-test("unsupported providers never request quota or expose an enabled refresh", () => {
-  render(
-    <SubscriptionLimits
-      flowId="graph-one"
-      accounts={[{ ...account, provider: "opencode" }]}
-    />,
-  );
-  expect(screen.getByText("Not available")).toBeInTheDocument();
-  expect(readSubscriptionLimits).not.toHaveBeenCalled();
-  expect(screen.queryByRole("button")).not.toBeInTheDocument();
+test("Go key custody permits explicit quota with all three meters", async () => {
+  const go = { ...account, provider: "opencode" as const, method: "opencode_go_key" as const, auth_state: "unavailable" as const, label: "Personal Go" };
+  const monthly = { ...ready, snapshot: { submitted_turns: 0 as const, buckets: [{ limit_id: "opencode-go", label: "OpenCode Go", plan: null, credits: null, windows: [
+    { kind: "primary" as const, used_percent: 30, window_minutes: 300, resets_at: 1900000000 },
+    { kind: "secondary" as const, used_percent: 100, window_minutes: 10080, resets_at: 1900000000 },
+    { kind: "monthly" as const, used_percent: 50, window_minutes: null, resets_at: 1900000000 },
+  ] }] } };
+  (readSubscriptionLimits as jest.Mock).mockResolvedValueOnce(empty).mockResolvedValueOnce(monthly);
+  render(<SubscriptionLimits flowId="graph-one" accounts={[go]} />);
+  await screen.findByText("Not checked");
+  const refresh = screen.getByRole("button", { name: "Refresh limits for Personal Go" });
+  expect(refresh).toBeEnabled();
+  fireEvent.click(refresh);
+  await screen.findByText("Monthly window");
+  expect(screen.getAllByRole("meter")).toHaveLength(3);
+  expect(screen.getByText("70% remaining")).toBeInTheDocument();
+  expect(screen.getByText("0% remaining")).toBeInTheDocument();
+  expect(screen.getByText("50% remaining")).toBeInTheDocument();
+  expect(readSubscriptionLimits).toHaveBeenLastCalledWith("graph-one", go.connection_id, 1, expect.objectContaining({ refresh: true }));
+});
+
+test.each([
+  ["authentication_failed", "OpenCode did not accept this key."],
+  ["not_entitled", "This key cannot access Go subscription limits."],
+  ["rate_limited", "OpenCode is limiting usage checks."],
+])("Go %s refusal retains honest availability", async (reason, message) => {
+  (readSubscriptionLimits as jest.Mock).mockResolvedValue({ ...empty, state: "unavailable", reason });
+  const go = { ...account, provider: "opencode" as const, method: "opencode_go_key" as const, auth_state: "unavailable" as const };
+  render(<SubscriptionLimits flowId="graph-one" accounts={[go]} />);
+  expect(await screen.findByRole("alert")).toHaveTextContent(message);
+  expect(screen.queryByRole("meter")).not.toBeInTheDocument();
+  expect(screen.getByRole("button")).toBeEnabled();
 });
 
 test("Claude uses the same explicit-refresh allowance panel", async () => {

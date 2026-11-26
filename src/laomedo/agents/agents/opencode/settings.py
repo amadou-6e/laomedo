@@ -22,3 +22,8 @@ CONTROLLER_LOG_TAIL_BYTES = 65536
 
 
 MODEL_CATALOG_TTL_SECONDS = 30
+
+# Fixed provider protocol boundary; never accept a credential-bearing redirect.
+GO_USAGE_URL = "https://opencode.ai/inference/go/v1/usage"
+GO_USAGE_TIMEOUT_SECONDS = 15
+GO_USAGE_MAX_BYTES = 65536

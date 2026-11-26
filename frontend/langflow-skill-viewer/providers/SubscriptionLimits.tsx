@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { RefreshCw } from "lucide-react";
+import { describeNodeFailure } from "@/components/laomedoErrors/nodeErrors";
 import { Button } from "@/components/ui/button";
 import {
   ProviderFailure,
@@ -10,6 +11,7 @@ import {
 } from "./api";
 
 function windowLabel(window: SubscriptionWindow) {
+  if (window.kind === "monthly") return "Monthly window";
   const minutes = window.window_minutes;
   if (minutes === null)
     return window.kind === "primary" ? "Primary window" : "Secondary window";
@@ -80,9 +82,12 @@ function AccountLimits({
   const [now, setNow] = useState(Date.now());
   const request = useRef(0);
   const active = useRef<AbortController | null>(null);
-  const supported = account.provider === "codex" || account.provider === "claude";
+  const supported = account.provider === "codex" || account.provider === "claude" ||
+    (account.provider === "opencode" && account.method === "opencode_go_key");
   const eligible =
-    account.lifecycle === "connected" && account.auth_state === "ready";
+    account.lifecycle === "connected" &&
+    (account.auth_state === "ready" ||
+      (account.method === "opencode_go_key" && account.auth_state === "unavailable"));
 
   async function load(refresh: boolean) {
     active.current?.abort();
@@ -141,6 +146,12 @@ function AccountLimits({
     return () => clearInterval(timer);
   }, []);
 
+  const quotaCode = {
+    authentication_failed: "opencode_go_usage_authentication_failed",
+    not_entitled: "opencode_go_usage_not_entitled",
+    rate_limited: "opencode_go_usage_rate_limited",
+  }[observation?.reason ?? ""];
+  const quotaFailure = quotaCode ? describeNodeFailure(quotaCode, undefined) : null;
   const stale =
     observation?.state === "stale" ||
     (observation?.snapshot &&
@@ -255,12 +266,17 @@ function AccountLimits({
             )}
           {(failure ||
             observation?.reason === "refresh_failed" ||
-            observation?.reason === "busy") && (
+            observation?.reason === "busy" ||
+            observation?.reason === "authentication_failed" ||
+            observation?.reason === "not_entitled" ||
+            observation?.reason === "rate_limited") && (
             <p role="alert">
               {failure ||
                 (observation?.reason === "busy"
                   ? "Account is busy. Try again when its run finishes."
-                  : "Could not refresh. Try again.")}
+                  : quotaFailure
+                    ? `${quotaFailure.description} ${quotaFailure.recovery}`
+                    : "Could not refresh. Try again.")}
             </p>
           )}
         </>

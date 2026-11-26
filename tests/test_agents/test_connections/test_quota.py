@@ -260,6 +260,40 @@ class SubscriptionObservationTests(unittest.TestCase):
             self.assertEqual(second.result(timeout=5).state, "ready")
         self.assertEqual(self.reader.call_count, 1)
 
+    def test_go_uses_saved_key_custody_and_preserves_safe_http_categories(self):
+        record = self.record.model_copy(
+            update={
+                "provider": "opencode",
+                "method": "opencode_go_key",
+                "client_id": "opencode-go",
+            }
+        )
+        self.service._save(self.owner, [record])
+        with patch.object(
+            self.service.go, "profile", return_value=Path("private-test-profile")
+        ) as profile:
+            self.assertEqual(self.read().state, "not_checked")
+            self.reader.assert_not_called()
+            self.assertEqual(self.refresh().state, "ready")
+            for code, reason in (
+                ("opencode_go_usage_authentication_failed", "authentication_failed"),
+                ("opencode_go_usage_not_entitled", "not_entitled"),
+                ("opencode_go_usage_rate_limited", "rate_limited"),
+            ):
+                with self.subTest(code=code):
+                    self.now += 100
+                    self.reader.side_effect = RunnerError(code)
+                    observation = self.refresh()
+                    self.assertEqual(observation.state, "stale")
+                    self.assertEqual(observation.reason, reason)
+                    self.assertEqual(observation.snapshot, self.snapshot)
+            profile.side_effect = ProviderConnectionError(
+                "provider_connection_unavailable"
+            )
+            with self.assertRaises(ProviderConnectionError):
+                self.read()
+            self.assertEqual(len(self.quota.entries), 0)
+
     def test_closed_owner_and_empty_lease_cannot_read(self):
         self.refresh()
         with self.assertRaises(ProviderConnectionError):

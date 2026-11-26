@@ -59,8 +59,7 @@ class SubscriptionObservations:
             return self._result(
                 binding,
                 lease_hash,
-                unsupported=record.provider != "claude"
-                and (record.provider != "codex" or record.client_id != "codex-native"),
+                unsupported=not self._supported(record),
             )
 
     def refresh(self, profile_id, connection_id, generation, lease_hash):
@@ -72,9 +71,7 @@ class SubscriptionObservations:
         with self.service._lock:
             record = self._check(binding, lease_hash)
             self._prune()
-            if record.provider != "claude" and (
-                record.provider != "codex" or record.client_id != "codex-native"
-            ):
+            if not self._supported(record):
                 return self._result(binding, lease_hash, unsupported=True)
             entry = self.entries.get(binding)
             now = self.clock()
@@ -110,6 +107,14 @@ class SubscriptionObservations:
             self._prune()
             return self._result(binding, lease_hash)
 
+    @staticmethod
+    def _supported(record):
+        """Admit only implemented native account/key quota methods."""
+        return record.provider == "claude" or (record.provider, record.client_id) in {
+            ("codex", "codex-native"),
+            ("opencode", "opencode-go"),
+        }
+
     def _check(self, binding, lease_hash=None):
         """Require exact ownership, live local credential metadata and a nonrevoked lease."""
         if self.service._closing or (
@@ -126,6 +131,16 @@ class SubscriptionObservations:
         if record.provider == "codex" and record.client_id == "codex-native":
             try:
                 self.service.codex.saved_identity(binding.profile_id, record)
+            except Exception:
+                self.invalidate(
+                    profile_id=binding.profile_id, connection_id=binding.connection_id
+                )
+                raise ProviderConnectionError(
+                    "provider_connection_unavailable"
+                ) from None
+        if record.provider == "opencode":
+            try:
+                self.service.go.profile(binding.profile_id, record)
             except Exception:
                 self.invalidate(
                     profile_id=binding.profile_id, connection_id=binding.connection_id
@@ -189,9 +204,12 @@ class SubscriptionObservations:
                 raise ProviderConnectionError("provider_runner_unavailable")
             snapshot = self.service.controllers.subscription_limits(binding)
         except (ProviderConnectionError, RunnerError) as error:
-            reason = (
-                "busy" if error.code == "provider_connection_busy" else "refresh_failed"
-            )
+            reason = {
+                "provider_connection_busy": "busy",
+                "opencode_go_usage_authentication_failed": "authentication_failed",
+                "opencode_go_usage_not_entitled": "not_entitled",
+                "opencode_go_usage_rate_limited": "rate_limited",
+            }.get(error.code, "refresh_failed")
         except Exception:
             # Never retain a raw exception or provider body in cache/future/logs.
             reason = "refresh_failed"

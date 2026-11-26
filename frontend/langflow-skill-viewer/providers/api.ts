@@ -215,7 +215,7 @@ export async function saveGoConnection(key: string, label: string) {
 }
 
 const subscriptionWindowSchema = z.object({
-  kind: z.enum(["primary", "secondary"]),
+  kind: z.enum(["primary", "secondary", "monthly"]),
   used_percent: z.number().finite().nonnegative().nullable(),
   window_minutes: z.number().int().positive().nullable(),
   resets_at: z.number().int().positive().max(253402300799).nullable(),
@@ -225,7 +225,7 @@ const subscriptionObservationSchema = z.object({
   generation: z.number().int().positive(),
   state: z.enum(["not_checked", "ready", "stale", "unavailable"]),
   reason: z
-    .enum(["unsupported", "refresh_failed", "account_unavailable", "busy"])
+    .enum(["unsupported", "refresh_failed", "account_unavailable", "busy", "authentication_failed", "not_entitled", "rate_limited"])
     .nullable(),
   observed_at: z.number().finite().nullable(),
   stale_after: z.number().finite().nullable(),
@@ -238,7 +238,7 @@ const subscriptionObservationSchema = z.object({
             limit_id: z.string().min(1).max(128),
             label: z.string().max(128).nullable(),
             plan: z.string().max(64).nullable(),
-            windows: z.array(subscriptionWindowSchema).max(2),
+            windows: z.array(subscriptionWindowSchema).max(3),
             credits: z
               .object({
                 has_credits: z.boolean().nullable(),

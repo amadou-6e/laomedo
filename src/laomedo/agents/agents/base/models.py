@@ -932,7 +932,7 @@ class SubscriptionWindow(BaseModel):
     """Safe observed quota window; absent scalar evidence remains unknown."""
 
     model_config = ConfigDict(strict=True, extra="forbid", frozen=True)
-    kind: Literal["primary", "secondary"] = Field(
+    kind: Literal["primary", "secondary", "monthly"] = Field(
         description="Native window position, not a fixed product duration."
     )
     used_percent: float | None = Field(
@@ -994,8 +994,8 @@ class SubscriptionBucket(BaseModel):
     )
     windows: list[SubscriptionWindow] = Field(
         default_factory=list,
-        max_length=2,
-        description="Present primary/secondary windows; absent windows are not reconstructed.",
+        max_length=3,
+        description="Present primary/secondary/monthly windows; absent windows are not reconstructed.",
     )
     credits: SubscriptionCredits | None = Field(
         default=None,

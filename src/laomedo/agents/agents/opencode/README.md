@@ -1,5 +1,18 @@
 # Opencode Agent
 
+## Go subscription allowances
+
+`OpenCodeSubscriptionQuota` in `quota.py` reads the fixed HTTPS Go usage endpoint
+with the same admitted private profile key used for execution. `read()` validates
+key custody before and after one bounded GET; redirects, retries, native sessions
+and model prompts are forbidden. `project()` returns the reported rolling,
+weekly and calendar-month meters as primary, secondary and monthly windows.
+Monthly resets come from the provider, never an assumed 30-day duration.
+Missing scalar evidence remains unknown. HTTP 401, 403 and 429 become safe
+authentication, subscription-access and retry categories; raw bodies and keys
+never enter quota observations or diagnostics. A failed read does not change
+the connection's authentication state or infer a zero allowance.
+
 Model discovery is scoped to `opencode-go`, the provider admitted by the dedicated
 Go credential profile. The native CLI's global catalogue also includes free
 models that the authenticated ACP session does not advertise; they must not be
