@@ -134,6 +134,21 @@ def install_provider_routes(app, service, authenticate, *, origin: str):
             ).model_dump(mode="json")
         )
 
+    @app.get(prefix + "/limits/{connection_id}")
+    async def cached_account_limits(
+        connection_id: UUID,
+        request: Request,
+        generation: int = Query(ge=1),
+        user=Depends(authenticate),
+    ):
+        """Read only the current profile and lease's retained exact-account limits."""
+        lease = session_lease(request, service)
+        return await respond(
+            lambda: service.subscriptions.read(
+                user.id, connection_id, generation, lease
+            ).model_dump(mode="json")
+        )
+
     @app.post(prefix + "/limits/{connection_id}")
     async def account_limits(
         connection_id: UUID,

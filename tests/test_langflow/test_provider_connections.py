@@ -98,6 +98,28 @@ class ProviderRouteTests(unittest.TestCase):
             )
             refresh.assert_not_called()
 
+    def test_account_quota_cache_read_never_starts_provider_work(self):
+        """A returning chat can read only its owner/lease-visible cached observation."""
+        identifier = uuid4()
+        result = SimpleNamespace(model_dump=lambda **kwargs: {"state": "not_checked"})
+        with (
+            patch.object(
+                self.service.subscriptions, "read", return_value=result
+            ) as read,
+            patch.object(self.service.subscriptions, "refresh") as refresh,
+        ):
+            response = self.client.get(
+                f"/api/v1/laomedo/provider-connections/limits/{identifier}?generation=3"
+            )
+            self.assertEqual(response.status_code, 200)
+            read.assert_called_once_with(
+                self.profile,
+                identifier,
+                3,
+                hashlib.sha256(b"fixture-session").hexdigest(),
+            )
+            refresh.assert_not_called()
+
     def test_read_never_launches_login_and_foreign_writes_are_refused(self):
         """Listing is inert; cross-origin pages cannot initiate authentication."""
         with patch.object(self.service.codex, "begin") as begin:
