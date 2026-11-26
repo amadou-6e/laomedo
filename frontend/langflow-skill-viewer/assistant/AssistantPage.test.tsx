@@ -1035,7 +1035,10 @@ test("OpenCode /usage shows the bound saved account without model submission", a
   await waitFor(() => expect(screen.getByRole("button", {name: "Send"})).toBeEnabled());
   jest.mocked(assistantRequest).mockClear();
   fireEvent.click(screen.getByRole("button", {name: "Send"}));
-  expect(await screen.findByRole("dialog")).toHaveTextContent("OpenCode usage");
+  const usage = await screen.findByRole("region", {name: "OpenCode usage"});
+  expect(usage).toHaveTextContent("Laomedo");
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  expect(screen.getByLabelText("Assistant messages and saved drafts")).toContainElement(usage);
   await waitFor(() => expect(readSubscriptionLimits).toHaveBeenCalledWith("", id, 2, expect.objectContaining({refresh: true})));
   expect(jest.mocked(assistantRequest).mock.calls.some(([, body]) => body)).toBe(false);
 });

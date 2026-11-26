@@ -1,6 +1,5 @@
 import SubscriptionLimits from "@/components/laomedoProviders/SubscriptionLimits";
 import { connectionSchema } from "@/components/laomedoProviders/api";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import "@/components/laomedoProviders/providers.css";
 import useConversationExport from "./conversation/useConversationExport";
 import useSavedAccounts from "./composer/useSavedAccounts";
@@ -1008,15 +1007,6 @@ export default function AssistantPage({
             {headerActions}
           </div>
         </header>
-        <Dialog open={usageOpen && !locked} onOpenChange={setUsageOpen}>
-          <DialogContent>
-            <DialogHeader><DialogTitle>OpenCode usage</DialogTitle></DialogHeader>
-            {usageOpen && accounts.filter(row => row.connection_id === connectionId && row.generation === connectionGeneration).map(row => {
-              const parsed = connectionSchema.safeParse(row);
-              return parsed.success ? <SubscriptionLimits key={`${row.connection_id}:${row.generation}`} flowId="" accounts={[parsed.data]} /> : <p>Account unavailable. Open Settings to reconnect.</p>;
-            })}
-          </DialogContent>
-        </Dialog>
         {failure && (
           <div
             role="status"
@@ -1108,7 +1098,19 @@ export default function AssistantPage({
                 onFailure={fail}
                 onRetry={(submission) => void send(submission)}
               />
-              {!waiting &&
+              {usageOpen && !locked && (
+                <section aria-label="OpenCode usage" className="rounded-xl border bg-muted/50 px-3 py-2 text-[11px] text-muted-foreground">
+                  <div className="mb-3 flex items-center justify-between">
+                    <span className="text-xs">Usage <span className="ml-2 text-muted-foreground">Laomedo</span></span>
+                    <button type="button" className="hover:text-foreground" onClick={() => setUsageOpen(false)} aria-label="Close usage">Close</button>
+                  </div>
+                  {accounts.filter(row => row.connection_id === connectionId && row.generation === connectionGeneration).map(row => {
+                    const parsed = connectionSchema.safeParse(row);
+                    return parsed.success ? <SubscriptionLimits key={`${row.connection_id}:${row.generation}`} flowId="" accounts={[parsed.data]} /> : <p>Account unavailable. Open Settings to reconnect.</p>;
+                  })}
+                </section>
+              )}
+              {!waiting && !usageOpen &&
                 (!selected || (detail && !detail.messages.length)) && (
                   <Welcome
                     selected={selected}

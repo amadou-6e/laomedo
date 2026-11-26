@@ -127,4 +127,4 @@ Subscription limits refresh when the panel opens and every 10 seconds while moun
 
 Quota failures use a separated Settings notice with a status icon, title, readable recovery copy and the shared outlined action style; external recovery actions follow the message rather than preceding it.
 
-Assistant OpenCode `/usage` opens an account-bound usage dialog using SubscriptionLimits. A profile-owned limits endpoint applies the same origin, lease and generation fences without requiring a graph. This is a UI operation, never a model prompt or a fabricated ACP command.
+Assistant OpenCode `/usage` shows an inline, dismissible account-bound usage result in the chat transcript using SubscriptionLimits. A profile-owned limits endpoint applies the same origin, lease and generation fences without requiring a graph. It uses the existing inline status visual language and identifies the action as Laomedo-owned. This is a UI operation, never a model prompt or a fabricated ACP command.
