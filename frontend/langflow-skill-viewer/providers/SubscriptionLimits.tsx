@@ -281,7 +281,7 @@ function AccountLimits({
               <CircleAlert size={20} className="pc-quota-notice-icon" aria-hidden="true" />
               <div className="pc-quota-notice-content">
                 <h3>{quotaFailure?.title || "Limits temporarily unavailable"}</h3>
-                <p>{observation?.reason === "not_entitled" ? "Check this key?s Go subscription in OpenCode Console." : failure ||
+                <p>{observation?.reason === "not_entitled" ? "Check the Go subscription for this key in OpenCode Console." : failure ||
                 (observation?.reason === "busy"
                   ? "Account is busy. Try again when its run finishes."
                   : quotaFailure
