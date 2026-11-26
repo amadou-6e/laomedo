@@ -357,18 +357,23 @@ class WorkflowConfiguration:
         nodes = {
             node.get("id"): node
             for node in (data or {}).get("nodes", [])
-            if isinstance(node, dict)
+            if isinstance(node, dict) and isinstance(node.get("id"), str)
         }
         for edge in (data or {}).get("edges", []):
             if not isinstance(edge, dict):
                 continue
             details = edge.get("data") or {}
             handle = details.get("targetHandle") if isinstance(details, dict) else None
-            target = nodes.get(edge.get("target"), {})
+            target_id = edge.get("target")
+            if not isinstance(target_id, str):
+                raise AssistantError("assistant_input_invalid", 422)
+            target = nodes.get(target_id, {})
+            target_data = target.get("data")
             if (
                 isinstance(handle, dict)
                 and handle.get("fieldName") == "verified_changes"
-                and target.get("data", {}).get("type") == "LaomedoClaudeAgent"
+                and isinstance(target_data, dict)
+                and target_data.get("type") == "LaomedoClaudeAgent"
             ):
                 raise AssistantError("verified_review_isolation_unavailable", 409)
         for node in (data or {}).get("nodes", []):
@@ -613,7 +618,11 @@ class WorkflowConfiguration:
                 continue
             details = edge.get("data")
             handle = details.get("targetHandle") if isinstance(details, dict) else None
-            if isinstance(handle, dict):
+            if (
+                isinstance(handle, dict)
+                and isinstance(edge.get("target"), str)
+                and isinstance(handle.get("fieldName"), str)
+            ):
                 connected.add((edge.get("target"), handle.get("fieldName")))
         from laomedo.integrations.langflow.assistant.graph import GraphEditor
         from laomedo.integrations.langflow.assistant.models import GraphConnection

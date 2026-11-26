@@ -448,6 +448,9 @@ class ConfigurationTests(unittest.IsolatedAsyncioTestCase):
             AssistantError, "verified_review_isolation_unavailable"
         ):
             await self.configuration.check_graph(self.context, workflows.catalog, data)
+        data["edges"][0]["target"] = []
+        with self.assertRaisesRegex(AssistantError, "assistant_input_invalid"):
+            await self.configuration.check_graph(self.context, workflows.catalog, data)
         self.runtime.models.assert_not_awaited()
 
     async def test_protected_endpoints_and_unknown_fields_remain_denied(self):
