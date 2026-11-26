@@ -35,7 +35,7 @@ try:
     key = sys.stdin.buffer.read(8193).decode('utf-8')
     if not key or len(key.encode()) > 8192 or '\r' in key or '\n' in key:
         sys.exit(1)
-    request = Request(sys.argv[1], headers={'Authorization': 'Bearer ' + key, 'Accept': 'application/json'}, method='GET')
+    request = Request(sys.argv[1], headers={'Authorization': 'Bearer ' + key, 'Accept': 'application/json', 'User-Agent': 'laomedo/0.1'}, method='GET')
     with build_opener(ProxyHandler({}), NoRedirect()).open(request, timeout=float(sys.argv[3])) as response:
         if response.status != 200:
             sys.exit(1)

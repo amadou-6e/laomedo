@@ -25,6 +25,7 @@ class GoUsageHandler(BaseHTTPRequestHandler):
         self.server.observed.append(
             (self.command, self.path, self.headers.get("Authorization"))
         )
+        self.server.user_agent = self.headers.get("User-Agent")
         self.send_response(self.server.status)
         self.send_header("Location", "/must-not-follow")
         self.end_headers()
@@ -132,6 +133,7 @@ class GoQuotaTests(unittest.TestCase):
         server = self.start_server()
         result = self.quota.read()
         self.assertEqual(result.submitted_turns, 0)
+        self.assertEqual(server.user_agent, "laomedo/0.1")
         self.assertEqual(server.observed, [("GET", "/usage", "Bearer " + self.key)])
 
     def test_redirect_never_forwards_the_key(self):
