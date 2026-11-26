@@ -122,3 +122,5 @@ values never imply a replenishment. `api.ts` validates the canonical safe respon
 and rejects an unexpected account/generation or nonzero submitted-turn count.
 Provider-specific wire payloads remain outside rendering. PC-09 and P13-P16/Q0-Q5
 in the canonical provider workshop own behavior, including narrow layout.
+
+Before any observation exists, show a labelled **Check limits** action rather than an unexplained Not checked badge. Opening a tab still reads cache only. A Go entitlement refusal is labelled **Go access required**, with a direct OpenCode Console recovery link; it does not imply exhausted allowance or change the saved connection.

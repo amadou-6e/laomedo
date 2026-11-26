@@ -157,6 +157,8 @@ function AccountLimits({
     (observation?.snapshot &&
       observation.stale_after !== null &&
       now / 1000 >= observation.stale_after);
+  const firstCheck = !observation?.snapshot;
+  const actionLabel = firstCheck ? "Check limits" : "Refresh limits";
   const status = !supported
     ? "Not available"
     : !eligible
@@ -166,9 +168,9 @@ function AccountLimits({
         : stale
           ? "Out of date"
           : observation?.state === "unavailable" || failure
-            ? "Unavailable"
+            ? (observation?.reason === "not_entitled" ? "Go access required" : "Could not check")
             : !observation?.snapshot
-              ? "Not checked"
+              ? ""
               : "";
   return (
     <li className="pc-quota-account">
@@ -181,9 +183,9 @@ function AccountLimits({
           {supported && (
             <Button
               variant="ghost"
-              size="icon"
-              aria-label={`Refresh limits for ${account.label}`}
-              title={`Refresh limits for ${account.label}`}
+              size={firstCheck ? "sm" : "icon"}
+              aria-label={`${actionLabel} for ${account.label}`}
+              title={`${actionLabel} for ${account.label}`}
               disabled={busy || !eligible}
               onClick={() => void load(true)}
             >
@@ -192,6 +194,7 @@ function AccountLimits({
                 className={busy ? "animate-spin" : undefined}
                 aria-hidden="true"
               />
+              {firstCheck && <span className="ml-2">{busy ? "Checking?" : "Check limits"}</span>}
             </Button>
           )}
         </div>
@@ -247,6 +250,11 @@ function AccountLimits({
                 </section>
               ))}
             </div>
+          )}
+          {observation?.reason === "not_entitled" && (
+            <a href="https://opencode.ai/console" target="_blank" rel="noopener noreferrer" className="underline underline-offset-4">
+              Open OpenCode Console
+            </a>
           )}
           {observation?.observed_at !== null &&
             observation?.observed_at !== undefined && (

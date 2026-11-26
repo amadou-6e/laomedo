@@ -90,14 +90,14 @@ afterEach(() => jest.useRealTimers());
 
 test("mount reads cache only; explicit refresh renders native buckets, over-limit and separate credits", async () => {
   render(<SubscriptionLimits flowId="graph-one" accounts={[account]} />);
-  await screen.findByText("Not checked");
+  await screen.findByRole("button", { name: /Check limits for/ });
   expect(readSubscriptionLimits).toHaveBeenCalledTimes(1);
   expect((readSubscriptionLimits as jest.Mock).mock.calls[0][3].refresh).toBe(
     false,
   );
   (readSubscriptionLimits as jest.Mock).mockResolvedValueOnce(ready);
   fireEvent.click(
-    screen.getByRole("button", { name: "Refresh limits for Personal Codex" }),
+    screen.getByRole("button", { name: "Check limits for Personal Codex" }),
   );
   await screen.findByText("75% remaining");
   expect(screen.getByText("0% remaining")).toBeInTheDocument();
@@ -148,8 +148,8 @@ test("Go key custody permits explicit quota with all three meters", async () => 
   ] }] } };
   (readSubscriptionLimits as jest.Mock).mockResolvedValueOnce(empty).mockResolvedValueOnce(monthly);
   render(<SubscriptionLimits flowId="graph-one" accounts={[go]} />);
-  await screen.findByText("Not checked");
-  const refresh = screen.getByRole("button", { name: "Refresh limits for Personal Go" });
+  await screen.findByRole("button", { name: /Check limits for/ });
+  const refresh = screen.getByRole("button", { name: "Check limits for Personal Go" });
   expect(refresh).toBeEnabled();
   fireEvent.click(refresh);
   await screen.findByText("Monthly window");
@@ -170,6 +170,10 @@ test.each([
   render(<SubscriptionLimits flowId="graph-one" accounts={[go]} />);
   expect(await screen.findByRole("alert")).toHaveTextContent(message);
   expect(screen.queryByRole("meter")).not.toBeInTheDocument();
+  if (reason === "not_entitled") {
+    expect(screen.getByText("Go access required")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Open OpenCode Console" })).toHaveAttribute("href", "https://opencode.ai/console");
+  }
   expect(screen.getByRole("button")).toBeEnabled();
 });
 
@@ -191,7 +195,7 @@ test("Claude uses the same explicit-refresh allowance panel", async () => {
     });
   render(<SubscriptionLimits flowId="graph-one" accounts={[claude]} />);
   await waitFor(() => expect(readSubscriptionLimits).toHaveBeenCalledTimes(1));
-  fireEvent.click(screen.getByRole("button", { name: "Refresh limits for Personal Claude" }));
+  fireEvent.click(screen.getByRole("button", { name: "Check limits for Personal Claude" }));
   await screen.findByText("75% remaining");
   expect(screen.getByText("Claude")).toBeInTheDocument();
   expect(screen.queryByText("model-opaque-identifier")).not.toBeInTheDocument();
@@ -240,7 +244,7 @@ test("late account results cannot appear after account and graph selection chang
     connection_id: other.connection_id,
   });
   view.rerender(<SubscriptionLimits flowId="graph-two" accounts={[other]} />);
-  await screen.findByText("Not checked");
+  await screen.findByRole("button", { name: /Check limits for/ });
   await act(async () => {
     finish(ready);
   });
@@ -268,7 +272,7 @@ test("late old-generation results cannot appear on a reconnected account", async
       accounts={[{ ...account, generation: 2 }]}
     />,
   );
-  await screen.findByText("Not checked");
+  await screen.findByRole("button", { name: /Check limits for/ });
   await act(async () => {
     finish(ready);
   });
