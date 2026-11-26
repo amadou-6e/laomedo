@@ -15,6 +15,7 @@ from types import SimpleNamespace
 from laomedo.agents.connections.controllers import ProviderControllers
 from laomedo.agents.connections.errors import ProviderConnectionError
 from laomedo.agents.connections.models import ConnectionRecord
+from laomedo.agents.connections.models import ControllerSlot
 from laomedo.agents.connections.service import ProviderConnections
 from laomedo.agents.errors import RunnerError
 from laomedo.agents.workspaces.models import WorkspaceChanges
@@ -166,6 +167,69 @@ class ProviderControllerTests(unittest.TestCase):
         with self.assertRaises(ProviderConnectionError):
             self.manager.workspace_changes(self.profile, record["run_id"])
         self.assertEqual(slot.operations, 0)
+
+    def test_verified_review_grant_is_bound_single_use_and_rechecked(self):
+        endpoint = self.manager.endpoint(self.profile, self.one)
+        record = self.post(endpoint[0], "/v1/runs/async", {"task": "fixture"})
+        slot = self.manager.slots[(self.profile, self.one, 1, "graph")]
+        source = WorkspaceChanges(
+            run_id=record["run_id"],
+            source_hash="source",
+            post_run_hash="after",
+            patch_hash="patch",
+            patch="actual change",
+        )
+        slot.runner.workspace_changes = Mock(return_value=source)
+        self.records[1] = self.records[1].model_copy(update={"provider": "claude"})
+        self.service._save(self.profile, self.records)
+        target = ControllerSlot(
+            scope="graph",
+            profile_id=self.profile,
+            connection_id=self.two,
+            generation=1,
+            state=slot.state,
+            runner=Mock(),
+            creating=False,
+        )
+        request_id = str(uuid4())
+        body = {
+            "request_id": request_id,
+            "task": "Review this",
+            "model": "m",
+            "effort": "low",
+            "skill_refs": [],
+        }
+        token = self.manager.stage_verified_review(
+            self.profile,
+            "lease",
+            record["run_id"],
+            self.two,
+            1,
+            request_id,
+            body["task"],
+        )
+        with self.manager.admit_verified_review(token, target, body) as (
+            admitted,
+            provenance,
+        ):
+            self.assertIn("actual change", admitted["task"])
+            self.assertEqual(provenance["source_run"], record["run_id"])
+        with self.assertRaises(ProviderConnectionError):
+            with self.manager.admit_verified_review(token, target, body):
+                pass
+        token = self.manager.stage_verified_review(
+            self.profile,
+            "lease",
+            record["run_id"],
+            self.two,
+            1,
+            request_id,
+            body["task"],
+        )
+        self.service.cancel_lease("lease")
+        with self.assertRaises(ProviderConnectionError):
+            with self.manager.admit_verified_review(token, target, body):
+                pass
 
     def test_restart_recovers_assistant_scope_without_a_graph_controller(self):
         self.manager.assistant_endpoint(self.profile, self.one, 1)

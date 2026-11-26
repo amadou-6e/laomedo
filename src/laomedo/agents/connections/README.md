@@ -44,6 +44,11 @@ Its internal `workspace_changes(profile_id, run_id)` resolves exactly one graph
 run owned by the profile, checks the current connection generation, and returns
 its private snapshot-bound changes only while the connection remains admitted.
 This host-only observation does not authorize a graph or reviewer dispatch.
+The internal verified-review grant holds only owner/session, exact source and
+reviewer generations, run identity, snapshot and patch digests, request identity
+and instruction digest. Admission is single-use and must hold the lifecycle lock
+until the runner reserves the request; it rederives changes and constructs the
+review task from host bytes. No patch or credential is stored in the grant.
 Saved admission facades borrow or check only that exact connection; no active-account
 fallback or host-login copying exists. Runtime HTTP gateways remain host-owned.
 

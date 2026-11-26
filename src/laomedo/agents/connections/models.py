@@ -17,6 +17,25 @@ class OwnedWorkspaceChanges(BaseModel):
     changes: WorkspaceChanges = Field(repr=False)
 
 
+class VerifiedReviewGrant(BaseModel):
+    """Ephemeral host-only admission bindings; never includes source content."""
+
+    model_config = ConfigDict(strict=True, frozen=True, extra="forbid")
+    profile_id: UUID
+    lease_hash: str = Field(repr=False, exclude=True)
+    source_connection: UUID
+    source_generation: int
+    source_run: str
+    source_hash: str
+    post_run_hash: str
+    patch_hash: str
+    target_connection: UUID
+    target_generation: int
+    request_id: str
+    instruction_hash: str
+    expires_at: float
+
+
 class ConnectionRecord(BaseModel):
     """Host-only metadata committed after authenticated identity verification."""
 
