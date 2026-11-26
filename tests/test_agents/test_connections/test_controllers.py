@@ -155,6 +155,10 @@ class ProviderControllerTests(unittest.TestCase):
         self.assertEqual(value.generation, 1)
         self.assertEqual(value.changes, projection)
         self.assertEqual(slot.operations, 0)
+        slot.runner.pending.append({"run_id": record["run_id"]})
+        with self.assertRaises(ProviderConnectionError):
+            self.manager.workspace_changes(self.profile, record["run_id"])
+        slot.runner.pending.clear()
         with self.assertRaises(ProviderConnectionError):
             self.manager.workspace_changes(uuid4(), record["run_id"])
         self.records[0] = self.records[0].model_copy(update={"generation": 2})

@@ -309,11 +309,20 @@ class ProviderControllers:
             if len(matches) != 1 or matches[0].runner is None:
                 raise ProviderConnectionError("provider_connection_unavailable")
             slot = matches[0]
+            if slot.runner.has_live_session(run_id) or any(
+                item.get("run_id") == run_id for item in slot.runner.pending_resumes()
+            ):
+                raise ProviderConnectionError("provider_run_not_settled")
             self.admit_operation(slot)
         try:
             changes = slot.runner.workspace_changes(run_id)
             with self.service._lock:
                 self.service.admitted(profile_id, slot.connection_id, slot.generation)
+                if slot.runner.has_live_session(run_id) or any(
+                    item.get("run_id") == run_id
+                    for item in slot.runner.pending_resumes()
+                ):
+                    raise ProviderConnectionError("provider_run_not_settled")
                 return OwnedWorkspaceChanges(
                     connection_id=slot.connection_id,
                     generation=slot.generation,
