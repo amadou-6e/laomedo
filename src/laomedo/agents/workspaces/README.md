@@ -32,7 +32,7 @@ to call either function. The shared Git runner remains their native process owne
 | --- | --- |
 | `AgentWorkspace.prepare(canonical, *, git)` | Prepare the run directory and canonical snapshot; return WorkspaceSnapshot. Git mode preserves admitted history; directory mode copies admitted files. |
 | Workspace filesystem failures | Report `workspace_access_failed` without exposing private paths; no incomplete source snapshot is accepted. |
-| `verified_changes(canonical, post_run, *, source_hash, post_run_hash)` | Recheck both snapshot hashes before and after producing a deterministic bounded text patch. Refuse protected paths, binary files and oversized changes. |
+| `verified_changes(canonical, post_run, *, source_hash, post_run_hash, imported_artifacts)` | Recheck snapshot hashes before and after a deterministic patch; refuse imports, directory or mode changes, protected paths, binary files and oversized changes. Snapshot hashes cover names and content, not file modes. |
 | `AgentWorkspace.prepare_git()` | Admit a clean trusted repository root, clone independent objects, detach its observed baseline and remove remotes. |
 | `initialize(workspace)` | Refuse pre-existing Git metadata; create the existing independent baseline through GitRepository/GitCommandRunner. Never copy host Git metadata or hooks. |
 | `remove_owned_tree(path, state)` | Refuse the state root, an outside path or a linked target; retain existing read-only-file retry admission and removal behavior. |

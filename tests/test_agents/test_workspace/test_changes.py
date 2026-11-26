@@ -20,14 +20,22 @@ class VerifiedChangesTests(unittest.TestCase):
             (after / "example.py").write_text("value = 2\n", encoding="utf-8")
             source_hash, post_run_hash = _hash_tree(before), _hash_tree(after)
             patch = verified_changes(
-                before, after, source_hash=source_hash, post_run_hash=post_run_hash
+                before,
+                after,
+                source_hash=source_hash,
+                post_run_hash=post_run_hash,
+                imported_artifacts=[],
             )
             self.assertIn("-value = 1", patch)
             self.assertIn("+value = 2", patch)
             (after / "example.py").write_text("tampered\n", encoding="utf-8")
             with self.assertRaisesRegex(RunnerError, "workspace_snapshot_mismatch"):
                 verified_changes(
-                    before, after, source_hash=source_hash, post_run_hash=post_run_hash
+                    before,
+                    after,
+                    source_hash=source_hash,
+                    post_run_hash=post_run_hash,
+                    imported_artifacts=[],
                 )
 
     def test_protected_and_binary_changes_are_refused(self):
@@ -47,4 +55,34 @@ class VerifiedChangesTests(unittest.TestCase):
                         after,
                         source_hash=_hash_tree(before),
                         post_run_hash=_hash_tree(after),
+                        imported_artifacts=[],
                     )
+
+    def test_no_newline_and_directory_or_imported_changes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            before, after = root / "before", root / "after"
+            before.mkdir()
+            after.mkdir()
+            (before / "a.txt").write_bytes(b"before")
+            (after / "a.txt").write_bytes(b"after")
+            (after / "b.txt").write_text("second\n", encoding="utf-8")
+            kwargs = {
+                "source_hash": _hash_tree(before),
+                "post_run_hash": _hash_tree(after),
+                "imported_artifacts": [],
+            }
+            patch = verified_changes(before, after, **kwargs)
+            self.assertIn("+after\n\\ No newline at end of file\nFile: b.txt", patch)
+            with self.assertRaisesRegex(
+                RunnerError, "workspace_changes_imports_unsupported"
+            ):
+                verified_changes(
+                    before, after, **{**kwargs, "imported_artifacts": [{}]}
+                )
+            (after / "new-directory").mkdir()
+            kwargs["post_run_hash"] = _hash_tree(after)
+            with self.assertRaisesRegex(
+                RunnerError, "workspace_changes_directories_unsupported"
+            ):
+                verified_changes(before, after, **kwargs)
