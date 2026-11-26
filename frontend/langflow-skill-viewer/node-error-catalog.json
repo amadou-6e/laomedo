@@ -169,6 +169,11 @@
     "description": "The source run or review connection is unavailable or has changed.",
     "recovery": "Check the source run and selected account, then try again."
   },
+  "verified_review_isolation_unavailable": {
+    "title": "Review is not available yet",
+    "description": "The secure review service is not available in this installation.",
+    "recovery": "Wait until secure review is available before connecting workspace changes."
+  },
   "workspace_changes_empty": {
     "title": "There are no changes to review",
     "description": "The connected run did not make any workspace edits.",

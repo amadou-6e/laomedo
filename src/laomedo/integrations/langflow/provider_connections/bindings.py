@@ -2,7 +2,6 @@
 
 from uuid import UUID
 from contextvars import ContextVar
-from urllib.parse import urlsplit
 
 from laomedo.agents.connections.controllers import ProviderControllers
 from laomedo.agents.connections.errors import ProviderConnectionError
@@ -63,29 +62,8 @@ class ProviderGraphBindings:
 
     @classmethod
     def stage_review(cls, component, source_run, body):
-        """Bind a graph review to its authenticated owner, target and exact request."""
-        owner = cls.owner(component)
-        session = cls.session.get()
-        endpoint = getattr(component, "_saved_endpoint", None)
-        if session is None or not endpoint or session.profile_id != owner:
-            raise ProviderConnectionError("verified_review_unavailable")
-        port = urlsplit(endpoint[0]).port
-        manager = ProviderControllers.current()
-        with cls.service._lock:
-            matches = [
-                slot
-                for slot in manager.slots.values()
-                if slot.profile_id == owner
-                and slot.scope == "graph"
-                and slot.server is not None
-                and slot.server.server_address[1] == port
-            ]
-            if len(matches) != 1:
-                raise ProviderConnectionError("verified_review_unavailable")
-            target = matches[0]
-        return manager.stage_review_request(
-            owner, session.lease_hash, source_run, target, body
-        )
+        """Refuse graph review until an isolated authority is available."""
+        raise ProviderConnectionError("verified_review_isolation_unavailable")
 
     @classmethod
     def endpoint(cls, component, selected, *, run_id=None):

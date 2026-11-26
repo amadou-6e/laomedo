@@ -18,10 +18,10 @@ selector. Anonymous, API-key, shared foreign-owner and revoked-lease paths fail
 closed. `ProviderSessionBoundary._session()` verifies the cookie principal before
 setting request-local context; it never takes a graph-supplied profile ID. Native
 worker-thread context propagation is tested separately from real graph acceptance.
-`stage_review()` checks that same owner and session, resolves the exact saved
-Claude runner, and stages a one-use host grant for the requested source run and
-complete review request. It returns an opaque grant and the expected request
-digest for cancellation reconciliation; it does not expose the patch.
+`stage_review()` refuses graph requests until an isolated review authority is
+available. The existing same-process controllers cannot protect a grant or
+retained patch from arbitrary graph Python, so they must not be used as that
+authority. Host-only staging remains available for isolated-boundary development.
 
 Disconnect inspection returns the affected active-run count and admission
 revision. Confirmation fences the exact connection; a stale snapshot must be

@@ -3,7 +3,6 @@
 import asyncio
 from contextlib import asynccontextmanager
 import unittest
-import threading
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 from uuid import uuid4
@@ -79,49 +78,11 @@ class ProviderBindingTests(unittest.IsolatedAsyncioTestCase):
         self.addCleanup(set_current_auth_context, previous)
         set_current_auth_context(AuthCredentialContext(method="jwt"))
 
-    def test_verified_review_staging_binds_session_owner_slot_and_request(self):
-        connection = uuid4()
-        source_run = str(uuid4())
-        slot = SimpleNamespace(
-            profile_id=self.profile,
-            scope="graph",
-            server=SimpleNamespace(server_address=("127.0.0.1", 1234)),
-            connection_id=connection,
-            generation=1,
-        )
-        manager = Mock(slots={"target": slot})
-        manager.stage_review_request.return_value = ("grant", "sha256:identity")
-        service = ProviderGraphBindings.service
-        service._lock = threading.RLock()
-        session = SimpleNamespace(profile_id=self.profile, lease_hash="lease")
-        context = ProviderGraphBindings.session.set(session)
-        body = {
-            "request_id": str(uuid4()),
-            "task": "Review",
-            "model": "m",
-            "effort": "low",
-            "skill_refs": [],
-        }
-        try:
-            with patch(
-                "laomedo.integrations.langflow.provider_connections.bindings.ProviderControllers.current",
-                return_value=manager,
-            ):
-                token, digest = ProviderGraphBindings.stage_review(
-                    SimpleNamespace(
-                        user_id=self.profile,
-                        _saved_endpoint=("http://127.0.0.1:1234", "token"),
-                    ),
-                    source_run,
-                    body,
-                )
-            self.assertEqual(token, "grant")
-            self.assertTrue(digest.startswith("sha256:"))
-            manager.stage_review_request.assert_called_once_with(
-                self.profile, "lease", source_run, slot, body
-            )
-        finally:
-            ProviderGraphBindings.session.reset(context)
+    def test_verified_review_is_unavailable_without_an_isolated_authority(self):
+        with self.assertRaisesRegex(
+            ProviderConnectionError, "verified_review_isolation_unavailable"
+        ):
+            ProviderGraphBindings.stage_review(None, "source", {})
 
     async def test_graph_default_is_used_only_without_explicit_node_override(self):
         """The authenticated owner and graph select a default; an explicit node wins."""

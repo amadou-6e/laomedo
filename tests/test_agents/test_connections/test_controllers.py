@@ -312,27 +312,11 @@ class ProviderControllerTests(unittest.TestCase):
             "effort": "low",
             "skill_refs": [],
         }
-        from laomedo.integrations.langflow.provider_connections.bindings import (
-            ProviderGraphBindings,
-        )
         from laomedo.agents.mcp.client import McpAccess
 
-        session = ProviderGraphBindings.session.set(
-            SimpleNamespace(profile_id=self.profile, lease_hash="lease")
+        grant, expected_hash = self.manager.stage_review_request(
+            self.profile, "lease", source_run["run_id"], target, body
         )
-        try:
-            with (
-                patch.object(ProviderGraphBindings, "service", self.service),
-                patch.object(ProviderGraphBindings, "owner", return_value=self.profile),
-                patch.object(ProviderControllers, "current", return_value=self.manager),
-            ):
-                grant, expected_hash = ProviderGraphBindings.stage_review(
-                    SimpleNamespace(_saved_endpoint=target_endpoint),
-                    source_run["run_id"],
-                    body,
-                )
-        finally:
-            ProviderGraphBindings.session.reset(session)
 
         def dispatch():
             request = Request(
