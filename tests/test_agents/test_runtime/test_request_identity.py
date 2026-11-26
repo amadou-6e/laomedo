@@ -177,6 +177,15 @@ class EarlyRunnerTests(unittest.TestCase):
                 {**body, "github_authorization_ref": "unapproved"},
                 verified_review=provenance,
             )
+        with self.assertRaisesRegex(
+            RunnerError, "verified_review_resume_not_supported"
+        ):
+            self.runner.resume_async(first["run_id"], {})
+        with self.assertRaisesRegex(
+            RunnerError, "verified_review_resume_not_supported"
+        ):
+            with self.runner.resume_guard(first["run_id"]):
+                pass
         self.runner.cancel(first["run_id"])
         gate.set()
 

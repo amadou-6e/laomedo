@@ -162,6 +162,7 @@ class ResumeDispatchTests(unittest.TestCase):
         self.addCleanup(gate.set)
         self.dispatcher.submit(self.run_id, self.body, response_gate=gate)
         other = Mock(state=self.runner.state, instance_id=str(uuid4()))
+        other.status.return_value = self.runner.status(self.run_id)
         other._mcp_manifest.return_value = None
         observed = ResumeDispatcher(other).submit(self.run_id, self.body)
         self.assertEqual(observed["status"], "unknown")

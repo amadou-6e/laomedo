@@ -221,6 +221,8 @@ class ClaudeAgent(BaseAgent):
         ):
             raise RunnerError("claude_turn_timeout_invalid")
         record = self.status(run_id)
+        if record.get("verified_review") is not None:
+            raise RunnerError("verified_review_resume_not_supported")
         root = self._run_dir(run_id)
         if (
             record.get("provider") != self.provider

@@ -30,7 +30,8 @@ class ResumeDispatcher:
     def submit(self, run_id, body, *, response_gate=None):
         """Reserve exactly once, then return an observable asynchronous attempt."""
         _id(run_id)
-        self.runner.status(run_id)
+        if self.runner.status(run_id).get("verified_review") is not None:
+            raise RunnerError("verified_review_resume_not_supported")
         try:
             request = ResumeDispatchRequest.model_validate(body)
         except ValidationError:
@@ -120,6 +121,8 @@ class ResumeDispatcher:
     def synchronous(self, run_id, attempt_id=None):
         """Share atomic per-run admission with the existing synchronous HTTP path."""
         _id(run_id)
+        if self.runner.status(run_id).get("verified_review") is not None:
+            raise RunnerError("verified_review_resume_not_supported")
         attempt = attempt_id or str(uuid4())
         _id(attempt)
         with self._connection() as connection:
