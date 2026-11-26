@@ -126,3 +126,5 @@ in the canonical provider workshop own behavior, including narrow layout.
 Subscription limits refresh when the panel opens and every 10 seconds while mounted. Polls do not overlap; closing the panel cancels the request and timer. The manual refresh control remains icon-only. Go access refusals link to OpenCode Console without changing the saved connection.
 
 Quota failures use a separated Settings notice with a status icon, title, readable recovery copy and the shared outlined action style; external recovery actions follow the message rather than preceding it.
+
+Assistant OpenCode `/usage` opens an account-bound usage dialog using SubscriptionLimits. A profile-owned limits endpoint applies the same origin, lease and generation fences without requiring a graph. This is a UI operation, never a model prompt or a fabricated ACP command.

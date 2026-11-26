@@ -134,6 +134,23 @@ def install_provider_routes(app, service, authenticate, *, origin: str):
             ).model_dump(mode="json")
         )
 
+    @app.post(prefix + "/limits/{connection_id}")
+    async def account_limits(
+        connection_id: UUID,
+        request: Request,
+        payload: SubscriptionRequest,
+        user=Depends(authenticate),
+    ):
+        """Observe only the signed-in owner's exact saved account, without a graph."""
+        lease = session_lease(request, service)
+        if request.headers.get("origin") != origin:
+            raise HTTPException(403, detail={"code": "provider_request_refused"})
+        return await respond(
+            lambda: service.subscriptions.refresh(
+                user.id, connection_id, payload.generation, lease
+            ).model_dump(mode="json")
+        )
+
     @app.put(prefix + "/graphs/{flow_id}")
     async def save_graph_preferences(
         flow_id: UUID,

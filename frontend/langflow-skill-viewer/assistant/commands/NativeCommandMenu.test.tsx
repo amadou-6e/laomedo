@@ -130,3 +130,11 @@ test("previews supported Codex commands before a session without granting execut
   expect(screen.getByRole("button", {name: /logout/})).not.toBeDisabled();
   expect(assistantRequest).not.toHaveBeenCalled();
 });
+
+test("OpenCode usage is available before native startup without a model command", () => {
+  const select = jest.fn();
+  render(<NativeCommandMenu conversation="" provider="opencode" text="/usa" onSelect={select} onClose={() => {}} />);
+  fireEvent.click(screen.getByRole("button", { name: /usage/ }));
+  expect(select).toHaveBeenCalledWith("/usage ");
+  expect(assistantRequest).not.toHaveBeenCalled();
+});

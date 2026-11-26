@@ -62,6 +62,42 @@ class ProviderRouteTests(unittest.TestCase):
         self.client.cookies.set("access_token_lf", "fixture-session")
         self.headers = {"Origin": "http://127.0.0.1:17867"}
 
+    def test_account_quota_route_uses_owner_generation_and_cookie_lease(self):
+        """Chat quota requires the browser owner and refuses foreign-origin reads."""
+        identifier = uuid4()
+        path = f"/api/v1/laomedo/provider-connections/limits/{identifier}"
+        result = SimpleNamespace(model_dump=lambda **kwargs: {"state": "ready"})
+        with patch.object(
+            self.service.subscriptions, "refresh", return_value=result
+        ) as refresh:
+            response = self.client.post(
+                path, json={"generation": 2}, headers=self.headers
+            )
+            self.assertEqual(response.status_code, 200)
+            refresh.assert_called_once_with(
+                self.profile,
+                identifier,
+                2,
+                hashlib.sha256(b"fixture-session").hexdigest(),
+            )
+            refresh.reset_mock()
+            self.assertEqual(
+                self.client.post(
+                    path,
+                    json={"generation": 2},
+                    headers={"Origin": "https://foreign.invalid"},
+                ).status_code,
+                403,
+            )
+            self.client.cookies.clear()
+            self.assertEqual(
+                self.client.post(
+                    path, json={"generation": 2}, headers=self.headers
+                ).status_code,
+                401,
+            )
+            refresh.assert_not_called()
+
     def test_read_never_launches_login_and_foreign_writes_are_refused(self):
         """Listing is inert; cross-origin pages cannot initiate authentication."""
         with patch.object(self.service.codex, "begin") as begin:

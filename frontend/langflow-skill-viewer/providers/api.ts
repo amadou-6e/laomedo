@@ -263,7 +263,7 @@ export async function readSubscriptionLimits(
   generation: number,
   options: { refresh?: boolean; signal?: AbortSignal } = {},
 ): Promise<SubscriptionObservation> {
-  const path = `/graphs/${encodeURIComponent(flowId)}/limits/${encodeURIComponent(connectionId)}`;
+  const path = flowId ? `/graphs/${encodeURIComponent(flowId)}/limits/${encodeURIComponent(connectionId)}` : `/limits/${encodeURIComponent(connectionId)}`;
   const result = subscriptionObservationSchema.parse(
     await request(
       options.refresh ? path : `${path}?generation=${generation}`,

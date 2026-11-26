@@ -1,3 +1,7 @@
+import SubscriptionLimits from "@/components/laomedoProviders/SubscriptionLimits";
+import { connectionSchema } from "@/components/laomedoProviders/api";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import "@/components/laomedoProviders/providers.css";
 import useConversationExport from "./conversation/useConversationExport";
 import useSavedAccounts from "./composer/useSavedAccounts";
 import useModelDiscovery from "./composer/useModelDiscovery";
@@ -124,6 +128,7 @@ export default function AssistantPage({
   currentSelection.current = selected;
 
   useEffect(() => {
+    setUsageOpen(false);
     setRenaming(undefined);
     setTitleDraft("");
     setRenameError(false);
@@ -164,6 +169,7 @@ export default function AssistantPage({
 
   const { accounts, accountsLoading, accountsOwner, account, setAccount } =
     useSavedAccounts({ owner, locked, selected, chosenProvider, fail });
+  const [usageOpen, setUsageOpen] = useState(false);
   const boundAccount = selected
     ? detail?.conversation.id === selected
       ? detail.conversation
@@ -477,7 +483,11 @@ export default function AssistantPage({
   async function send(retry?: PendingSubmission) {
     if (!retry && appCommand && canUseAppCommand) {
       const nextDrafts = { ...drafts, [selected]: "" };
-      if (appCommand.action === "accounts") {
+      if (appCommand.action === "usage") {
+        setUsageOpen(true);
+        setDrafts(nextDrafts);
+        setCommandsDismissed(true);
+      } else if (appCommand.action === "accounts") {
         if (retainSettingsDraft(nextDrafts))
           window.location.assign("/settings/providers");
       } else if (conversation) {
@@ -879,7 +889,8 @@ export default function AssistantPage({
       !active &&
       !waiting &&
       !needsAttention &&
-      (appCommand.action !== "rename" || conversation),
+      (appCommand.action !== "rename" || conversation) &&
+      (appCommand.action !== "usage" || accounts.some(row => row.connection_id === connectionId && row.generation === connectionGeneration)),
   );
   const explanation =
     error || detail?.observation_error || conversation?.error_code;
@@ -997,6 +1008,15 @@ export default function AssistantPage({
             {headerActions}
           </div>
         </header>
+        <Dialog open={usageOpen && !locked} onOpenChange={setUsageOpen}>
+          <DialogContent>
+            <DialogHeader><DialogTitle>OpenCode usage</DialogTitle></DialogHeader>
+            {usageOpen && accounts.filter(row => row.connection_id === connectionId && row.generation === connectionGeneration).map(row => {
+              const parsed = connectionSchema.safeParse(row);
+              return parsed.success ? <SubscriptionLimits key={`${row.connection_id}:${row.generation}`} flowId="" accounts={[parsed.data]} /> : <p>Account unavailable. Open Settings to reconnect.</p>;
+            })}
+          </DialogContent>
+        </Dialog>
         {failure && (
           <div
             role="status"
