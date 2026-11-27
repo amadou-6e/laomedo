@@ -23,11 +23,11 @@ Claude reserves its external tab during that click, then navigates it only after
 the native client supplies a validated URL. Blocked popups retain a manual link.
 No mount, Refresh or polling operation creates an authentication tab.
 
-Codex uses app-owned Sign in with ChatGPT, Claude uses its native sign-in, and
+Codex uses the official native ChatGPT device sign-in, Claude uses its native sign-in, and
 OpenCode Go uses an explicit subscription key. No ambient-login or API-billing
-fallback is offered. A pending opaque attempt ID may survive same-tab native navigation;
-OAuth state, URLs and credentials never enter browser storage. Native completion
-returns to the original Settings origin. User-facing errors use the shared
+fallback is offered. A pending opaque attempt ID may survive a Settings reload;
+OAuth state, URLs and credentials never enter browser storage. Settings observes
+native completion and presents the verified account for confirmation. User-facing errors use the shared
 catalogue. Disconnect and consumer binding require the matching host runtime
 integration; do not present unavailable operations as working.
 
@@ -53,8 +53,18 @@ in `GraphTraces` under Traces, alongside the existing flow execution view. Prefe
 usage or changing selection never submits a model task.
 
 Subscription allowances are distinct from run tokens and estimated cost. The
-current ACP adapter has no account/rateLimits/read projection: show unavailable,
+Codex ACP adapter provides a bounded account/rateLimits/read projection; unsupported providers show unavailable,
 never infer remaining hourly/weekly/monthly allowances from run activity.
+
+Saved Codex connections use one official native ChatGPT sign-in for execution
+and quota. Sign in again stages a verified native account and requires explicit
+replacement confirmation while preserving the connection ID and graph selections.
+Claude reads limits through its existing native saved profile. OpenCode Go uses
+the saved execution key for one bounded read-only HTTPS usage request. Its rolling,
+weekly and calendar-month meters remain separate; monthly has no inferred minute
+duration. Authentication, entitlement and throttling refusals use safe shared
+catalogue messages and preserve the saved connection and any stale snapshot. No host login import
+or exported-token fallback is offered; fixture responses are not live acceptance.
 
 Graph settings follow GitHub Primer's plain, left-aligned settings sections:
 headings with dividers, bounded form widths and consistent vertical spacing.
@@ -102,3 +112,19 @@ as new connection. A Go save with an uncertain reply clears the key and pauses
 resubmission; Refresh shows the actual saved list without asserting success.
 Typed session/limit failures retain the shared catalogue recovery. Failed
 Disconnect confirmation rereads discard stale permission and return to details.
+## Live allowance (#300)
+
+`SubscriptionLimits.tsx` owns account-bound quota rows and native-window/credit
+presentation. `AccountLimits` refreshes on mount and every 10 seconds without overlapping requests,
+ignores aborted/superseded responses, and is keyed by graph/account/generation.
+`AllowanceWindow` renders only observed percentages/durations/reset times; stale
+values never imply a replenishment. `api.ts` validates the canonical safe response
+and rejects an unexpected account/generation or nonzero submitted-turn count.
+Provider-specific wire payloads remain outside rendering. PC-09 and P13-P16/Q0-Q5
+in the canonical provider workshop own behavior, including narrow layout.
+
+Subscription limits refresh when the panel opens and every 10 seconds while mounted. Polls do not overlap; closing the panel cancels the request and timer. The manual refresh control remains icon-only. Go access refusals link to OpenCode Console without changing the saved connection.
+
+Quota failures use a separated Settings notice with a status icon, title, readable recovery copy and the shared outlined action style; external recovery actions follow the message rather than preceding it.
+
+Assistant OpenCode `/usage` shows a single account-bound command result in the chat transcript using the same NativeUsage renderer as Claude. A profile-owned limits endpoint applies the same origin, lease and generation fences without requiring a graph. It has no refresh/close controls or Settings card; invoking the command again reads a new snapshot. It uses the existing inline status visual language and identifies the action as Laomedo-owned. This is a UI operation, never a model prompt or a fabricated ACP command.

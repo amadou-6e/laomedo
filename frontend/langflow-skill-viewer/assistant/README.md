@@ -346,3 +346,14 @@ collapse. Model labels omit the OpenCode Go prefix while retaining exact IDs at
 the selection, accessibility and provider boundaries.
 The Claude monochrome mark reuses the pinned upstream vector without its colored
 background tile; provider names remain available to screen readers.
+
+The assistant overlay installs after the local-profile overlay. Its logout hook
+locks assistant execution before the profile-aware auto-login guard, preserving
+server logout and profile-cookie expiry.
+
+Model discovery is a read-only native startup/teardown operation. The HTTP
+boundary allows up to 90 seconds for GET `/models`, including query parameters,
+while other requests retain the 20-second deadline. Caller cancellation still
+aborts immediately; requests and uncertain mutations are never retried.
+
+Composer account, model and Send/Stop controls wrap into separate rows when the chat column is narrow. The account chip stays within its allocated width so it cannot overlap the submit control, including with conversation history open.

@@ -1,3 +1,6 @@
+jest.mock("@/modals/graphAgents/components", () => ({ MessageMarkdown: ({text}: {text: string}) => <p>{text}</p> }));
+import { readSubscriptionLimits } from "@/components/laomedoProviders/api";
+jest.mock("@/components/laomedoProviders/api", () => ({ ...jest.requireActual("@/components/laomedoProviders/api"), readSubscriptionLimits: jest.fn() }));
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import AssistantPage from "./AssistantPage";
@@ -1014,4 +1017,30 @@ describe("uncertain assistant submission", () => {
     expect(screen.getByRole("button", {name: "Choose model and effort"})).toHaveTextContent("claude-fixture");
     expect(screen.getByRole("radio", {name: "Claude"})).toBeChecked();
   });
+});
+
+test("OpenCode /usage shows the bound saved account without model submission", async () => {
+  const id = "00000000-0000-4000-8000-000000000001";
+  const chat = {id: "go-chat", title: "Go", model: "fixture", effort: "default", provider: "opencode", connection_id: id, connection_generation: 2, state: "idle", active_message_id: null};
+  jest.mocked(readSubscriptionLimits).mockResolvedValue({connection_id: id, generation: 2, state: "not_checked", reason: null, observed_at: null, stale_after: null, snapshot: null});
+  jest.mocked(assistantRequest).mockImplementation(async path => {
+    if (path === "/connections") return {connections: [{connection_id: id, generation: 2, provider: "opencode", method: "opencode_go_key", label: "My Go", lifecycle: "connected", auth_state: "unavailable"}]};
+    if (path.startsWith("/models?")) return {provider: "opencode", models: []};
+    if (path === "/conversations") return {conversations: [chat], next_cursor: null};
+    return {conversation: chat, messages: [], drafts: [], next_cursor: null};
+  });
+  render(<MemoryRouter initialEntries={["/assistant?conversation=go-chat"]}><AssistantPage /></MemoryRouter>);
+  await screen.findByRole("heading", {name: "Go"});
+  const composer = screen.getByRole("textbox", {name: "Message this assistant"});
+  fireEvent.change(composer, {target: {value: "/usage"}});
+  await waitFor(() => expect(screen.getByRole("button", {name: "Send"})).toBeEnabled());
+  jest.mocked(assistantRequest).mockClear();
+  fireEvent.click(screen.getByRole("button", {name: "Send"}));
+  const usage = await screen.findByRole("region", {name: "OpenCode usage"});
+  expect(screen.queryByRole("button", {name: "Close usage"})).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", {name: /Refresh limits/})).not.toBeInTheDocument();
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  expect(screen.getByLabelText("Assistant messages and saved drafts")).toContainElement(usage);
+  await waitFor(() => expect(readSubscriptionLimits).toHaveBeenCalledWith("", id, 2, expect.objectContaining({refresh: true})));
+  expect(jest.mocked(assistantRequest).mock.calls.some(([, body]) => body)).toBe(false);
 });

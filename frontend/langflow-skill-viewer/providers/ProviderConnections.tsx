@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import LangflowLogo from "@/assets/LangflowLogo.svg?react";
 import ErrorExplanation from "@/components/laomedoErrors/ErrorExplanation";
 import { describeNodeFailure } from "@/components/laomedoErrors/nodeErrors";
-import { readClaudeAttempt, submitClaudeCode, saveGoConnection, beginLogin, cancelLogin, listConnections, readProgress, inspectDisconnect, disconnect, retryCleanup, ProviderFailure, type DisconnectInfo, type LoginProgress, type ProviderConnection } from "./api";
+import { readCodexAttempt, confirmCodexReplacement, readClaudeAttempt, submitClaudeCode, saveGoConnection, beginLogin, cancelLogin, listConnections, readProgress, inspectDisconnect, disconnect, retryCleanup, ProviderFailure, type DisconnectInfo, type LoginProgress, type ProviderConnection } from "./api";
 import openAiLogo from "./assets/openai-logo.svg";
 import openCodeLogoDark from "./assets/opencode-logo-dark.svg";
 import openCodeLogoLight from "./assets/opencode-logo-light.svg";
@@ -29,19 +29,22 @@ export default function ProviderConnections() {
   const [provider, setProvider] = useState("codex");
   const [nativeUrl, setNativeUrl] = useState<string | null>(null);
   const [nativeCode, setNativeCode] = useState("");
+  const [deviceCode, setDeviceCode] = useState<string | null>(null);
+  const [replacement, setReplacement] = useState<{ email: string; plan_type: string } | null>(null);
   const [claudeOpened, setClaudeOpened] = useState(false);
   const [goKey, setGoKey] = useState("");
   const [goLabel, setGoLabel] = useState("");
   const [goSaveUnconfirmed, setGoSaveUnconfirmed] = useState(false);
   const [attempt, setAttempt] = useState<LoginProgress>();
   const [busy, setBusy] = useState(false);
-  const [polling, setPolling] = useState(false);
-  const controlsBusy = busy || polling;
+  const [pollingBusy, setPolling] = useState(false);
+  const controlsBusy = busy || pollingBusy;
   const [removal, setRemoval] = useState<DisconnectInfo>();
   const [error, setError] = useState("");
   const surface = useRef<HTMLElement | null>(null);
   const epoch = useRef(0);
   const inFlight = useRef<number | null>(null);
+  const polling = useRef(false);
   const claudeTab = useRef<Window | null>(null);
 
   useEffect(() => {
@@ -68,15 +71,22 @@ export default function ProviderConnections() {
     if (document.scrollingElement) document.scrollingElement.scrollTop = 0;
   }, [screen]);
 
+  function admitAction() {
+    if (inFlight.current && !polling.current) return false;
+    if (polling.current) { ++epoch.current; inFlight.current = null; polling.current = false; setPolling(false); }
+    return true;
+  }
+
   async function refresh(background = false) {
     if (inFlight.current) return;
     const revision = ++epoch.current;
-    inFlight.current = revision;
+    inFlight.current = revision; polling.current = background;
     if (background) setPolling(true);
     else { setBusy(true); setError(""); }
     if (attempt?.code === "provider_save_unconfirmed") setScreen("pending");
     try {
-      const next = await listConnections();
+      const attemptOnly = background && screen === "pending" && rows !== undefined;
+      let next = attemptOnly ? rows : await listConnections();
       if (revision !== epoch.current) return;
       setRows(next);
       setSelected(current => next.find(row => row.connection_id === current?.connection_id));
@@ -95,9 +105,19 @@ export default function ProviderConnections() {
           if (revision !== epoch.current) return;
           progress = native.progress; setNativeUrl(native.authorization_url); setProvider("claude");
         }
+        if (progress.provider === "codex" && ["connecting", "verifying", "awaiting_confirmation"].includes(progress.status)) {
+          const native = await readCodexAttempt(id);
+          if (revision !== epoch.current) return;
+          progress = native.progress; setNativeUrl(native.authorization_url); setDeviceCode(native.user_code); setReplacement(native.replacement_account); setProvider("codex");
+        }
         setAttempt(progress);
-        if (["connecting", "verifying"].includes(progress.status)) setScreen("pending");
+        if (["connecting", "verifying", "awaiting_confirmation"].includes(progress.status)) setScreen("pending");
         else {
+          if (attemptOnly) {
+            next = await listConnections();
+            if (revision !== epoch.current) return;
+            setRows(next);
+          }
           sessionStorage.removeItem(pendingKey);
           if (progress.code !== "provider_save_unconfirmed") {
             window.history.replaceState(null, "", "/settings/providers");
@@ -124,9 +144,8 @@ export default function ProviderConnections() {
         } else if (attempt?.code === "provider_save_unconfirmed") setScreen("failure");
       }
     } finally {
-      if (inFlight.current === revision) inFlight.current = null;
-      if (!background && revision === epoch.current) setBusy(false);
-      if (background && revision === epoch.current) setPolling(false);
+      if (inFlight.current === revision) { inFlight.current = null; polling.current = false; }
+      if (revision === epoch.current) { setBusy(false); setPolling(false); }
     }
   }
 
@@ -150,7 +169,7 @@ export default function ProviderConnections() {
     if (screen !== "pending") return;
     const timer = window.setInterval(() => { void refresh(true); }, 1500);
     return () => window.clearInterval(timer);
-  }, [screen, attempt?.attempt_id]);
+  }, [screen, attempt?.attempt_id, attempt?.status]);
 
   useEffect(() => {
     if (screen !== "removing" || selected?.lifecycle !== "disconnecting") return;
@@ -159,7 +178,7 @@ export default function ProviderConnections() {
   }, [screen, selected?.connection_id, selected?.lifecycle]);
 
   async function prepareDisconnect() {
-    if (!selected || inFlight.current) return;
+    if (!selected || !admitAction()) return;
     const revision = ++epoch.current;
     inFlight.current = revision; setBusy(true); setError("");
     try {
@@ -173,7 +192,7 @@ export default function ProviderConnections() {
   }
 
   async function removeConnection(retry = false) {
-    if (!selected || !removal && !retry || inFlight.current) return;
+    if (!selected || !removal && !retry || !admitAction()) return;
     const revision = ++epoch.current;
     inFlight.current = revision; setBusy(true); setError("");
     try {
@@ -202,7 +221,7 @@ export default function ProviderConnections() {
   }
 
   async function saveGo() {
-    if (inFlight.current) return;
+    if (!admitAction()) return;
     const revision = ++epoch.current;
     inFlight.current = revision; setBusy(true); setError("");
     setGoSaveUnconfirmed(false);
@@ -224,8 +243,17 @@ export default function ProviderConnections() {
     finally { if (inFlight.current === revision) inFlight.current = null; if (revision === epoch.current) setBusy(false); }
   }
 
+  async function confirmReplacement() {
+    if (!attempt?.attempt_id || !admitAction()) return;
+    const revision = ++epoch.current;
+    inFlight.current = revision; setBusy(true); setError("");
+    try { const progress = await confirmCodexReplacement(attempt.attempt_id); if (revision === epoch.current) setAttempt(progress); }
+    catch { if (revision === epoch.current) setError("provider_connections_unavailable"); }
+    finally { if (inFlight.current === revision) { inFlight.current = null; setBusy(false); } }
+  }
+
   async function finishClaude() {
-    if (!attempt?.attempt_id || inFlight.current) return;
+    if (!attempt?.attempt_id || !admitAction()) return;
     const revision = ++epoch.current; inFlight.current = revision; setBusy(true); setError("");
     const code = nativeCode; setNativeCode("");
     try { const progress = await submitClaudeCode(attempt.attempt_id, code); if (revision === epoch.current) setAttempt(progress); }
@@ -234,13 +262,13 @@ export default function ProviderConnections() {
   }
 
   async function signIn() {
-    if (inFlight.current) return;
+    if (!admitAction()) return;
     if (activeProvider === "claude") {
       claudeTab.current = window.open("about:blank", "_blank");
       if (claudeTab.current) claudeTab.current.opener = null;
     }
     setGoSaveUnconfirmed(false);
-    setClaudeOpened(false); setNativeCode(""); setNativeUrl(null);
+    setClaudeOpened(false); setNativeCode(""); setNativeUrl(null); setDeviceCode(null); setReplacement(null);
     reconnecting.current = Boolean(selected);
     sessionStorage.setItem(reconnectKey, String(reconnecting.current));
     const revision = ++epoch.current;
@@ -254,7 +282,7 @@ export default function ProviderConnections() {
       // One explicit click starts native sign-in in this tab. No mount, polling
       // or Refresh operation opens a provider page.
       if (activeProvider === "claude") setNativeUrl(result.authorization_url);
-      else if (result.authorization_url) window.location.assign(result.authorization_url);
+      else { setNativeUrl(result.authorization_url); setDeviceCode(result.user_code ?? null); }
     } catch (failure) {
       claudeTab.current?.close(); claudeTab.current = null;
       if (revision === epoch.current) {
@@ -266,7 +294,7 @@ export default function ProviderConnections() {
   }
 
   async function back() {
-    if (inFlight.current) return;
+    if (!admitAction()) return;
     if (screen === "pending" && attempt?.attempt_id) {
       const revision = ++epoch.current;
       inFlight.current = revision; setBusy(true); setError("");
@@ -291,7 +319,7 @@ export default function ProviderConnections() {
   const logo = (type: string) => type === "opencode" ? <><img src={openCodeLogoLight} className="pc-account-logo pc-opencode-light" alt="" /><img src={openCodeLogoDark} className="pc-account-logo pc-opencode-dark" alt="" /></> : type === "claude" ? <IconComponent name="Claude" className="h-6 w-6" /> : codexLogo;
   const unconfirmed = attempt?.code === "provider_save_unconfirmed";
   const mismatch = attempt?.code === "provider_account_mismatch";
-  const heading = screen === "disconnect" ? `Disconnect ${providerName}?` : screen === "removed" ? "Disconnected" : screen === "removing" ? (selected?.lifecycle === "cleanup_required" ? "Cleanup required" : selected?.lifecycle === "connected" ? "Check connection" : "Disconnecting") : screen === "list" ? "Providers" : screen === "type" ? "Add provider" : screen === "method" ? `Connect ${providerName}` : screen === "pending" ? (unconfirmed ? "Check connection" : "Finish signing in") : screen === "failure" ? (mismatch ? "Different account selected" : unconfirmed ? "Check connection" : attempt?.status === "expired" ? "Sign-in expired" : "Sign-in failed") : screen === "duplicate" ? "Already connected" : selected?.label ?? "Provider connection";
+  const heading = screen === "disconnect" ? `Disconnect ${providerName}?` : screen === "removed" ? "Disconnected" : screen === "removing" ? (selected?.lifecycle === "cleanup_required" ? "Cleanup required" : selected?.lifecycle === "connected" ? "Check connection" : "Disconnecting") : screen === "list" ? "Providers" : screen === "type" ? "Add provider" : screen === "method" ? `Connect ${providerName}` : screen === "pending" ? (attempt?.status === "awaiting_confirmation" ? "Use this ChatGPT account?" : unconfirmed ? "Check connection" : "Finish signing in") : screen === "failure" ? (mismatch ? "Different account selected" : unconfirmed ? "Check connection" : attempt?.status === "expired" ? "Sign-in expired" : "Sign-in failed") : screen === "duplicate" ? "Already connected" : selected?.label ?? "Provider connection";
 
   const status = (row: ProviderConnection) => row.lifecycle === "connected" ? row.method === "opencode_go_key" ? row.auth_state === "revoked" ? "Key unavailable" : "Key saved" : statuses[row.auth_state] : row.lifecycle === "cleanup_required" ? "Cleanup required" : "Disconnecting";
   const emphasizedStatus = (row: ProviderConnection) => row.lifecycle === "connected" && (row.auth_state === "ready" || row.method === "opencode_go_key" && row.auth_state !== "revoked");
@@ -342,7 +370,18 @@ export default function ProviderConnections() {
           <Button ignoreTitleCase disabled={controlsBusy} onClick={() => void signIn()}>Continue to sign in</Button></>}
         </>}
         {screen === "pending" && <>
-          {attempt?.provider === "claude" && attempt.status === "connecting" ? <>
+          {attempt?.provider === "codex" && attempt.status === "awaiting_confirmation" && replacement ? <>
+            <p className="gc-muted">Replace the saved Codex login with this verified account. Your graph selections will stay the same.</p>
+            <div className="gc-identity"><span className="gc-avatar" aria-hidden="true">{codexLogo}</span><div><strong>{replacement.email}</strong><p className="gc-muted">ChatGPT {replacement.plan_type}</p></div></div>
+            <Button ignoreTitleCase disabled={busy} onClick={() => void confirmReplacement()}>Replace connection</Button>
+          </> : attempt?.provider === "codex" && attempt.status === "connecting" ? <>
+            {deviceCode && nativeUrl ? <>
+              <p className="gc-muted">Enter this code on the ChatGPT sign-in page. Return here when you finish.</p>
+              <div className="pc-device-code" aria-label="ChatGPT sign-in code">{deviceCode}</div>
+              <Button ignoreTitleCase asChild><a href={nativeUrl} target="_blank" rel="noopener noreferrer">Continue to ChatGPT</a></Button>
+              <p className="gc-muted" role="status">Waiting for you to finish signing in...</p>
+            </> : <p className="gc-muted" role="status">Preparing ChatGPT sign-in...</p>}
+          </> : attempt?.provider === "claude" && attempt.status === "connecting" ? <>
             {nativeUrl ? <>
               <p className="gc-muted">{claudeOpened ? "Paste the code from Claude to finish signing in." : "Continue to Claude to sign in, then paste the code it gives you below."}</p>
               {!claudeOpened && <Button ignoreTitleCase asChild><a href={nativeUrl} target="_blank" rel="noopener noreferrer" onClick={() => setClaudeOpened(true)}>Continue to Claude</a></Button>}
@@ -385,7 +424,7 @@ export default function ProviderConnections() {
         </>}
       </section>
       {screen !== "complete" && <nav className="gc-navigation" aria-label="Connection navigation">
-        {screen !== "list" && <button type="button" className="gc-link gc-icon" disabled={controlsBusy} aria-label="Back to connections" title="Back to connections" onClick={() => void back()}><ArrowLeft size={20} aria-hidden="true" /></button>}
+        {screen !== "list" && <button type="button" className="gc-link gc-icon" disabled={busy} aria-label="Back to connections" title="Back to connections" onClick={() => void back()}><ArrowLeft size={20} aria-hidden="true" /></button>}
         {!["type", "method", "disconnect", "removed"].includes(screen) && <button type="button" className="gc-link gc-icon" disabled={controlsBusy} aria-label="Refresh" title="Refresh connections" onClick={() => void refresh()}><RefreshCw size={20} aria-hidden="true" /></button>}
       </nav>}
     </div>

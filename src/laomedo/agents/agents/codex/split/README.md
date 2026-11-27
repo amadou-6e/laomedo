@@ -20,3 +20,7 @@ roles. Full signatures and detailed parameter contracts remain in source.
 | --- | --- | --- |
 | `Executor` | `executor.py` | `__init__`, `check_health`, `exec_probe`, `assert_controller_isolated`, `close` |
 | `SplitLaunch` | `models.py` | `to_container_spec` |
+
+Controller listener inspection enumerates proc descriptors directly. Disappearing
+processes/descriptors are normal races; permission and other inspection failures
+remain refusals. TCP/Unix listeners and UDP sockets are still rejected.

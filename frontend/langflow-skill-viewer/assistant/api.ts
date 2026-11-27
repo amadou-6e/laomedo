@@ -20,7 +20,10 @@ export async function assistantRequest<T>(
   const abort = () => controller.abort();
   signal?.addEventListener("abort", abort, { once: true });
   if (signal?.aborted) controller.abort();
-  const timer = window.setTimeout(abort, 20000);
+  // Native model discovery includes container startup and confirmed teardown.
+  const modelDiscovery =
+    body === undefined && method === undefined && path.split("?")[0] === "/models";
+  const timer = window.setTimeout(abort, modelDiscovery ? 90000 : 20000);
   let response: Response;
   let payload: any;
   try {

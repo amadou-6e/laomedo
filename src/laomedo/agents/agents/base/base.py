@@ -5,6 +5,7 @@ from concurrent.futures import TimeoutError as FutureTimeout
 from copy import deepcopy
 import threading
 import time
+from laomedo.agents.agents.base.models import SubscriptionSnapshot
 from laomedo.agents.agents.base.models import CancellationObservation
 from laomedo.agents.agents.base.models import CleanupObservation
 from laomedo.agents.agents.base.models import CommandRequest
@@ -136,3 +137,19 @@ class BaseModelCatalog(ABC):
     @abstractmethod
     def list_models(self, *, refresh: bool = False) -> ModelCatalog:
         """Discover or refresh choices; never change the caller's selected model."""
+
+
+class BaseSubscriptionQuota(ABC):
+    """Optional saved-account quota observation, independent of model execution.
+
+    Construction is inert. A read uses only its admitted credential binding,
+    submits zero model turns, bounds native work and completes owned cleanup
+    before returning the canonical snapshot. Unknown fields remain unknown.
+    Admission/busy, authentication, transport and cleanup failures propagate
+    existing stable RunnerError codes; no successful snapshot hides teardown
+    failure. Implementations preserve their provider's credential writer fences.
+    """
+
+    @abstractmethod
+    def read(self) -> SubscriptionSnapshot:
+        """Return one zero-turn observation after native validation and teardown."""

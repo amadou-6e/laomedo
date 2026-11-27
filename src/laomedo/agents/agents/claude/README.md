@@ -77,8 +77,22 @@ provider acceptance is required separately from unit receipt-validation tests.
 
 ## Saved account connections
 
+`quota.py` owns `ClaudeSubscriptionQuota.read()`: validate the selected saved
+account, send only native initialize and `get_usage` with `skip_behaviors`, and
+project subscription windows after exact controller cleanup. It never submits a
+user message, scans transcripts, exports credentials or substitutes API costs.
+The pinned CLI's experimental response is bounded and fails closed on unsupported
+structure. Five-hour/week windows and scoped weekly buckets retain their native
+percentages and reset times; extra-usage billing is not subscription allowance.
+
 `connection.py` is the provider boundary. ClaudeConnection owns official-client begin/details/submit/cancel, native identity verification, exact labelled profile custody, orphan reconciliation and cleanup. ClaudeNativeProfile, ClaudeAccountIdentity and ClaudeLoginAttempt belong to models.py; its native cleanup budget belongs to settings.py. The shared Agent connection service owns admission/index fencing; host storage and profile authorization remain separate.
+
+`ClaudeConnection.summary()` checks saved profile custody only; it never starts a
+native client or revalidates OAuth while listing accounts. Native account checks
+belong to admitted catalog, quota and execution operations.
 
 ClaudeCommands.builtin_skills reads the root native SDK init skills list in isolated built-in-only sessions. Discovery retains this session binding and includes the observed skill set in the catalog revision; absent evidence never creates a skill.
 
 The pinned adapter forwards SDK builtin markers. ClaudeCommands.skill_reason intersects those markers with the root init skill list and the capability table; expansion_receipt requires the native canonical slash-expansion marker. Admitted skill turns use ordinary native model completion, activity and usage, never local-control or compaction receipts. Personal skill/plugin sync is disabled in the invocation settings.
+
+`quota.py` owns the claude implementation of `BaseSubscriptionQuota.read()`. The Agent exposes it through the optional `quota` property; callers use the shared contract. Native protocol, credential and teardown ownership is preserved.

@@ -926,3 +926,93 @@ class IsolationObservation(BaseModel):
         description="Whether the stated isolation gate was actually established."
     )
     scope: str = Field(description="Exact sandbox policy/resource boundary checked.")
+
+
+class SubscriptionWindow(BaseModel):
+    """Safe observed quota window; absent scalar evidence remains unknown."""
+
+    model_config = ConfigDict(strict=True, extra="forbid", frozen=True)
+    kind: Literal["primary", "secondary", "monthly"] = Field(
+        description="Native window position, not a fixed product duration."
+    )
+    used_percent: float | None = Field(
+        default=None,
+        ge=0,
+        allow_inf_nan=False,
+        description="Provider-reported used percentage; may exceed100 when over limit.",
+    )
+    window_minutes: int | None = Field(
+        default=None,
+        gt=0,
+        description="Provider-reported window duration in minutes, unknown when absent or invalid.",
+    )
+    resets_at: int | None = Field(
+        default=None,
+        gt=0,
+        le=253402300799,
+        description="Provider-reported next reset as Unix seconds, never an inferred replenishment.",
+    )
+
+
+class SubscriptionCredits(BaseModel):
+    """Optional native credit details, distinct from percentage allowance."""
+
+    model_config = ConfigDict(strict=True, extra="forbid", frozen=True)
+    has_credits: bool | None = Field(
+        default=None,
+        description="Provider-reported credit availability, unknown if absent.",
+    )
+    unlimited: bool | None = Field(
+        default=None,
+        description="Provider-reported unlimited-credit flag, never inferred from balance.",
+    )
+    balance: str | None = Field(
+        default=None,
+        max_length=64,
+        description="Provider-reported numeric balance with no invented currency unit.",
+    )
+
+
+class SubscriptionBucket(BaseModel):
+    """One metered bucket with independently observed windows and credit details."""
+
+    model_config = ConfigDict(strict=True, extra="forbid", frozen=True)
+    limit_id: str = Field(
+        min_length=1,
+        max_length=128,
+        description="Native metered bucket identity, used for deterministic ordering.",
+    )
+    label: str | None = Field(
+        default=None,
+        max_length=128,
+        description="Optional provider-reported display label; fall back to the native ID.",
+    )
+    plan: str | None = Field(
+        default=None,
+        max_length=64,
+        description="Optional provider-reported plan label, independent from rate windows.",
+    )
+    windows: list[SubscriptionWindow] = Field(
+        default_factory=list,
+        max_length=3,
+        description="Present primary/secondary/monthly windows; absent windows are not reconstructed.",
+    )
+    credits: SubscriptionCredits | None = Field(
+        default=None,
+        description="Optional credit observation, not a quota percentage or token cost.",
+    )
+
+
+class SubscriptionSnapshot(BaseModel):
+    """Safe zero-turn account observation returned only after native teardown."""
+
+    model_config = ConfigDict(strict=True, extra="forbid", frozen=True)
+    buckets: list[SubscriptionBucket] = Field(
+        default_factory=list,
+        max_length=32,
+        description="Native metered buckets sorted by ID, without a duplicate fallback view.",
+    )
+    submitted_turns: Literal[0] = Field(
+        default=0,
+        description="This read-only operation creates no native model session or prompt.",
+    )

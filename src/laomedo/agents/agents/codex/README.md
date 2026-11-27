@@ -92,9 +92,56 @@ thread, Activity, cleanup and workspace checkpoint support subsequent resume.
 Absent handler support or advertisement fails before a prompt; no model fallback.
 
 
+
+## Saved-account quota discovery
+
+`CodexSubscriptionQuota.read()` uses the same `_discovery()` temporary lifecycle
+as model discovery, with the selected credential provider and exact close receipts.
+`CodexAgentRuntime.subscription_limits()` admits only the empty-parameter
+`laomedo/codexRateLimits` extension. The adapter forwards exactly
+`account/rateLimits/read` before any session/prompt. `CodexRateLimits.to_snapshot()`
+projects native wire fields into canonical `SubscriptionSnapshot` models in
+`agents/base/models.py`; malformed scalar fields stay unknown, malformed shapes
+fail. No model turn, native thread, generic RPC forwarding or ambient login is added.
 ## Saved account connections
 
-`connection.py` is the provider boundary. CodexConnection owns pending broker login attempts, begin/complete/progress/cancel, staged publication and readback, duplicate identity checks, exact token borrowing and local revision cleanup. PendingLogin belongs to models.py; login failure categories belong to settings.py. The shared Agent connection service owns admission/index fencing; host storage and profile authorization remain separate.
+`connection.py` is the provider boundary. CodexConnection owns native device login, lease-bound details, explicit replacement confirmation, publication/readback, cancellation and native cleanup. CodexLoginAttempt belongs to models.py; native expiry and cleanup bounds belong to settings.py. `retained.py` supports only operational borrowing and erasure of already-saved token-sharing revisions until they are replaced or disconnected; it has no sign-in entry point. The shared Agent connection service owns admission/index fencing; host storage and profile authorization remain separate.
+
+
+## Unified native connection (#300, implementation in progress)
+
+Settings will expose one native ChatGPT device sign-in for both execution and
+quota. `docker/codex-acp/native-login.mjs` is a fixed auth-only client:
+projectDevice validates the exact official origin, login ID and bounded code;
+projectIdentity admits only a ChatGPT account and matching public account IDs
+from account/read.workspaceRouting and account/rateLimits/read. Missing IDs,
+conflicting observations and unsupported routing fail closed. No token file is
+read or decoded. Auth-file existence is checked only after the client stops.
+The native child has an explicit environment and pinned issuer/file-store mode.
+Its public device handoff is intended only for the originating browser lease.
+The managed image installs and tests this helper. Settings uses a lease-bound
+device handoff, with explicit confirmation before any saved-login replacement.
+Native account/workspace plus email is an observed binding, not an immutable
+per-user ID: email changes require confirmed replacement. Runtime admission and Agent launches use the same owned native profile and writer
+lease as quota reads. Live acceptance, UI verification and full integration review
+remain pending. Existing saved connections are untouched until confirmed replacement.
+
+### Native credential custody
+
+`native.py` owns CodexNativeCredentials. create records exact daemon/image/volume
+ownership before creation; profile admits only that existing owned volume; lease
+serializes one native writer across host processes and reconciles exact registered
+session receipts before granting it; register records a creator receipt before
+launch; erase recovers those receipts before removing only the labelled volume.
+The lock spans client startup through confirmed cleanup. Docker outages preserve
+custody and refuse new use. No method reads or exports the native auth file.
+CodexNativeProfile and CodexAccountIdentity live in models.py. Identity is an
+observed email/account binding; subject_hash is not a claim of immutable user ID.
+These boundaries must be wired into login, discovery and every Agent launch before
+native saved connections can be exposed.
+Native identity projections are validated by `CodexConnection.validate_native_identity`,
+which rejects a public observation that does not match the saved account binding.
+The shared saved-connection facade delegates this provider-specific validation.
 
 ## Zero-turn session lifetime (implementation in progress)
 
@@ -183,3 +230,17 @@ its native exec server, it links the canonical system-skill path to the image's
 root-owned, read-only `/opt/acp/system-skills` tree. Thus the temporary home cannot
 hide bundled validators or references; the controller still extracts and verifies
 its own native system-skill tree independently.
+
+Native saved-account writer custody spans retained zero-turn sessions as well as
+active turns. The same run reuses its existing writer lease; idle cancellation,
+expiry and shutdown release it only after attempting exact controller cleanup.
+
+Existing native connections resolve their saved immutable image ID directly during
+preflight; a changed default tag cannot rebind or invalidate their recorded image.
+New connections use the current registered recipe.
+
+Native-volume connections do not enable the host-updated bearer-file capability.
+That capability belongs only to retained token-sharing credentials; native OAuth
+refresh remains inside the official client and saved volume.
+
+`quota.py` owns the codex implementation of `BaseSubscriptionQuota.read()`. The Agent exposes it through the optional `quota` property; callers use the shared contract. Native protocol, credential and teardown ownership is preserved.

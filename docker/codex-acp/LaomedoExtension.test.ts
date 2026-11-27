@@ -154,3 +154,15 @@ describe("Laomedo ACP policy", () => {
         await expect(extension.registerExecutor({environmentId:"e",execServerUrl:"ws://127.0.0.1:39871",authBearerToken:"x".repeat(32),connectTimeoutMs:15000})).rejects.toThrow();
     });
 });
+
+
+describe("zero-turn account quota boundary", () => {
+    it("sends only the named empty request and refuses discovery after session binding", async () => {
+        const {extension, native, request} = setup();
+        await extension.rateLimits();
+        expect(native.sendRequest).toHaveBeenCalledExactlyOnceWith("account/rateLimits/read", {});
+        extension.bind(request, "native-session");
+        await expect(extension.rateLimits()).rejects.toThrow();
+        expect(native.sendRequest).toHaveBeenCalledTimes(1);
+    });
+});

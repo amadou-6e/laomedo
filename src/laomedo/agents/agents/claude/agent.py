@@ -5,6 +5,7 @@ from laomedo.agents.activity.models import ActivityPage
 from laomedo.agents.agents.base.models import ReadinessObservation
 from laomedo.agents.agents.claude.catalog import ClaudeModelCatalog
 from laomedo.agents.agents.claude.credentials import ClaudeCredentialProvider
+from laomedo.agents.agents.claude.quota import ClaudeSubscriptionQuota
 
 from copy import deepcopy
 from pathlib import Path
@@ -42,6 +43,7 @@ from laomedo.agents.agents.claude.utils import normalize_models
 from laomedo.agents.agents.claude.utils import terminal_result
 from laomedo.agents.errors import RunnerError
 from laomedo.agents.agents.base.agent import BaseAgent
+from laomedo.agents.agents.base.base import BaseSubscriptionQuota
 from laomedo.agents.agents.base.models import RuntimeBinding
 from laomedo.agents.agents.base.models import CredentialRequest
 from laomedo.agents.workspaces.utils import _hash_tree
@@ -104,6 +106,11 @@ class ClaudeAgent(BaseAgent):
         )
         self.profile = self.container.profile
         self.image, self.image_id = image, self.container.image_id
+
+    @property
+    def quota(self) -> BaseSubscriptionQuota | None:
+        """Compose the provider-owned zero-turn quota reader without native effects."""
+        return ClaudeSubscriptionQuota(self)
 
     def editor_model_catalog(self):
         """Perform the provider-specific explicit refresh without submitting a model turn."""

@@ -4,7 +4,7 @@ import hashlib
 import logging
 from uuid import UUID
 
-from fastapi import Depends, HTTPException, Request
+from fastapi import Depends, HTTPException, Query, Request
 from pydantic import ValidationError
 from urllib.parse import urlsplit
 from starlette.concurrency import run_in_threadpool
@@ -17,6 +17,7 @@ from laomedo.agents.connections.models import (
     DisconnectRequest,
     SaveGoConnection,
     SubmitClaudeCode,
+    SubscriptionRequest,
 )
 
 
@@ -97,6 +98,74 @@ def install_provider_routes(app, service, authenticate, *, origin: str):
             lambda: service.graph_preferences(user.id, flow_id).model_dump(mode="json")
         )
 
+    @app.get(prefix + "/graphs/{flow_id}/limits/{connection_id}")
+    async def cached_limits(
+        flow_id: UUID,
+        connection_id: UUID,
+        request: Request,
+        generation: int = Query(ge=1),
+        user=Depends(authenticate),
+    ):
+        """Read only this authenticated graph owner's lease-visible cached account limits."""
+        lease = session_lease(request, service)
+        await owned_graph(flow_id, user)
+        return await respond(
+            lambda: service.subscriptions.read(
+                user.id, connection_id, generation, lease
+            ).model_dump(mode="json")
+        )
+
+    @app.post(prefix + "/graphs/{flow_id}/limits/{connection_id}")
+    async def refresh_limits(
+        flow_id: UUID,
+        connection_id: UUID,
+        request: Request,
+        payload: SubscriptionRequest,
+        user=Depends(authenticate),
+    ):
+        """Explicit same-origin zero-turn refresh, fenced before and after native observation."""
+        lease = session_lease(request, service)
+        if request.headers.get("origin") != origin:
+            raise HTTPException(403, detail={"code": "provider_request_refused"})
+        await owned_graph(flow_id, user)
+        return await respond(
+            lambda: service.subscriptions.refresh(
+                user.id, connection_id, payload.generation, lease
+            ).model_dump(mode="json")
+        )
+
+    @app.get(prefix + "/limits/{connection_id}")
+    async def cached_account_limits(
+        connection_id: UUID,
+        request: Request,
+        generation: int = Query(ge=1),
+        user=Depends(authenticate),
+    ):
+        """Read only the current profile and lease's retained exact-account limits."""
+        lease = session_lease(request, service)
+        return await respond(
+            lambda: service.subscriptions.read(
+                user.id, connection_id, generation, lease
+            ).model_dump(mode="json")
+        )
+
+    @app.post(prefix + "/limits/{connection_id}")
+    async def account_limits(
+        connection_id: UUID,
+        request: Request,
+        payload: SubscriptionRequest,
+        user=Depends(authenticate),
+    ):
+        """Observe only the signed-in owner's exact saved account, without a graph."""
+        lease = session_lease(request, service)
+        if request.headers.get("origin") != origin:
+            raise HTTPException(403, detail={"code": "provider_request_refused"})
+        return await respond(
+            lambda: service.subscriptions.refresh(
+                user.id, connection_id, payload.generation, lease
+            ).model_dump(mode="json")
+        )
+
     @app.put(prefix + "/graphs/{flow_id}")
     async def save_graph_preferences(
         flow_id: UUID,
@@ -140,13 +209,9 @@ def install_provider_routes(app, service, authenticate, *, origin: str):
                 return service.claude.begin(
                     user.id, lease_hash=lease, connection_id=connection_id
                 )
-            progress, url = service.begin(
-                user.id, origin + "/auth/callback", connection_id, lease_hash=lease
+            return service.codex.begin(
+                user.id, connection_id=connection_id, lease_hash=lease
             )
-            return {
-                "progress": progress.model_dump(mode="json"),
-                "authorization_url": url,
-            }
 
         return await respond(begin)
 
@@ -296,44 +361,33 @@ def install_provider_routes(app, service, authenticate, *, origin: str):
             )
         )
 
-    @app.get("/auth/callback")
-    async def login_callback(request: Request, user=Depends(authenticate)):
-        """Validate a native top-level return and remove its query from the UI."""
-        if request.headers.get("host") != urlsplit(origin).netloc:
-            raise HTTPException(403, detail={"code": "provider_request_refused"})
+    @app.get(prefix + "/codex/attempts/{attempt_id}")
+    async def codex_attempt(
+        attempt_id: UUID, request: Request, user=Depends(authenticate)
+    ):
+        """Return one-use device details only to the originating browser lease."""
         lease = session_lease(request, service)
-        query = request.query_params
-        if len(query) > 12 or any(
-            len(query.getlist(key)) != 1 or len(query[key]) > 8192 for key in query
-        ):
-            logging.getLogger(__name__).warning(
-                "Codex callback refused: phase=query_shape"
-            )
-            return RedirectResponse(
-                "/settings/providers?login=failed",
-                status_code=303,
-                headers={"Cache-Control": "no-store", "Referrer-Policy": "no-referrer"},
-            )
-        try:
-            result = await run_in_threadpool(
-                service.complete, user.id, dict(query), lease_hash=lease
-            )
-            target = "/settings/providers?attempt=" + str(result.attempt_id)
-        except ProviderConnectionError as failure:
-            logging.getLogger(__name__).warning(
-                "Codex callback refused: phase=boundary category=%s",
-                (
-                    failure.code
-                    if failure.code
-                    in {"provider_login_expired", "provider_connection_busy"}
-                    else "unclassified"
-                ),
-            )
-            target = "/settings/providers?login=failed"
-        except Exception:
-            target = "/settings/providers?login=unconfirmed"
-        return RedirectResponse(
-            target,
-            status_code=303,
-            headers={"Cache-Control": "no-store", "Referrer-Policy": "no-referrer"},
+        return await respond(
+            lambda: service.codex.details(user.id, attempt_id, lease_hash=lease)
+        )
+
+    @app.post(prefix + "/codex/attempts/{attempt_id}/confirm")
+    async def confirm_codex(
+        attempt_id: UUID, request: Request, user=Depends(authenticate)
+    ):
+        """Explicitly confirm replacement without accepting a client-supplied identity."""
+        lease = session_lease(request, service)
+        if request.headers.get("origin") != origin:
+            raise HTTPException(403, detail={"code": "provider_request_refused"})
+        data = bytearray()
+        async for chunk in request.stream():
+            if len(data) + len(chunk) > 2:
+                raise HTTPException(400, detail={"code": "provider_request_refused"})
+            data.extend(chunk)
+        if data != b"{}":
+            raise HTTPException(400, detail={"code": "provider_request_refused"})
+        return await respond(
+            lambda: service.codex.confirm(
+                user.id, attempt_id, lease_hash=lease
+            ).model_dump(mode="json")
         )

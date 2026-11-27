@@ -61,6 +61,7 @@ SDK_FAILURE_CODES = {
 
 SDK_FAILURE_OPERATIONS = frozenset(
     (
+        "account/rateLimits/read",
         "acquire container receipt",
         "admit Engine request",
         "admit container create",

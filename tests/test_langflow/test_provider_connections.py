@@ -35,6 +35,9 @@ class ProviderRouteTests(unittest.TestCase):
         self.addCleanup(temporary.cleanup)
         self.profile = uuid4()
         self.service = ProviderConnections(Path(temporary.name) / "providers")
+        native_worker = patch.object(self.service.codex, "_run")
+        native_worker.start()
+        self.addCleanup(native_worker.stop)
         self.addCleanup(self.service.close)
         app = FastAPI()
         self.app = app
@@ -59,9 +62,67 @@ class ProviderRouteTests(unittest.TestCase):
         self.client.cookies.set("access_token_lf", "fixture-session")
         self.headers = {"Origin": "http://127.0.0.1:17867"}
 
+    def test_account_quota_route_uses_owner_generation_and_cookie_lease(self):
+        """Chat quota requires the browser owner and refuses foreign-origin reads."""
+        identifier = uuid4()
+        path = f"/api/v1/laomedo/provider-connections/limits/{identifier}"
+        result = SimpleNamespace(model_dump=lambda **kwargs: {"state": "ready"})
+        with patch.object(
+            self.service.subscriptions, "refresh", return_value=result
+        ) as refresh:
+            response = self.client.post(
+                path, json={"generation": 2}, headers=self.headers
+            )
+            self.assertEqual(response.status_code, 200)
+            refresh.assert_called_once_with(
+                self.profile,
+                identifier,
+                2,
+                hashlib.sha256(b"fixture-session").hexdigest(),
+            )
+            refresh.reset_mock()
+            self.assertEqual(
+                self.client.post(
+                    path,
+                    json={"generation": 2},
+                    headers={"Origin": "https://foreign.invalid"},
+                ).status_code,
+                403,
+            )
+            self.client.cookies.clear()
+            self.assertEqual(
+                self.client.post(
+                    path, json={"generation": 2}, headers=self.headers
+                ).status_code,
+                401,
+            )
+            refresh.assert_not_called()
+
+    def test_account_quota_cache_read_never_starts_provider_work(self):
+        """A returning chat can read only its owner/lease-visible cached observation."""
+        identifier = uuid4()
+        result = SimpleNamespace(model_dump=lambda **kwargs: {"state": "not_checked"})
+        with (
+            patch.object(
+                self.service.subscriptions, "read", return_value=result
+            ) as read,
+            patch.object(self.service.subscriptions, "refresh") as refresh,
+        ):
+            response = self.client.get(
+                f"/api/v1/laomedo/provider-connections/limits/{identifier}?generation=3"
+            )
+            self.assertEqual(response.status_code, 200)
+            read.assert_called_once_with(
+                self.profile,
+                identifier,
+                3,
+                hashlib.sha256(b"fixture-session").hexdigest(),
+            )
+            refresh.assert_not_called()
+
     def test_read_never_launches_login_and_foreign_writes_are_refused(self):
         """Listing is inert; cross-origin pages cannot initiate authentication."""
-        with patch.object(self.service, "begin") as begin:
+        with patch.object(self.service.codex, "begin") as begin:
             self.assertEqual(
                 self.client.get("/api/v1/laomedo/provider-connections").json(),
                 {"connections": []},
@@ -157,36 +218,6 @@ class ProviderRouteTests(unittest.TestCase):
         self.assertEqual(
             self.service.progress(self.profile, UUID(attempt_id)).status, "cancelled"
         )
-
-    def test_native_return_is_bound_to_cookie_and_redirects_without_oauth_query(self):
-        """Provider query data never appears in the returned Settings URL."""
-        receipt = LoginProgress(
-            attempt_id=uuid4(), status="connected", connection_id=uuid4()
-        )
-        with patch.object(self.service, "complete", return_value=receipt) as complete:
-            response = self.client.get(
-                "/auth/callback?code=fixture-code&state=fixture-state&client_id=oaiapp_test",
-                headers={"Sec-Fetch-Site": "cross-site"},
-            )
-            self.assertEqual(response.status_code, 303)
-            self.assertEqual(
-                response.headers["location"],
-                "/settings/providers?attempt=" + str(receipt.attempt_id),
-            )
-            self.assertEqual(response.headers["referrer-policy"], "no-referrer")
-            self.assertEqual(
-                complete.call_args.kwargs["lease_hash"],
-                hashlib.sha256(b"fixture-session").hexdigest(),
-            )
-
-    def test_duplicate_callback_fields_are_refused_before_exchange(self):
-        """Ambiguous native parameters cannot select or consume an attempt."""
-        with patch.object(self.service, "complete") as complete:
-            response = self.client.get("/auth/callback?state=a&state=b&code=fixture")
-            self.assertEqual(
-                response.headers["location"], "/settings/providers?login=failed"
-            )
-            complete.assert_not_called()
 
     def test_refresh_inspection_failure_preserves_the_upstream_response(self):
         """A renewal DB outage must not replace a successful upstream refresh."""
@@ -324,7 +355,7 @@ class ProviderRouteTests(unittest.TestCase):
         import threading
         import time
         from pydantic import SecretStr
-        from laomedo.agents.agents.codex.models import PendingLogin
+        from laomedo.agents.agents.codex.models import CodexLoginAttempt
         from laomedo.agents.agents.claude.models import ClaudeLoginAttempt
         from laomedo.agents.connections.models import LoginProgress
 
@@ -343,10 +374,12 @@ class ProviderRouteTests(unittest.TestCase):
                     progress=progress,
                 )
                 if provider == "codex":
-                    item = PendingLogin(
+                    item = CodexLoginAttempt(
                         **shared,
-                        oauth=SecretStr(json.dumps({"state": "fixture-state"})),
-                        stage=self.service.root / "fixture-stage",
+                        credential_id=uuid4(),
+                        cancelled=threading.Event(),
+                        ready=threading.Event(),
+                        confirmation=threading.Event(),
                     )
                 else:
                     item = ClaudeLoginAttempt(

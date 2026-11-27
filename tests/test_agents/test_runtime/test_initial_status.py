@@ -1,8 +1,9 @@
 """Initial native status never becomes a model prompt; fixtures, not live acceptance."""
 
 import unittest
+import asyncio
 import time
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
 from laomedo.agents.agents.base.agent import BaseAgent
 from laomedo.agents.errors import RunnerError
 from laomedo.host.credentials.siwc.errors import AuthError
@@ -16,6 +17,30 @@ class InitialStatusTests(unittest.TestCase):
         prepare_runner(self)
         self.addCleanup(self.runner.close)
         FakeServer.turn_inputs.clear()
+
+    def test_native_writer_spans_retained_session_and_first_model_turn(self):
+        writer = MagicMock()
+        self.runner.native_auth = Mock()
+        self.runner.native_auth.lease.return_value = writer
+        run_id = "writer-fixture"
+
+        async def retain(*args, **kwargs):
+            self.runner._idle_sessions[run_id] = object()
+            return {"status": "completed"}
+
+        async def finish(*args, **kwargs):
+            self.runner._idle_sessions.pop(run_id)
+            return {"status": "completed"}
+
+        with patch.object(self.runner, "_execute_acp_native", side_effect=retain):
+            asyncio.run(self.runner._execute_acp(run_id, "/status", resume=False))
+        writer.__enter__.assert_called_once()
+        writer.__exit__.assert_not_called()
+        with patch.object(self.runner, "_execute_acp_native", side_effect=finish):
+            asyncio.run(self.runner._execute_acp(run_id, "Hello", resume=True))
+        self.runner.native_auth.lease.assert_called_once()
+        writer.__exit__.assert_called_once_with(None, None, None)
+        self.assertEqual(self.runner._native_writers, {})
 
     def request(self):
         return {

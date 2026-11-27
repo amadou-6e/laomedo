@@ -1,17 +1,20 @@
-"""Codex-owned sign-in staging, publication and credential revision lifecycle."""
+"""One native Codex sign-in for saved Agent execution and quota observations."""
 
-import hashlib
 import json
 import logging
-import re
-import secrets
+import threading
 import time
 from pathlib import Path
-from uuid import UUID, uuid4
+from uuid import uuid4
 from pydantic import SecretStr
-from laomedo.host.credentials.siwc.connection import ChatGPTConnection
-from laomedo.host.credentials.siwc.errors import AuthError
-from laomedo.host.credentials.siwc.utils import _atomic_private, _locked
+from laomedo.agents.agents.codex.models import CodexAccountIdentity, CodexLoginAttempt
+from laomedo.agents.agents.codex.native import CodexNativeCredentials
+from laomedo.agents.agents.codex.retained import CodexRetainedCredentials
+from laomedo.agents.agents.codex.settings import (
+    IMAGE,
+    NATIVE_LOGIN_SECONDS,
+    NATIVE_AUTH_CLEANUP_SECONDS,
+)
 from laomedo.agents.connections.base import BaseProviderConnection
 from laomedo.agents.connections.errors import ProviderConnectionError
 from laomedo.agents.connections.models import (
@@ -19,32 +22,36 @@ from laomedo.agents.connections.models import (
     ConnectionSummary,
     LoginProgress,
 )
-from laomedo.agents.connections.settings import ATTEMPT_SECONDS, MAX_CONNECTIONS
-from laomedo.agents.agents.codex.models import PendingLogin
-from laomedo.agents.agents.codex.settings import LOGIN_FAILURE_CATEGORIES
+from laomedo.agents.connections.settings import MAX_CONNECTIONS
+from laomedo.docker import DockerRuntime
+from laomedo.host.credentials.siwc.utils import (
+    _atomic_private,
+    _restrict_windows_directory,
+)
 
 
 class CodexConnection(BaseProviderConnection):
-    """Own app sign-in without changing shared owner/generation admission."""
+    """Stage official-client credentials; require confirmation before replacement."""
 
     provider = "codex"
+    cleanup_seconds = NATIVE_AUTH_CLEANUP_SECONDS
+    summary_outside_lock = True
 
     def __init__(self, service):
-        """Use the existing lifecycle lock and own only Codex attempt state."""
+        """Bind shared admission; creating this adapter never starts authentication."""
         self.service = service
-        self.attempts: dict[UUID, PendingLogin] = {}
+        self.attempts = {}
+        self.retained = CodexRetainedCredentials(service)
 
-    def begin(
-        self,
-        profile_id: UUID,
-        redirect_uri: str,
-        connection_id: UUID | None = None,
-        *,
-        lease_hash: str = "",
-    ) -> tuple[LoginProgress, str]:
-        """Prepare one explicit sign-in; only the caller opens the returned URL."""
+    def begin(self, profile_id, *, lease_hash, connection_id=None):
+        """Start exactly one bounded native sign-in after explicit browser consent."""
         with self.service._lock:
-            self._expire()
+            finished = [key for key, value in self.attempts.items() if value.settled]
+            for key in finished[:-64]:
+                del self.attempts[key]
+            self.service.check_lease(lease_hash)
+            if lease_hash in self.service.revoked_leases:
+                raise ProviderConnectionError("provider_session_required")
             if self.service.login_in_progress(profile_id):
                 raise ProviderConnectionError("provider_login_in_progress")
             records = self.service._records(profile_id)
@@ -55,221 +62,100 @@ class CodexConnection(BaseProviderConnection):
                 if connection_id
                 else None
             )
-            if previous is not None and previous.provider != "codex":
+            if previous and previous.provider != "codex":
                 raise ProviderConnectionError("provider_method_unavailable")
+            try:
+                from py_docker.sessions.models import ContainerSession
+            except ImportError:
+                raise ProviderConnectionError("provider_method_unavailable") from None
             if (
                 previous
                 and self.service.controllers is not None
                 and self.service.controllers.inventory(profile_id, connection_id)[0]
             ):
                 raise ProviderConnectionError("provider_connection_busy")
-            candidate = connection_id or uuid4()
             attempt_id = uuid4()
-            stage = self.service._profile(profile_id) / ("pending-" + str(attempt_id))
-            broker = ChatGPTConnection(stage)
-            # Reconnect hints are read from the exact saved broker. The staging
-            # broker never replaces it during verification.
-            source = (
-                self._broker(profile_id, previous.credential_id) if previous else broker
-            )
-            oauth = source.begin(
-                redirect_uri, client_id=previous.client_id if previous else None
-            )
-            progress = LoginProgress(attempt_id=attempt_id, status="connecting")
-            self.attempts[attempt_id] = PendingLogin(
+            item = CodexLoginAttempt(
                 profile_id=profile_id,
                 lease_hash=lease_hash,
-                candidate_id=candidate,
-                oauth=SecretStr(json.dumps(oauth)),
-                stage=stage,
-                expires_at=time.monotonic() + ATTEMPT_SECONDS,
+                candidate_id=connection_id or uuid4(),
+                credential_id=uuid4(),
                 previous=previous,
-                progress=progress,
+                expires_at=time.monotonic() + NATIVE_LOGIN_SECONDS,
+                progress=LoginProgress(
+                    attempt_id=attempt_id, status="connecting", provider="codex"
+                ),
+                cancelled=threading.Event(),
+                ready=threading.Event(),
+                confirmation=threading.Event(),
             )
-            return progress.model_copy(), oauth["url"]
+            self.attempts[attempt_id] = item
+            item.worker = threading.Thread(target=self._run, args=(item,), daemon=True)
+            item.worker.start()
+        item.ready.wait(8)
+        return self.details(profile_id, attempt_id, lease_hash=lease_hash)
 
-    def progress(self, profile_id: UUID, attempt_id: UUID) -> LoginProgress:
-        """Read only this profile's attempt; polling has no authentication effect."""
+    def cancel(self, profile_id, attempt_id):
+        """Fence an exact attempt; the creator thread confirms native cleanup."""
         with self.service._lock:
-            self._expire()
             item = self.attempts.get(attempt_id)
             if item is None or item.profile_id != profile_id:
                 raise ProviderConnectionError("provider_login_expired")
-            if item.progress.code == "provider_save_unconfirmed":
-                self._reconcile_publication(item)
-        return self._settle(profile_id, attempt_id)
-
-    def cancel(self, profile_id: UUID, attempt_id: UUID) -> LoginProgress:
-        """Fence a pending exchange before returning; a late result cannot commit."""
-        with self.service._lock:
-            self._expire()
-            item = self.attempts.get(attempt_id)
-            if item is None or item.profile_id != profile_id:
-                raise ProviderConnectionError("provider_login_expired")
-            if item.progress.status in {"connecting", "verifying"}:
+            if item.progress.status in {
+                "connecting",
+                "verifying",
+                "awaiting_confirmation",
+            }:
                 item.progress.status = "cancelled"
+                item.cancelled.set()
             return item.progress.model_copy()
 
-    def complete(
-        self, profile_id: UUID, callback: dict, *, lease_hash: str = "", **verification
-    ) -> LoginProgress:
-        """Return a detached receipt only after the private exchange and cleanup settle."""
-        result = self._complete(
-            profile_id, callback, lease_hash=lease_hash, **verification
-        )
-        return self._settle(profile_id, result.attempt_id)
-
-    def borrow(
-        self, profile_id: UUID, connection_id: UUID, generation: int
-    ) -> tuple[str, dict]:
-        """Borrow exactly one admitted generation; never substitute another login."""
-        with self.service._lock:
-            record = self.service.admitted(profile_id, connection_id, generation)
-            if record.provider != "codex":
-                raise ProviderConnectionError("provider_method_unavailable")
-            broker = self._broker(profile_id, record.credential_id)
-        # Token rotation has its own broker lock/counter. It must not block
-        # unrelated logout/cancellation or change the stable connection epoch.
-        token, identity = broker.access_token(record.client_id)
-        with self.service._lock:
-            if self.service.admitted(profile_id, connection_id, generation) != record:
-                raise ProviderConnectionError("provider_connection_changed")
-            identity = {
-                **identity,
-                "connection_generation": record.generation,
-                "credential_generation": identity["generation"],
-            }
-            return token, identity
-
     def has_attempt(self, attempt_id):
-        """Identify Codex receipts without starting login."""
+        """Identify a native login receipt without starting a client."""
         return attempt_id in self.attempts
 
     def login_in_progress(self, profile_id):
-        """Keep the original active-receipt sign-in guard."""
+        """Preserve the original unsettled native-login guard."""
         return any(
-            item.profile_id == profile_id
-            and item.progress.status in {"connecting", "verifying"}
+            item.profile_id == profile_id and not item.settled
             for item in self.attempts.values()
         )
 
     def unsettled(self, profile_id, connection_id):
-        """Retain custody until callback exchange and staging cleanup settle."""
+        """Keep credentials until this connection's native login worker settles."""
         return any(
             item.profile_id == profile_id
             and item.candidate_id == connection_id
-            and item.exchanging
+            and not item.settled
             for item in self.attempts.values()
         )
 
+    def workers(self):
+        """Inventory the exact owned workers joined during service shutdown."""
+        return [item.worker for item in self.attempts.values() if item.worker]
+
     def fence_all(self):
-        """Fence late callbacks during service shutdown."""
+        """Cancel every live native attempt without releasing store ownership."""
         for item in self.attempts.values():
-            if item.progress.status in {"connecting", "verifying"}:
-                item.progress.status = "cancelled"
+            item.cancelled.set()
 
     def cancel_profile(self, profile_id):
-        """Fence only the signing-out profile's active attempts."""
+        """Fence pending native login for the profile that signed out."""
         for item in self.attempts.values():
-            if item.profile_id == profile_id and item.progress.status in {
-                "connecting",
-                "verifying",
-            }:
-                item.progress.status = "cancelled"
+            if item.profile_id == profile_id:
+                self.cancel(profile_id, item.progress.attempt_id)
 
     def cancel_lease(self, lease_hash):
-        """Fence only attempts belonging to the revoked opaque lease."""
+        """Fence attempts carrying this opaque revoked lease identifier."""
         for item in self.attempts.values():
-            if item.lease_hash == lease_hash and item.progress.status in {
-                "connecting",
-                "verifying",
-            }:
-                item.progress.status = "cancelled"
+            if item.lease_hash == lease_hash:
+                self.cancel(item.profile_id, item.progress.attempt_id)
 
     def fence_connection(self, profile_id, connection_id):
-        """Fence pending exchanges for a disconnecting connection."""
+        """Cancel only the disconnecting connection's pending native login."""
         for item in self.attempts.values():
-            if (
-                item.profile_id == profile_id
-                and item.candidate_id == connection_id
-                and item.progress.status in {"connecting", "verifying"}
-            ):
-                item.progress.status = "cancelled"
-
-    def owns(self, vault):
-        """Retain Codex fallback ownership after marked native stores are checked."""
-        return True
-
-    def reconcile_orphan(self, vault, active=False):
-        """Clean exact Codex staging writes without guessing admission ownership."""
-        broker = ChatGPTConnection(vault)
-        with _locked(broker.lock_path):
-            for pending in broker.accounts.glob("*.json.pending-*"):
-                if re.fullmatch(
-                    r"[0-9a-f]{64}\.json\.pending-[0-9a-f]{32}", pending.name
-                ):
-                    pending.unlink()
-        if active:
-            return
-        for path in broker.accounts.glob("*.json"):
-            account = json.loads(path.read_text(encoding="utf-8"))
-            client_id = account["client_id"]
-            if broker._path(client_id) != path:
-                raise ProviderConnectionError("provider_cleanup_unconfirmed")
-            self._scrub(broker, client_id)
-
-    def erase_revision(self, profile_id, record):
-        """Erase settled staging and all locally retained revisions of this account."""
-        with self.service._lock:
-            attempts = [
-                item
-                for item in self.attempts.values()
-                if item.profile_id == profile_id
-                and item.candidate_id == record.connection_id
-            ]
-            revisions = {
-                entry.credential_id: entry
-                for item in attempts
-                for entry in (item.previous, item.publication)
-                if entry is not None
-            }
-            revisions[record.credential_id] = record
-        for item in attempts:
-            self._discard_stage(item)
-        for entry in revisions.values():
-            self._scrub(self._broker(profile_id, entry.credential_id), entry.client_id)
-
-    def summary(self, profile_id, record):
-        """Read native account status without refresh or a model request."""
-        state = "unavailable"
-        try:
-            account = self._broker(profile_id, record.credential_id).account(
-                record.client_id
-            )
-            if (
-                hashlib.sha256(
-                    (account["issuer"] + "\0" + account["subject"]).encode()
-                ).hexdigest()
-                == record.subject_hash
-            ):
-                state = {
-                    "active": "ready",
-                    "revoked": "revoked",
-                    "revocation_pending": "revoked",
-                    "refresh_unknown": "reauthorization_required",
-                    "refresh_in_flight": "reauthorization_required",
-                }.get(account["state"], "unavailable")
-                if state == "ready" and account["expires_at"] <= time.time():
-                    state = "expired"
-        except (AuthError, OSError, ValueError, KeyError):
-            pass
-        return ConnectionSummary(
-            connection_id=record.connection_id,
-            label=record.label,
-            generation=record.generation,
-            auth_state=state,
-            lifecycle=record.lifecycle,
-        )
+            if item.profile_id == profile_id and item.candidate_id == connection_id:
+                self.cancel(profile_id, item.progress.attempt_id)
 
     def check_attempt(self, profile_id, attempt_id, lease_hash):
         """Verify the exact owner and opaque originating lease under the service lock."""
@@ -281,278 +167,383 @@ class CodexConnection(BaseProviderConnection):
         ):
             raise ProviderConnectionError("provider_login_expired")
 
-    def _scrub(self, broker: ChatGPTConnection, client_id: str) -> None:
-        """Remove an unadmitted or superseded token file under its refresh lock.
-
-        Do not remotely revoke a grant that may also back a committed revision.
-        Controllers holding the old broker fail their next authorization probe.
-        """
-        with _locked(broker.lock_path):
-            broker._path(client_id).unlink(missing_ok=True)
-
-    def _discard_stage(self, item: PendingLogin) -> None:
-        """Scrub this attempt's owned token files, including interrupted atomic writes."""
-        broker = ChatGPTConnection(item.stage)
-        with _locked(broker.lock_path):
-            for path in broker.accounts.iterdir():
-                if re.fullmatch(
-                    r"[0-9a-f]{64}\.json(?:\.pending-[0-9a-f]{32})?", path.name
-                ):
-                    path.unlink(missing_ok=True)
-
-    def _broker(self, profile_id: UUID, credential_id: UUID) -> ChatGPTConnection:
-        """Open only this connection's private broker, outside tool mounts."""
-        return ChatGPTConnection(self.service._profile(profile_id) / str(credential_id))
-
-    def _expire(self) -> None:
-        """Fence expired attempts; keep a bounded set of safe terminal receipts."""
-        for item in self.attempts.values():
-            if (
-                item.progress.status in {"connecting", "verifying"}
-                and item.expires_at <= time.monotonic()
-            ):
-                item.progress.status = "expired"
-        terminal = [
-            key
-            for key, item in self.attempts.items()
-            if item.progress.status not in {"connecting", "verifying"}
-            and not item.exchanging
-        ]
-        for key in terminal[:-64]:
-            del self.attempts[key]
-
-    def _settle(self, profile_id: UUID, attempt_id: UUID) -> LoginProgress:
-        """Clean superseded tokens outside the global lifecycle lock before copying a receipt."""
+    def details(self, profile_id, attempt_id, *, lease_hash):
+        """Expose the device code and verified candidate only to the initiating lease."""
         with self.service._lock:
+            self.service.check_lease(lease_hash)
+            self.check_attempt(profile_id, attempt_id, lease_hash)
             item = self.attempts[attempt_id]
-            previous = (
-                item.previous
-                if item.progress.status == "connected" and not item.superseded_scrubbed
-                else None
+            if time.monotonic() >= item.expires_at and not item.settled:
+                item.cancelled.set()
+                item.progress.status = "expired"
+            active = (
+                item.progress.status == "connecting" and not item.cancelled.is_set()
             )
-        if previous is not None:
-            try:
-                self._scrub(
-                    self._broker(profile_id, previous.credential_id), previous.client_id
-                )
-                with self.service._lock:
-                    item.superseded_scrubbed = True
-            except (OSError, AuthError, ProviderConnectionError):
-                with self.service._lock:
-                    item.progress.status = "failed"
-                    item.progress.code = "provider_save_unconfirmed"
+            return {
+                "progress": item.progress.model_dump(mode="json"),
+                "authorization_url": (
+                    item.authorization_url.get_secret_value()
+                    if active and item.authorization_url
+                    else None
+                ),
+                "user_code": (
+                    item.user_code.get_secret_value()
+                    if active and item.user_code
+                    else None
+                ),
+                "replacement_account": (
+                    item.identity.model_dump()
+                    if item.progress.status == "awaiting_confirmation" and item.identity
+                    else None
+                ),
+            }
+
+    def progress(self, profile_id, attempt_id):
+        """Read a safe progress receipt, never its one-use device code."""
         with self.service._lock:
+            item = self.attempts.get(attempt_id)
+            if item is None or item.profile_id != profile_id:
+                raise ProviderConnectionError("provider_login_expired")
+            if time.monotonic() >= item.expires_at and not item.settled:
+                item.cancelled.set()
+                item.progress.status = "expired"
             return item.progress.model_copy()
 
-    def _reconcile_publication(self, item: PendingLogin) -> None:
-        """Read back an attempted pointer write before reporting or discarding it."""
-        self._discard_stage(item)
-        if item.publication is None:
-            item.progress.status = "failed"
-            item.progress.code = "provider_sign_in_failed"
-            return
-        item.progress.status = "failed"
-        item.progress.code = "provider_save_unconfirmed"
-        try:
-            records = self.service._records(item.profile_id)
-        except ProviderConnectionError:
-            item.progress.status = "failed"
-            item.progress.code = "provider_save_unconfirmed"
-            return
-        admitted = next(
-            (record for record in records if record.connection_id == item.candidate_id),
-            None,
-        )
-        if admitted == item.publication:
-            item.progress.status = "connected"
-            item.progress.connection_id = item.candidate_id
-            item.progress.code = None
-        else:
-            self._scrub(
-                self._broker(item.profile_id, item.publication.credential_id),
-                item.publication.client_id,
-            )
-            item.progress.status = "failed"
-            item.progress.code = "provider_sign_in_failed"
-
-    def _complete(
-        self, profile_id: UUID, callback: dict, *, lease_hash: str = "", **verification
-    ) -> LoginProgress:
-        """Consume a matching callback once, verify privately and fence before commit.
-
-        Network exchange occurs outside the lifecycle lock so cancellation can
-        win while the provider is slow. Staged credentials are never borrowable.
-        Optional verifier arguments are used only by concern-owned tests.
-        """
+    def confirm(self, profile_id, attempt_id, *, lease_hash):
+        """Confirm the observed candidate; the worker alone publishes after fencing."""
         with self.service._lock:
-            self._expire()
-            candidates = [
-                item
-                for item in self.attempts.values()
-                if item.profile_id == profile_id
-                and secrets.compare_digest(item.lease_hash, lease_hash)
-                and item.progress.status == "connecting"
-                and secrets.compare_digest(
-                    json.loads(item.oauth.get_secret_value())["state"].encode(),
-                    str(callback.get("state", "")).encode("utf-8", errors="replace"),
-                )
-            ]
-            if len(candidates) != 1:
-                logging.getLogger(__name__).warning(
-                    "Codex callback refused: phase=binding candidates=%d profile_attempts=%d lease_matches=%d state_matches=%d",
-                    len(candidates),
-                    sum(
-                        item.profile_id == profile_id for item in self.attempts.values()
-                    ),
-                    sum(
-                        item.profile_id == profile_id
-                        and secrets.compare_digest(item.lease_hash, lease_hash)
-                        for item in self.attempts.values()
-                    ),
-                    sum(
-                        item.profile_id == profile_id
-                        and secrets.compare_digest(
-                            json.loads(item.oauth.get_secret_value())["state"].encode(),
-                            str(callback.get("state", "")).encode(
-                                "utf-8", errors="replace"
-                            ),
-                        )
-                        for item in self.attempts.values()
-                    ),
-                )
+            self.details(profile_id, attempt_id, lease_hash=lease_hash)
+            item = self.attempts[attempt_id]
+            if (
+                item.progress.status != "awaiting_confirmation"
+                or item.cancelled.is_set()
+            ):
                 raise ProviderConnectionError("provider_login_expired")
-            item = candidates[0]
+            item.confirmation.set()
             item.progress.status = "verifying"
-            item.exchanging = True
-            oauth = json.loads(item.oauth.get_secret_value())
-        stage = ChatGPTConnection(item.stage)
-        staged_account = None
-        phase = "exchange_and_verification"
+            return item.progress.model_copy()
+
+    def owns(self, vault):
+        """Keep unmarked retained Codex revisions after other provider markers."""
+        return True
+
+    def native(self, profile_id, record):
+        """Resolve exact native custody; the SIWC revision is never converted."""
+        return CodexNativeCredentials(self._root(profile_id, record.credential_id))
+
+    def profile(self, profile_id, record):
+        """Admit only this unchanged native revision's existing owned volume."""
+        if record.provider != "codex" or record.client_id != "codex-native":
+            raise ProviderConnectionError("provider_connection_unavailable")
+        return self.native(profile_id, record).profile()
+
+    @staticmethod
+    def validate_native_identity(value, record):
+        """Reject public native observations that do not match this saved binding."""
+        if (
+            CodexAccountIdentity.model_validate(value).subject_hash()
+            != record.subject_hash
+        ):
+            raise ValueError("native_identity_mismatch")
+
+    def saved_identity(self, profile_id, record):
+        """Read verified public metadata; no token refresh or native process is started."""
         try:
-            stage.finish(oauth, callback, **verification)
-            client_id = callback.get("client_id") or oauth["client_id"]
-            staged_account = stage.account(client_id)
-            phase = "admission"
-            with self.service._lock:
-                self._expire()
-                if item.progress.status != "verifying":
-                    return item.progress
-                records = self.service._records(profile_id)
-                subject_hash = hashlib.sha256(
-                    (
-                        staged_account["issuer"] + "\0" + staged_account["subject"]
-                    ).encode()
-                ).hexdigest()
-                email = staged_account.get("email")
-                # Labels are immutable provider email projections. This rule
-                # only refuses a new row; reconnect identity stays subject-bound.
-                normalized_email = (
-                    email.strip().casefold()
-                    if isinstance(email, str) and email.strip()
-                    else None
+            identity = CodexAccountIdentity.model_validate_json(
+                (
+                    self._root(profile_id, record.credential_id) / "codex-identity.json"
+                ).read_bytes()
+            )
+            if identity.subject_hash() != record.subject_hash:
+                raise ValueError()
+            return identity
+        except (OSError, ValueError):
+            raise ProviderConnectionError("provider_connection_changed") from None
+
+    def summary(self, profile_id, record):
+        """Read local verified custody; never open a concurrent native writer."""
+        if record.client_id != "codex-native":
+            return self.retained.summary(profile_id, record)
+        state = "unavailable"
+        try:
+            self.profile(profile_id, record)
+            self.saved_identity(profile_id, record)
+            state = "ready"
+        except Exception:
+            pass
+        return ConnectionSummary(
+            connection_id=record.connection_id,
+            label=record.label,
+            generation=record.generation,
+            auth_state=state,
+            lifecycle=record.lifecycle,
+        )
+
+    def borrow(self, profile_id, connection_id, generation):
+        """Retained token-sharing revisions remain usable until explicit replacement."""
+        record = self.service.admitted(profile_id, connection_id, generation)
+        if record.client_id == "codex-native":
+            raise ProviderConnectionError("provider_method_unavailable")
+        return self.retained.borrow(profile_id, connection_id, generation)
+
+    def reconcile_orphan(self, root, active=False):
+        """Discard uncommitted native revisions; never replay an interrupted login."""
+        if (root / "codex-custody.json").exists():
+            if not active:
+                self.erase(root)
+        else:
+            self.retained.reconcile_orphan(root, active=active)
+
+    def erase(self, root):
+        """Confirm exact native cleanup before dropping host ownership metadata."""
+        CodexNativeCredentials(root).erase()
+
+    def erase_revision(self, profile_id, record):
+        """Remove only the fenced admitted credential kind, with no remote revoke."""
+        if record.client_id == "codex-native":
+            self.erase(self._root(profile_id, record.credential_id))
+        else:
+            self.retained.erase_revision(profile_id, record)
+
+    @staticmethod
+    def spec(descriptor, mode):
+        """Fixed auth-only sandbox; no project or tool mounts, no ambient credentials."""
+        from py_docker.containers.models import ContainerSpec, Mount
+
+        if mode not in {"login", "identity"}:
+            raise ProviderConnectionError("provider_request_refused")
+        return ContainerSpec(
+            image=descriptor.image_id,
+            name="laomedo-codex-auth-" + uuid4().hex,
+            entrypoint=["node"],
+            command=["/opt/acp/native-login.mjs", mode],
+            init=True,
+            user="10001:10001",
+            working_dir="/draft",
+            network_mode="bridge",
+            stdin_open=False,
+            mounts=[
+                Mount(
+                    type="volume", source=descriptor.name, target="/home/runner/.codex"
                 )
+            ],
+            environment={"HOME": "/home/runner", "CODEX_HOME": "/home/runner/.codex"},
+            log_driver="none",
+            tmpfs={"/tmp": "rw,nosuid,nodev,size=64m,mode=1777"},
+            nano_cpus=2_000_000_000,
+        )
+
+    def _root(self, profile_id, credential_id) -> Path:
+        """Resolve an opaque host-owned revision below the private profile root."""
+        return self.service._profile(profile_id) / str(credential_id)
+
+    def _broker(self, profile_id, credential_id):
+        """Resolve only an already-saved token-sharing revision during transition."""
+        return self.retained._broker(profile_id, credential_id)
+
+    def _check_live(self, item):
+        """Fence expiry, cancellation, logout and stale replacement before publication."""
+        self.service.check_lease(item.lease_hash)
+        if item.cancelled.is_set() or time.monotonic() >= item.expires_at:
+            raise ProviderConnectionError("provider_login_expired")
+        if item.previous:
+            if (
+                self.service.admitted(item.profile_id, item.candidate_id)
+                != item.previous
+            ):
+                raise ProviderConnectionError("provider_connection_changed")
+            if (
+                self.service.controllers is not None
+                and self.service.controllers.inventory(
+                    item.profile_id, item.candidate_id
+                )[0]
+            ):
+                raise ProviderConnectionError("provider_connection_busy")
+
+    def _run(self, item):
+        """Own staging, native teardown, explicit replacement and exact publication."""
+        from py_docker.sessions.models import ContainerSession
+        from py_docker.streams.models import StreamLimits
+
+        root = self._root(item.profile_id, item.credential_id)
+        committed = False
+        custody = CodexNativeCredentials(root)
+        try:
+            root.mkdir(mode=0o700)
+            _restrict_windows_directory(root)
+            with DockerRuntime(environment=None).connect() as docker:
+                image_id = DockerRuntime.ensure_image(
+                    docker, IMAGE, cancelled=item.cancelled
+                )
+                with self.service._lock:
+                    self._check_live(item)
+                custody.create(docker, item.candidate_id, item.credential_id, image_id)
+            with custody.lease() as descriptor:
+                receipt = root / "native-login-session.json"
+                custody.register(receipt)
+                with custody._client(descriptor) as docker:
+                    with DockerRuntime.session(
+                        docker,
+                        ContainerSession(
+                            spec=self.spec(descriptor, "login"),
+                            limits=StreamLimits(
+                                seconds=max(1, item.expires_at - time.monotonic()),
+                                max_bytes=16384,
+                            ),
+                            receipt_path=receipt,
+                        ),
+                        deadline=item.expires_at,
+                        cleanup_seconds=NATIVE_AUTH_CLEANUP_SECONDS,
+                    ) as session:
+                        with self.service._lock:
+                            item.session = session
+                        pending = b""
+                        seen_device = seen_identity = False
+                        with session.stop_on(item.cancelled.is_set):
+                            while True:
+                                frame = session.read_frame()
+                                if frame is None:
+                                    break
+                                pending += frame.data
+                                if len(pending) > 16384:
+                                    raise ValueError()
+                                while b"\n" in pending:
+                                    line, pending = pending.split(b"\n", 1)
+                                    value = json.loads(line)
+                                    if (
+                                        value.get("type") == "device"
+                                        and not seen_device
+                                        and not seen_identity
+                                        and set(value)
+                                        == {"type", "authorization_url", "user_code"}
+                                    ):
+                                        if (
+                                            value["authorization_url"]
+                                            != "https://auth.openai.com/codex/device"
+                                            or not isinstance(value["user_code"], str)
+                                            or not 4 <= len(value["user_code"]) <= 32
+                                        ):
+                                            raise ValueError()
+                                        with self.service._lock:
+                                            self._check_live(item)
+                                            item.authorization_url = SecretStr(
+                                                value["authorization_url"]
+                                            )
+                                            item.user_code = SecretStr(
+                                                value["user_code"]
+                                            )
+                                            item.ready.set()
+                                        seen_device = True
+                                    elif (
+                                        value.get("type") == "identity"
+                                        and seen_device
+                                        and not seen_identity
+                                    ):
+                                        identity = CodexAccountIdentity.model_validate(
+                                            {
+                                                k: v
+                                                for k, v in value.items()
+                                                if k != "type"
+                                            }
+                                        )
+                                        seen_identity = True
+                                    else:
+                                        raise ValueError()
+                            if (
+                                pending.strip()
+                                or not seen_identity
+                                or session.wait(5) != 0
+                            ):
+                                raise ProviderConnectionError("provider_sign_in_failed")
+            # No browser confirmation is requested until exact container cleanup settles.
+            with self.service._lock:
+                self._check_live(item)
+                item.identity = identity
+                item.authorization_url = item.user_code = None
+                item.progress.status = (
+                    "awaiting_confirmation" if item.previous else "verifying"
+                )
+                item.ready.set()
+            if item.previous:
+                while not item.confirmation.wait(0.1):
+                    with self.service._lock:
+                        self._check_live(item)
+            with self.service._lock:
+                self._check_live(item)
+                rows = self.service._records(item.profile_id)
                 duplicate = next(
                     (
-                        record
-                        for record in records
-                        if record.provider == "codex"
-                        and record.connection_id != item.candidate_id
-                        and (
-                            record.subject_hash == subject_hash
-                            or item.previous is None
-                            and normalized_email is not None
-                            and record.label.strip().casefold() == normalized_email
-                        )
+                        row
+                        for row in rows
+                        if row.provider == "codex"
+                        and row.connection_id != item.candidate_id
+                        and row.subject_hash == identity.subject_hash()
                     ),
                     None,
                 )
                 if duplicate:
                     item.progress.status = "duplicate"
                     item.progress.connection_id = duplicate.connection_id
-                    return item.progress
-                if item.previous:
-                    current = self.service.admitted(profile_id, item.candidate_id)
-                    if current != item.previous:
-                        raise ProviderConnectionError("provider_connection_changed")
-                    if subject_hash != current.subject_hash:
-                        raise ProviderConnectionError("provider_account_mismatch")
-                    if (
-                        self.service.controllers is not None
-                        and self.service.controllers.inventory(
-                            profile_id, item.candidate_id
-                        )[0]
-                    ):
-                        raise ProviderConnectionError("provider_connection_busy")
-                generation = item.previous.generation + 1 if item.previous else 1
-                staged_account["generation"] = generation
-                record = ConnectionRecord(
-                    connection_id=item.candidate_id,
-                    credential_id=uuid4(),
-                    client_id=client_id,
-                    subject_hash=subject_hash,
-                    generation=generation,
-                    label=staged_account.get("email") or "ChatGPT account",
-                )
-                broker = self._broker(profile_id, record.credential_id)
-                phase = "publication"
-                item.publication = record
-                _atomic_private(
-                    broker.host_path,
-                    {"ext_agent_host_id": staged_account["ext_agent_host_id"]},
-                )
-                _atomic_private(broker._path(client_id), staged_account)
-                records = [
-                    entry
-                    for entry in records
-                    if entry.connection_id != item.candidate_id
-                ] + [record]
-                self.service._save(profile_id, records)
-                item.progress.status = "connected"
-                item.progress.connection_id = item.candidate_id
-                return item.progress
+                else:
+                    _atomic_private(root / "codex-identity.json", identity.model_dump())
+                    record = ConnectionRecord(
+                        provider="codex",
+                        connection_id=item.candidate_id,
+                        credential_id=item.credential_id,
+                        client_id="codex-native",
+                        subject_hash=identity.subject_hash(),
+                        generation=item.previous.generation + 1 if item.previous else 1,
+                        label=identity.email,
+                    )
+                    try:
+                        self.service._save(
+                            item.profile_id,
+                            [
+                                row
+                                for row in rows
+                                if row.connection_id != item.candidate_id
+                            ]
+                            + [record],
+                        )
+                    except Exception:
+                        committed = True  # Unknown readback must retain staged custody.
+                        if record not in self.service._records(item.profile_id):
+                            committed = False
+                            raise
+                    committed = True
+                    item.progress.status = "connected"
+                    item.progress.connection_id = item.candidate_id
+            if committed and item.previous:
+                try:
+                    self.erase_revision(item.profile_id, item.previous)
+                except Exception:
+                    item.progress.code = "provider_cleanup_unconfirmed"
         except Exception as failure:
-            category = getattr(failure, "code", None)
-            safe_category = (
-                category
-                if isinstance(category, str)
-                and (
-                    category in LOGIN_FAILURE_CATEGORIES
-                    or re.fullmatch(r"auth_http_[1-5][0-9]{2}", category)
-                )
-                else "unclassified"
-            )
             logging.getLogger(__name__).warning(
-                "Codex sign-in failed: phase=%s category=%s exception_type=%s",
-                phase,
-                safe_category,
-                type(failure).__name__,
+                "Codex native sign-in failed: exception_type=%s", type(failure).__name__
             )
             with self.service._lock:
-                if item.publication is not None:
-                    try:
-                        self._reconcile_publication(item)
-                    except (OSError, AuthError):
-                        item.progress.status = "failed"
-                        item.progress.code = "provider_save_unconfirmed"
-                elif item.progress.status == "verifying":
-                    item.progress.status = "failed"
+                if item.progress.status not in {"cancelled", "expired", "duplicate"}:
+                    item.progress.status = (
+                        "expired"
+                        if not committed and time.monotonic() >= item.expires_at
+                        else "failed"
+                    )
                     item.progress.code = (
-                        "provider_account_mismatch"
-                        if isinstance(failure, (AuthError, ProviderConnectionError))
-                        and category
-                        in {"auth_account_mismatch", "provider_account_mismatch"}
+                        "provider_save_unconfirmed"
+                        if committed
                         else "provider_sign_in_failed"
                     )
-                return item.progress
         finally:
-            # Erase the private staging copy even after cancellation or duplicate
-            # admission. Revoking it here could revoke the newly committed grant.
-            try:
-                self._discard_stage(item)
-            except (OSError, AuthError):
-                with self.service._lock:
-                    item.progress.status = "failed"
-                    item.progress.code = "provider_save_unconfirmed"
-            finally:
-                with self.service._lock:
-                    item.exchanging = False
+            if not committed and (root / "codex-custody.json").exists():
+                try:
+                    custody.erase()
+                except Exception:
+                    with self.service._lock:
+                        item.progress.status = "failed"
+                        item.progress.code = "provider_cleanup_unconfirmed"
+            with self.service._lock:
+                item.session = None
+                item.authorization_url = item.user_code = None
+                item.settled = True
+                item.ready.set()

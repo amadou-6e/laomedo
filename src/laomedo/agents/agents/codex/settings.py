@@ -2,7 +2,7 @@
 
 from laomedo._paths import package_root
 
-IMAGE = "laomedo-codex-acp:0.159.2-2.1.1-skills7"
+IMAGE = "laomedo-codex-acp:0.159.2-2.1.1-unified300-skills7"
 
 
 # Managed image IDs are resolved on the selected daemon before execution.
@@ -183,3 +183,6 @@ LOGIN_FAILURE_CATEGORIES = frozenset(
         "provider_connection_busy",
     }
 )
+
+NATIVE_LOGIN_SECONDS = 900
+NATIVE_AUTH_CLEANUP_SECONDS = 20

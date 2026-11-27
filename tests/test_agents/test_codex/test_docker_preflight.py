@@ -66,6 +66,8 @@ assert 'docker' not in sys.modules
             self.assertRaisesRegex(RunnerError, "^runner_docker_check_unconfirmed$"),
         ):
             runner = CodexAgent.__new__(CodexAgent)
+            runner.native_auth = None
+            runner.docker_environment = None
             runner.state = Path(directory)
             runner._check_container()
         self.assertIn(".[runner]", logs.output[0])
@@ -135,6 +137,8 @@ class PreflightControls(unittest.TestCase):
         self.addCleanup(self.temp.cleanup)
         self.expected = "sha256:" + "a" * 64
         self.preflight = CodexAgent.__new__(CodexAgent)
+        self.preflight.native_auth = None
+        self.preflight.docker_environment = None
         self.preflight.state = Path(self.temp.name)
         self.preflight.image = "local-image"
         self.preflight.image_id = self.expected

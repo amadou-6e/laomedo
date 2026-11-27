@@ -177,18 +177,11 @@ class ClaudeConnection(BaseProviderConnection):
             return item.progress.model_copy()
 
     def summary(self, profile_id, record):
-        """Observe the official client's identity; a runner outage is not logout."""
+        """Observe saved custody without starting a native OAuth client."""
         state = "unavailable"
         try:
-            descriptor = self.profile(profile_id, record)
-            identity = self._auth_status(
-                self._root(profile_id, record.credential_id), descriptor
-            )
-            state = (
-                "ready"
-                if identity.subject_hash() == record.subject_hash
-                else "reauthorization_required"
-            )
+            self.profile(profile_id, record)
+            state = "ready"
         except Exception:
             pass
         return ConnectionSummary(

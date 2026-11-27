@@ -5,6 +5,7 @@ from laomedo.agents.activity.models import ActivityPage
 from laomedo.agents.agents.base.models import ReadinessObservation
 from laomedo.docker import DockerRuntime
 from laomedo.agents.agents.opencode.catalog import OpenCodeModelCatalog
+from laomedo.agents.agents.opencode.quota import OpenCodeSubscriptionQuota
 
 from uuid import uuid4
 import hashlib
@@ -24,6 +25,7 @@ from laomedo.agents.agents.opencode.commands import OpenCodeCommands
 from laomedo.agents.agents.base.models import NativeCommandInvocation
 from laomedo.agents.errors import RunnerError
 from laomedo.agents.agents.base.agent import BaseAgent
+from laomedo.agents.agents.base.base import BaseSubscriptionQuota
 from laomedo.agents.agents.base.models import RuntimeBinding
 from laomedo.agents.workspaces.utils import _hash_tree
 from laomedo.agents.agents.base.utils import _id
@@ -67,6 +69,7 @@ class OpenCodeAgent(BaseAgent):
 
             transport_factory = partial(OpenCodeAgentRuntime, profile=profile)
         self.transport_factory = transport_factory
+        self.profile = profile
         self.active_backends = {}
         super().__init__(
             state,
@@ -80,6 +83,15 @@ class OpenCodeAgent(BaseAgent):
             artifact_sources=artifact_sources,
         )
         self._recover_containers()
+
+    @property
+    def quota(self) -> BaseSubscriptionQuota | None:
+        """Compose the provider-owned zero-turn quota reader without native effects."""
+        return (
+            OpenCodeSubscriptionQuota(self.profile, lock=self.lock)
+            if self.profile is not None
+            else None
+        )
 
     def runtime_binding(self):
         """Return existing nonsecret provider/image/profile metadata for retained run identity."""

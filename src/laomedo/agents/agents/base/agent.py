@@ -60,6 +60,7 @@ from laomedo.agents.workspaces.skills.utils import verify
 
 
 from laomedo.agents.agents.base.base import BaseModelCatalog
+from laomedo.agents.agents.base.base import BaseSubscriptionQuota
 from laomedo.agents.agents.base.settings import ROLE_INIT_LOCK
 
 
@@ -132,6 +133,11 @@ class BaseAgent(ABC):
         self.cancel_flags = {}
         self._mcp_access = {}
         self._mcp_lock = threading.Lock()
+
+    @property
+    def quota(self) -> BaseSubscriptionQuota | None:
+        """Expose no quota capability unless this provider composes one."""
+        return None
 
     @property
     def credentials(self):

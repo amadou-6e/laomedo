@@ -334,6 +334,11 @@ export class LaomedoExtension {
         return this.app.listModels({cursor: params.cursor ?? null});
     }
 
+    async rateLimits() {
+        if (this.sessions.size || this.prompted) throw acp.RequestError.invalidParams("Quota discovery already closed");
+        return this.native.sendRequest("account/rateLimits/read", {});
+    }
+
     async skills() {
         if (this.prompted) throw acp.RequestError.invalidParams("Discovery already closed");
         return this.app.listSkills({cwds: ["/draft"], forceReload: true});

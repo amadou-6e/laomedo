@@ -130,6 +130,29 @@
   the implementation but must document their contract; do not leave pass-only
   placeholders. User-facing explanations/recovery belong to the shared catalogue.
 
+## Task ownership and handoffs
+
+- Carry authorized work from issue through implementation, testing, review and PR
+  readiness. Continue independent work while awaiting decisions; stop only when
+  complete or when a concrete blocker requires the user.
+- End every task handoff with:
+  - **Where we are:** owning issue, PR, implementation status, reviewer coverage
+    and whether anything merged.
+  - **Still open:** remaining work, blockers and decisions, distinguishing
+    agent-owned work from user actions.
+  - **Next step:** who does what next and how it advances the work toward
+    completion.
+- Before compaction or ending a turn with unfinished work, preserve the objective,
+  exact revisions, completed checks, reviewer findings, unresolved decisions and
+  next executable action in a durable task handoff. Resume from that record
+  without requiring the user to reconstruct the task. Keep private operational
+  handoffs ignored by Git; never record secrets.
+- Do not substitute a status report for work that can still be completed
+  autonomously.
+- Never stop unfinished authorized work when no human input is needed and quota
+  is available. Exhaust actionable independent work before handing back a blocker;
+  continue until completion, a concrete need for the human, or missing quota.
+
 ## UI change handoff
 
 - After implementing a user-requested UI change, build or reload the updated

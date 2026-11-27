@@ -64,4 +64,50 @@ describe("assistant request authority and uncertain dispatch", () => {
       new AssistantFailure("assistant_connection_unavailable"),
     );
   });
+  it("allows a slow native model discovery to finish without retrying", async () => {
+    jest.useFakeTimers();
+    try {
+      let signal: AbortSignal;
+      let finish: (value: Response) => void;
+      const fetcher = jest.spyOn(globalThis, "fetch").mockImplementation((_url, options) => {
+        signal = options!.signal as AbortSignal;
+        return new Promise<Response>((resolve) => { finish = resolve; });
+      });
+      const pending = assistantRequest("/models?provider=codex&connection_generation=2");
+      await jest.advanceTimersByTimeAsync(55000);
+      expect(signal!.aborted).toBe(false);
+      finish!({ ok: true, json: async () => ({ models: [] }) } as Response);
+      await expect(pending).resolves.toEqual({ models: [] });
+      expect(fetcher).toHaveBeenCalledTimes(1);
+      expect(jest.getTimerCount()).toBe(0);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it("bounds model discovery and preserves the shorter deadline for other reads", async () => {
+    jest.useFakeTimers();
+    try {
+      const signals: AbortSignal[] = [];
+      jest.spyOn(globalThis, "fetch").mockImplementation((_url, options) => {
+        const signal = options!.signal as AbortSignal;
+        signals.push(signal);
+        return new Promise<Response>((_resolve, reject) => {
+          signal.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError")));
+        });
+      });
+      const models = assistantRequest("/models?provider=codex").catch((error) => error);
+      const ordinary = assistantRequest("/conversations").catch((error) => error);
+      await jest.advanceTimersByTimeAsync(20000);
+      expect(signals[0].aborted).toBe(false);
+      expect(signals[1].aborted).toBe(true);
+      expect(await ordinary).toEqual(new AssistantFailure("assistant_connection_unavailable"));
+      await jest.advanceTimersByTimeAsync(70000);
+      expect(signals[0].aborted).toBe(true);
+      expect(await models).toEqual(new AssistantFailure("assistant_connection_unavailable"));
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
 });

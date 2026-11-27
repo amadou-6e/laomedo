@@ -66,3 +66,5 @@ Historical campaigns belong to permanent `exp`; production tests never fetch it.
 The maintained [Agent builder](../../../examples/agents/README.md) exports current
 component definitions with caller-supplied inputs. Compatibility data belongs to
 the owning tests and is not a runnable example or new execution evidence.
+
+`AgentProviderRegistry.supports_subscription_quota(provider, client_id)` performs inert capability selection for supported saved credential methods. It does not import native runtimes or instantiate a provider; actual readers implement `BaseSubscriptionQuota`.

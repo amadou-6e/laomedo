@@ -183,7 +183,7 @@ class SettingsContractTests(unittest.TestCase):
             "git/command.py": "os.environ.items()",
             "agents/agents/claude/policy.py": "env = dict(environment or {})",
             "skills/sources/repository.py": "os.environ.items()",
-            "agents/agents/codex/agent.py": "ConnectionSettings.environment_snapshot(None)",
+            "agents/agents/codex/agent.py": "ConnectionSettings.environment_snapshot(self.docker_environment)",
             "host/publication/cli.py": "key in os.environ",
             "github/interface/issues/cli.py": "os.environ.get(args.github_token_env)",
             "github/interface/pull_requests/cli.py": "os.environ.get(args.github_token_env)",

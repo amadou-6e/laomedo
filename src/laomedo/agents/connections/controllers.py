@@ -9,11 +9,17 @@ from pathlib import Path
 from uuid import UUID
 from urllib.parse import urlsplit
 
-from laomedo.agents.connections.credentials import SavedConnectionCredential
+from laomedo.agents.connections.credentials import (
+    SavedConnectionCredential,
+    SavedNativeCodexConnection,
+)
 from laomedo.agents.connections.credentials import SavedClaudeConnection
 from laomedo.docker import DockerRuntime
 from laomedo.agents.connections.errors import ProviderConnectionError
 from laomedo.agents.connections.models import ControllerSlot
+from laomedo.agents.connections.models import SubscriptionBinding
+from laomedo.agents.agents.base.base import BaseSubscriptionQuota
+from laomedo.agents.agents.base.models import SubscriptionSnapshot
 from laomedo.host.runner.http.server import RunnerServer
 from laomedo.host.runner.http.handler import RunnerRequestHandler
 from laomedo.agents.errors import RunnerError
@@ -325,6 +331,27 @@ class ProviderControllers:
             slot.state / "api-token",
         )
 
+    def subscription_limits(self, binding: SubscriptionBinding) -> SubscriptionSnapshot:
+        """Reserve the existing exact-account discovery fence until native teardown settles."""
+        slot = self._create(
+            binding.profile_id, binding.connection_id, binding.generation
+        )
+        deadline = time.monotonic() + 120
+        while slot.creating and time.monotonic() < deadline:
+            time.sleep(0.05)
+        if slot.creating or slot.runner is None:
+            raise ProviderConnectionError("provider_runner_unavailable")
+        self.admit_operation(slot, catalog=True)
+        try:
+            quota: BaseSubscriptionQuota | None = slot.runner.quota
+            if quota is None:
+                raise ProviderConnectionError("provider_method_unavailable")
+            return quota.read()
+        finally:
+            with self.service._lock:
+                slot.operations -= 1
+                slot.catalog_operations -= 1
+
     def admit_operation(self, slot, *, catalog=False):
         """Atomically fence work admission and increment the confirmation revision."""
         with self.service._lock:
@@ -628,9 +655,12 @@ class ProviderControllers:
             else:
                 if record.provider != "codex":
                     raise ProviderConnectionError("provider_method_unavailable")
-                auth = SavedConnectionCredential(
-                    self.service, profile_id, connection_id, generation
+                auth_type = (
+                    SavedNativeCodexConnection
+                    if record.client_id == "codex-native"
+                    else SavedConnectionCredential
                 )
+                auth = auth_type(self.service, profile_id, connection_id, generation)
                 factory = self.factory or partial(
                     AgentProviderRegistry.create_agent, "codex"
                 )

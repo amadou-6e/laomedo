@@ -15,10 +15,10 @@ export function codexSkillMentions(text: string): string[] {
   return codexBundledSkillNames.filter(name => names.has(name));
 }
 
-export const applicationCommands: Record<string, {name: string; description: string; action: "accounts" | "rename"}[]> = {
+export const applicationCommands: Record<string, {name: string; description: string; action: "accounts" | "rename" | "usage"}[]> = {
   codex: [{name: "logout", description: "Manage sign-in in Settings → Providers.", action: "accounts"}, {name: "rename", description: "Rename this Laomedo conversation.", action: "rename"}],
   claude: [{name: "login", description: "Manage sign-in in Settings → Providers.", action: "accounts"}, {name: "logout", description: "Manage sign-in in Settings → Providers.", action: "accounts"}, {name: "rename", description: "Rename this Laomedo conversation.", action: "rename"}],
-  opencode: [{name: "connect", description: "Connect an account in Settings → Providers.", action: "accounts"}],
+  opencode: [{name: "usage", description: "Show subscription limits (Laomedo action).", action: "usage"}, {name: "connect", description: "Connect an account in Settings → Providers.", action: "accounts"}],
 };
 
 export const codexCommandPreviews = [

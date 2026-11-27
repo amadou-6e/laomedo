@@ -1,3 +1,4 @@
+import OpenCodeUsage from "./commands/OpenCodeUsage";
 import useConversationExport from "./conversation/useConversationExport";
 import useSavedAccounts from "./composer/useSavedAccounts";
 import useModelDiscovery from "./composer/useModelDiscovery";
@@ -124,6 +125,7 @@ export default function AssistantPage({
   currentSelection.current = selected;
 
   useEffect(() => {
+    setUsageOpen(false);
     setRenaming(undefined);
     setTitleDraft("");
     setRenameError(false);
@@ -164,6 +166,8 @@ export default function AssistantPage({
 
   const { accounts, accountsLoading, accountsOwner, account, setAccount } =
     useSavedAccounts({ owner, locked, selected, chosenProvider, fail });
+  const [usageOpen, setUsageOpen] = useState(false);
+  const [usageRevision, setUsageRevision] = useState(0);
   const boundAccount = selected
     ? detail?.conversation.id === selected
       ? detail.conversation
@@ -477,7 +481,12 @@ export default function AssistantPage({
   async function send(retry?: PendingSubmission) {
     if (!retry && appCommand && canUseAppCommand) {
       const nextDrafts = { ...drafts, [selected]: "" };
-      if (appCommand.action === "accounts") {
+      if (appCommand.action === "usage") {
+        setUsageOpen(true);
+        setUsageRevision(value => value + 1);
+        setDrafts(nextDrafts);
+        setCommandsDismissed(true);
+      } else if (appCommand.action === "accounts") {
         if (retainSettingsDraft(nextDrafts))
           window.location.assign("/settings/providers");
       } else if (conversation) {
@@ -879,7 +888,8 @@ export default function AssistantPage({
       !active &&
       !waiting &&
       !needsAttention &&
-      (appCommand.action !== "rename" || conversation),
+      (appCommand.action !== "rename" || conversation) &&
+      (appCommand.action !== "usage" || accounts.some(row => row.connection_id === connectionId && row.generation === connectionGeneration)),
   );
   const explanation =
     error || detail?.observation_error || conversation?.error_code;
@@ -1088,7 +1098,10 @@ export default function AssistantPage({
                 onFailure={fail}
                 onRetry={(submission) => void send(submission)}
               />
-              {!waiting &&
+              {usageOpen && !locked && connectionId && connectionGeneration && (
+                <OpenCodeUsage key={`${binding}:${usageRevision}`} connection={connectionId} generation={connectionGeneration} />
+              )}
+              {!waiting && !usageOpen &&
                 (!selected || (detail && !detail.messages.length)) && (
                   <Welcome
                     selected={selected}

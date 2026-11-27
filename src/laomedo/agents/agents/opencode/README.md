@@ -1,5 +1,21 @@
 # Opencode Agent
 
+## Go subscription allowances
+
+`OpenCodeSubscriptionQuota` in `quota.py` reads the fixed HTTPS Go usage endpoint
+with the same admitted private profile key used for execution. `read()` validates
+key custody before and after one bounded GET. A standard-library HTTP subprocess
+receives the key only on stdin; a hard 15-second timeout kills and joins that
+process even during DNS or a slowly streaming body. Its environment excludes
+provider credentials and its stderr is discarded. Redirects, retries, native sessions
+and model prompts are forbidden. `project()` returns the reported rolling,
+weekly and calendar-month meters as primary, secondary and monthly windows.
+Monthly resets come from the provider, never an assumed 30-day duration.
+Missing scalar evidence remains unknown. HTTP 401, 403 and 429 become safe
+authentication, subscription-access and retry categories; raw bodies and keys
+never enter quota observations or diagnostics. A failed read does not change
+the connection's authentication state or infer a zero allowance.
+
 Model discovery is scoped to `opencode-go`, the provider admitted by the dedicated
 Go credential profile. The native CLI's global catalogue also includes free
 models that the authenticated ACP session does not advertise; they must not be
@@ -124,3 +140,5 @@ and parent, refuses links/reparse points, and retries only read-only copies
 within that checked directory. Source skill attributes are never changed.
 
 `connection.py` is the provider boundary. GoConnection owns save/profile/summary/erase for explicit Go subscription keys. It reports custody rather than verified identity and has no asynchronous browser login workers. Exact repeated keys reuse the existing connection. The shared Agent connection service owns admission/index fencing; host storage and profile authorization remain separate.
+
+`quota.py` owns the opencode implementation of `BaseSubscriptionQuota.read()`. The Agent exposes it through the optional `quota` property; callers use the shared contract. Native protocol, credential and teardown ownership is preserved.

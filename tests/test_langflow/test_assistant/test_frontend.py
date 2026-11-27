@@ -22,7 +22,7 @@ class AssistantFrontendModulesTests(unittest.TestCase):
                 "routes.tsx": '<Route path="" element={<CustomDashboardWrapperPage />}>\n'
                 * 2,
                 "components/core/appHeaderComponent/index.tsx": "{false && <ModelProviderCount />}",
-                "controllers/API/queries/auth/use-post-logout.ts": "    if (autoLogin) {",
+                "controllers/API/queries/auth/use-post-logout.ts": "    if (autoLogin && !(await profileMode().catch(() => true))) {",
                 "pages/FlowPage/index.tsx": "                    </main>\n                  </FlowSearchProvider>",
                 "pages/FlowPage/components/flowSidebarComponent/components/sidebarSegmentedNav.tsx": "        ))}\n      </SidebarMenu>",
             }
@@ -32,6 +32,13 @@ class AssistantFrontendModulesTests(unittest.TestCase):
                 path.write_text(value, encoding="utf-8")
             source = root / "frontend/langflow-skill-viewer"
             apply(checkout, source)
+            logout = (
+                frontend / "controllers/API/queries/auth/use-post-logout.ts"
+            ).read_text(encoding="utf-8")
+            self.assertIn(
+                "    await lockAssistant();\n    if (autoLogin && !(await profileMode().catch(() => true))) {",
+                logout,
+            )
             destination = frontend / "components/laomedoAssistant"
             for path in (source / "assistant").rglob("*"):
                 if not path.is_file() or path.name == "README.md":
