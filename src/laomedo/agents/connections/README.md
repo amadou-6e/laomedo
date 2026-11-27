@@ -276,6 +276,20 @@ the actual target acknowledgement before releasing its native start gate. The
 grant issuer is private and requires graph admission; there is no unscoped
 profile/source staging route.
 
+`GraphNodePolicy.native_request` admits only the approved model/effort, bounded
+task text and timeout, with no skills, MCP tools, workspace override or GitHub
+authority. A graph input may supply untrusted task text only when the host plan
+declares that input. `start_graph_node` uses the same host request-ID and native
+dispatch-guard pattern for editing vertices. `graph_native` resolves the exact
+account epoch, without falling back after reconnect.
+
+`finish_graph` revokes the job before looking up its host-generated request IDs
+and requesting cancellation. It cannot cancel other graphs' runs on the same
+account. `GraphRunShutdown` retains those exact request receipts even after the
+job deadline; `GraphNodeStop` reports cancellation observations without treating
+a running/unknown native task as stopped. The worker supervisor must retain that
+uncertainty and normal native history until settlement, rather than replay it.
+
 This is authority groundwork for the isolated worker, not an OS boundary. It is
 not exposed to the current in-process Langflow runtime. The verified-review
 handoff remains disabled until all execution and component-inspection paths use

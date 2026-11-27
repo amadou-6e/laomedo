@@ -558,7 +558,8 @@ class BaseAgent(ABC):
             ).hexdigest()
         )
         with request_reservation(
-            self.request_lock, nonblocking=verified_review is not None
+            self.request_lock,
+            nonblocking=verified_review is not None or dispatch_guard is not None,
         ):
             for record_path in (self.state / "runs").glob("*/record.json"):
                 prior = _read(record_path)

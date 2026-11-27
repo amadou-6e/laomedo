@@ -7,6 +7,46 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, JsonValue
 from laomedo.agents.workspaces.models import WorkspaceChanges
 from laomedo.agents.agents.base.models import VerifiedReviewProvenance
+from laomedo.agents.connections.errors import ProviderConnectionError
+from laomedo.agents.connections.settings import GRAPH_NODE_TASK_BYTES
+
+
+class GraphNodePolicy(BaseModel):
+    """Approved native selections, with task text treated as untrusted input."""
+
+    model_config = ConfigDict(strict=True, frozen=True, extra="forbid")
+    model: str = Field(min_length=1)
+    effort: str = Field(min_length=1)
+    task: str = Field(repr=False)
+    task_from_input: bool = False
+    timeout_seconds: int = Field(default=180, ge=1, le=86400)
+
+    def native_request(self, body, request_id):
+        """Preserve permitted task data while refusing added native authority."""
+        allowed = {
+            "request_id",
+            "task",
+            "model",
+            "effort",
+            "skill_refs",
+            "run_timeout_seconds",
+        }
+        if (
+            not isinstance(body, dict)
+            or set(body) - allowed
+            or body.get("model") != self.model
+            or body.get("effort") != self.effort
+            or body.get("skill_refs") != []
+            or not isinstance(body.get("task"), str)
+            or not body["task"].strip()
+            or len(body["task"].encode("utf-8")) > GRAPH_NODE_TASK_BYTES
+            or (not self.task_from_input and body["task"] != self.task)
+        ):
+            raise ProviderConnectionError("verified_review_unavailable")
+        timeout = body.get("run_timeout_seconds", self.timeout_seconds)
+        if type(timeout) is not int or not 1 <= timeout <= self.timeout_seconds:
+            raise ProviderConnectionError("verified_review_unavailable")
+        return {**body, "request_id": request_id}
 
 
 class OwnedWorkspaceChanges(BaseModel):
@@ -48,6 +88,7 @@ class GraphRunNode(BaseModel):
     connection_id: UUID
     generation: int = Field(ge=1)
     review_source: str | None = Field(default=None, min_length=1)
+    policy: GraphNodePolicy | None = None
 
 
 class GraphRunPlan(BaseModel):
@@ -81,6 +122,25 @@ class GraphNodeStart(BaseModel):
     model_config = ConfigDict(strict=True, frozen=True, extra="forbid")
     node: GraphRunNode
     request_id: str
+
+
+class GraphRunShutdown(BaseModel):
+    """Revoked job's host request receipts, retained for cancellation/reconciliation."""
+
+    model_config = ConfigDict(strict=True, frozen=True, extra="forbid")
+    profile_id: UUID
+    starts: tuple[GraphNodeStart, ...] = Field(repr=False, exclude=True)
+
+
+class GraphNodeStop(BaseModel):
+    """Native cancellation observation; a request alone never proves settlement."""
+
+    model_config = ConfigDict(strict=True, frozen=True, extra="forbid")
+    connection_id: UUID
+    generation: int
+    run_id: str
+    status: str
+    cancel_confirmed: bool
 
 
 class StagedGraphReview(BaseModel):

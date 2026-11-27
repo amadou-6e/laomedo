@@ -9,7 +9,7 @@ import time
 from functools import partial
 from contextlib import contextmanager
 from pathlib import Path
-from uuid import UUID
+from uuid import UUID, uuid4
 from urllib.parse import urlsplit
 
 from laomedo.agents.connections.credentials import SavedConnectionCredential
@@ -22,6 +22,7 @@ from laomedo.agents.connections.models import OwnedWorkspaceChanges
 from laomedo.agents.connections.models import VerifiedReviewGrant
 from laomedo.agents.connections.models import StagedGraphReview
 from laomedo.agents.connections.models import GraphReviewDispatch
+from laomedo.agents.connections.models import GraphNodeStop
 from laomedo.agents.agents.base.models import VerifiedReviewProvenance
 from laomedo.agents.connections.settings import MAX_PENDING_VERIFIED_REVIEWS
 from laomedo.agents.connections.settings import VERIFIED_REVIEW_GRANT_SECONDS
@@ -501,7 +502,9 @@ class ProviderControllers:
             raise ProviderConnectionError("verified_review_unavailable")
         review = self.graph_runs.review(capability, graph_digest, vertex_id)
         start = self.graph_runs.begin_node(capability, graph_digest, vertex_id)
-        body = {**body, "request_id": start.request_id}
+        if start.node.policy is None:
+            raise ProviderConnectionError("verified_review_unavailable")
+        body = start.node.policy.native_request(body, start.request_id)
         profile_id = review.profile_id
         source_run = review.source_run
         source = self.workspace_changes(profile_id, source_run)
@@ -635,7 +638,7 @@ class ProviderControllers:
                 graph_review=grant.graph_review,
             )
 
-    def endpoint(self, profile_id, connection_id, *, run_id=None):
+    def endpoint(self, profile_id, connection_id, *, run_id=None, generation=None):
         """Return a host-only URL/token path; retained runs resolve their original epoch."""
         with self.service._lock:
             if run_id:
@@ -651,8 +654,10 @@ class ProviderControllers:
                 if len(matches) != 1:
                     raise ProviderConnectionError("provider_connection_unavailable")
                 slot = matches[0]
+                if generation is not None and slot.generation != generation:
+                    raise ProviderConnectionError("provider_connection_changed")
             else:
-                record = self.service.admitted(profile_id, connection_id)
+                record = self.service.admitted(profile_id, connection_id, generation)
                 slot = None
         if slot is None:
             slot = self._create(profile_id, connection_id, record.generation)
@@ -665,6 +670,100 @@ class ProviderControllers:
             "http://127.0.0.1:" + str(slot.server.server_address[1]),
             slot.state / "api-token",
         )
+
+    def graph_native(self, profile_id, node):
+        """Resolve one exact graph-account epoch without leaking it to a worker."""
+        self.endpoint(profile_id, node.connection_id, generation=node.generation)
+        with self.service._lock:
+            self.service.admitted(profile_id, node.connection_id, node.generation)
+            slot = self.slots.get(
+                (profile_id, node.connection_id, node.generation, "graph")
+            )
+            if slot is None or slot.creating or slot.runner is None:
+                raise ProviderConnectionError("provider_runner_unavailable")
+            return slot
+
+    def start_graph_node(self, capability, graph_digest, vertex_id, body):
+        """Reserve an approved source node and bind it before native admission."""
+        plan = self.graph_runs.plan(capability, graph_digest)
+        node = self.graph_runs.resolve(capability, graph_digest, vertex_id)
+        if node.review_source is not None or node.policy is None:
+            raise ProviderConnectionError("verified_review_unavailable")
+        # Validate before startup; the actual request UUID is generated below.
+        node.policy.native_request(body, str(uuid4()))
+        slot = self.graph_native(plan.profile_id, node)
+        with self.service._lock:
+            start = self.graph_runs.begin_node(capability, graph_digest, vertex_id)
+            request = node.policy.native_request(body, start.request_id)
+            self.admit_operation(slot)
+            gate = threading.Event()
+            record = None
+            try:
+                record = slot.runner.start_async(
+                    request,
+                    response_gate=gate,
+                    dispatch_guard=partial(
+                        self.graph_runs.check_node_dispatch,
+                        capability,
+                        graph_digest,
+                        vertex_id,
+                    ),
+                )
+                self.graph_runs.bind_run(
+                    capability, graph_digest, vertex_id, record["run_id"]
+                )
+                return record
+            except Exception:
+                if record is not None:
+                    slot.runner.cancel(record["run_id"])
+                raise
+            finally:
+                slot.operations -= 1
+                gate.set()
+
+    def finish_graph(self, capability):
+        """Revoke this graph first, then request cancellation of its native work only."""
+        shutdown = self.graph_runs.finish(capability)
+        if shutdown is None:
+            return ()
+        observations = []
+        for start in shutdown.starts:
+            with self.service._lock:
+                slot = self.slots.get(
+                    (
+                        shutdown.profile_id,
+                        start.node.connection_id,
+                        start.node.generation,
+                        "graph",
+                    )
+                )
+            if slot is None or slot.runner is None:
+                continue
+            try:
+                record = slot.runner.lookup_request(start.request_id)
+            except RunnerError as error:
+                if error.code == "request_not_found":
+                    continue
+                raise ProviderConnectionError("provider_cleanup_unconfirmed") from None
+            except (OSError, ValueError):
+                raise ProviderConnectionError("provider_cleanup_unconfirmed") from None
+            if record.get("client_request_id") != start.request_id:
+                raise ProviderConnectionError("provider_cleanup_unconfirmed")
+            try:
+                run_id = str(UUID(record["run_id"]))
+                result = slot.runner.cancel(run_id)
+            except (RunnerError, OSError, ValueError, KeyError):
+                raise ProviderConnectionError("provider_cleanup_unconfirmed") from None
+            observations.append(
+                GraphNodeStop(
+                    connection_id=start.node.connection_id,
+                    generation=start.node.generation,
+                    run_id=run_id,
+                    status=result.get("status", "unknown"),
+                    cancel_confirmed=result.get("cancel_confirmed") is True,
+                )
+            )
+        return tuple(observations)
 
     def admit_operation(self, slot, *, catalog=False):
         """Atomically fence work admission and increment the confirmation revision."""

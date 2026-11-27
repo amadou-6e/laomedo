@@ -10,6 +10,7 @@ from laomedo.agents.connections.errors import ProviderConnectionError
 from laomedo.agents.connections.models import GraphRunPlan
 from laomedo.agents.connections.models import GraphRunReview
 from laomedo.agents.connections.models import GraphNodeStart
+from laomedo.agents.connections.models import GraphRunShutdown
 from laomedo.agents.connections.settings import MAX_ACTIVE_PROVIDER_GRAPHS
 
 
@@ -43,9 +44,6 @@ class ProviderGraphRuns:
         """Resolve a live plan while holding the connection lifecycle lock."""
         plan = self._plans.get(key)
         if plan is None or plan.deadline <= time.monotonic():
-            self._plans.pop(key, None)
-            self._runs.pop(key, None)
-            self._started.pop(key, None)
             raise ProviderConnectionError("verified_review_unavailable")
         if not isinstance(digest, str) or not secrets.compare_digest(
             plan.graph_digest.encode("utf-8"), digest.encode("utf-8")
@@ -73,7 +71,7 @@ class ProviderGraphRuns:
         with self.service._lock:
             now = time.monotonic()
             for key, previous in tuple(self._plans.items()):
-                if previous.deadline <= now:
+                if previous.deadline <= now and not self._started[key]:
                     self._plans.pop(key)
                     self._runs.pop(key, None)
                     self._started.pop(key, None)
@@ -107,6 +105,22 @@ class ProviderGraphRuns:
         with self.service._lock:
             plan = self._current(self._key(capability), graph_digest)
             return self._node(plan, vertex_id)
+
+    def plan(self, capability, graph_digest):
+        """Resolve host composition state; this is not a worker request operation."""
+        with self.service._lock:
+            return self._current(self._key(capability), graph_digest)
+
+    def run_for_vertex(self, capability, graph_digest, vertex_id):
+        """Resolve only this vertex's host-acknowledged native run."""
+        with self.service._lock:
+            key = self._key(capability)
+            plan = self._current(key, graph_digest)
+            self._node(plan, vertex_id)
+            run_id = self._runs[key].get(vertex_id)
+            if run_id is None:
+                raise ProviderConnectionError("verified_review_unavailable")
+            return run_id
 
     def bind_run(self, capability, graph_digest, vertex_id, run_id):
         """Record a host-observed acknowledgement once; never accept worker output."""
@@ -205,13 +219,27 @@ class ProviderGraphRuns:
             if review.target.vertex_id not in self._runs[review.worker_key]:
                 raise ProviderConnectionError("verified_review_unavailable")
 
+    def check_node_dispatch(self, capability, graph_digest, vertex_id):
+        """Require a live host acknowledgement before source-node model work."""
+        self.run_for_vertex(capability, graph_digest, vertex_id)
+
     def finish(self, capability):
-        """Revoke this worker without deleting any retained native history."""
+        """Revoke first, returning host receipts for exact native cancellation."""
         with self.service._lock:
             key = self._key(capability)
-            self._plans.pop(key, None)
+            plan = self._plans.pop(key, None)
             self._runs.pop(key, None)
-            self._started.pop(key, None)
+            started = self._started.pop(key, {})
+            if plan is None:
+                return None
+            return GraphRunShutdown(
+                profile_id=plan.profile_id,
+                starts=tuple(
+                    GraphNodeStart(node=node, request_id=started[node.vertex_id])
+                    for node in plan.nodes
+                    if node.vertex_id in started
+                ),
+            )
 
     def close(self):
         """Revoke all worker authority during host shutdown, without dispatch."""

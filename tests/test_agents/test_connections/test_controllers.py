@@ -20,6 +20,7 @@ from laomedo.agents.connections.models import ConnectionRecord
 from laomedo.agents.connections.models import ControllerSlot
 from laomedo.agents.connections.models import GraphRunNode
 from laomedo.agents.connections.models import GraphRunPlan
+from laomedo.agents.connections.models import GraphNodePolicy
 from laomedo.agents.connections.service import ProviderConnections
 from laomedo.agents.errors import RunnerError
 from laomedo.agents.workspaces.models import WorkspaceChanges
@@ -68,6 +69,13 @@ class FakeNativeAgent:
         return json.loads(
             (self.state / "runs" / run_id / "record.json").read_text(encoding="utf-8")
         )
+
+    def lookup_request(self, request_id):
+        for path in (self.state / "runs").glob("*/record.json"):
+            record = json.loads(path.read_text())
+            if record.get("client_request_id") == request_id:
+                return record
+        raise RunnerError("request_not_found")
 
     def cancel(self, run_id):
         record = self.status(run_id)
@@ -176,6 +184,12 @@ class ProviderControllerTests(unittest.TestCase):
                         provider=record.provider,
                         connection_id=record.connection_id,
                         generation=record.generation,
+                        policy=GraphNodePolicy(
+                            model="m",
+                            effort="low",
+                            task="fixture",
+                            task_from_input=True,
+                        ),
                         review_source="codex" if record.provider == "claude" else None,
                     )
                     for record in self.records
@@ -487,6 +501,79 @@ class ProviderControllerTests(unittest.TestCase):
         target.runner._execute.assert_not_called()
         record_path = next((target.state / "runs").glob("*/record.json"))
         self.assertEqual(json.loads(record_path.read_text())["status"], "failed")
+
+    def test_source_start_and_graph_finish_affect_only_the_admitted_invocation(self):
+        self.manager.factory = GatedNativeAgent
+        self.records[1] = self.records[1].model_copy(update={"provider": "claude"})
+        self.service._save(self.profile, self.records)
+        capability, digest = self.graph_review_capability()
+        worker_request = str(uuid4())
+        record = self.manager.start_graph_node(
+            capability,
+            digest,
+            "codex",
+            {
+                "request_id": worker_request,
+                "task": "fixture",
+                "model": "m",
+                "effort": "low",
+                "skill_refs": [],
+            },
+        )
+        self.assertNotEqual(record["client_request_id"], worker_request)
+        slot = self.manager.slots[(self.profile, self.one, 1, "graph")]
+        for worker in slot.runner.workers:
+            worker.join(timeout=3)
+        slot.runner._prepare_credentials.assert_called_once()
+        slot.runner._execute.assert_called_once()
+        self.assertEqual(
+            self.manager.graph_runs.run_for_vertex(capability, digest, "codex"),
+            record["run_id"],
+        )
+        endpoint, _ = self.manager.endpoint(self.profile, self.one)
+        unrelated = self.post(
+            endpoint,
+            "/v1/runs/async",
+            {"request_id": str(uuid4()), "task": "unrelated"},
+        )
+        self.records[0] = self.records[0].model_copy(update={"generation": 2})
+        self.service._save(self.profile, self.records)
+        observations = self.manager.finish_graph(capability)
+        self.assertEqual(len(observations), 1)
+        self.assertEqual(observations[0].run_id, record["run_id"])
+        self.assertTrue(observations[0].cancel_confirmed)
+        self.assertEqual(slot.runner.status(record["run_id"])["status"], "cancelled")
+        self.assertEqual(slot.runner.status(unrelated["run_id"])["status"], "prepared")
+        with self.assertRaises(ProviderConnectionError):
+            self.manager.graph_runs.resolve(capability, digest, "codex")
+
+    def test_worker_body_cannot_broaden_approved_native_model_or_authority(self):
+        self.records[1] = self.records[1].model_copy(update={"provider": "claude"})
+        self.service._save(self.profile, self.records)
+        capability, digest = self.graph_review_capability()
+        body = {
+            "request_id": str(uuid4()),
+            "task": "fixture",
+            "model": "m",
+            "effort": "low",
+            "skill_refs": [],
+        }
+        for update in (
+            {"model": "other"},
+            {"effort": "other"},
+            {"skill_refs": ["unapproved"]},
+            {"mcp_manifest": {}},
+            {"github_authorization_ref": "unapproved"},
+            {"workspace": "/host"},
+            {"run_timeout_seconds": 181},
+            {"run_timeout_seconds": True},
+        ):
+            with self.subTest(fields=tuple(update)):
+                with self.assertRaises(ProviderConnectionError):
+                    self.manager.start_graph_node(
+                        capability, digest, "codex", {**body, **update}
+                    )
+        self.assertEqual(self.manager.slots, {})
 
     def test_restart_recovers_assistant_scope_without_a_graph_controller(self):
         self.manager.assistant_endpoint(self.profile, self.one, 1)

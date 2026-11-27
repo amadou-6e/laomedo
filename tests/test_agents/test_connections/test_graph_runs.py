@@ -1,6 +1,7 @@
 """Host authority invariants; these checks do not establish worker isolation."""
 
 from concurrent.futures import ThreadPoolExecutor
+from unittest.mock import patch
 from pathlib import Path
 import tempfile
 import time
@@ -167,6 +168,19 @@ class ProviderGraphRunTests(unittest.TestCase):
             self.authority.bind_run(
                 second, self.plan.graph_digest, "codex", str(uuid4())
             )
+
+    def test_expiry_preserves_host_receipts_for_exact_native_cleanup(self):
+        capability = self.authority.admit(self.plan)
+        start = self.authority.begin_node(capability, self.plan.graph_digest, "codex")
+        with patch(
+            "laomedo.agents.connections.graph_runs.time.monotonic",
+            return_value=self.plan.deadline + 1,
+        ):
+            with self.assertRaises(ProviderConnectionError):
+                self.authority.resolve(capability, self.plan.graph_digest, "codex")
+        shutdown = self.authority.finish(capability)
+        self.assertEqual(shutdown.profile_id, self.owner)
+        self.assertEqual(shutdown.starts, (start,))
 
     def test_expired_or_ambiguous_plans_never_admit(self):
         for update in (
