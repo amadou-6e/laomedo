@@ -18,6 +18,8 @@ from anyio import CancelScope
 
 from langflow.api.v1.schemas import SimplifiedAPIRequest
 from laomedo.agents.connections.errors import ProviderConnectionError
+from laomedo.agents.errors import RunnerError
+from laomedo.agents.interface.models import RunnerDiagnostics
 from laomedo.integrations.langflow.execution.providers.models import ProviderCanvasJob
 from laomedo.integrations.langflow.execution.providers.settings import (
     PROVIDER_PROGRESS_QUEUE_SIZE,
@@ -199,7 +201,14 @@ class ProviderCanvasRoutes:
             if task.cancelled():
                 yield self.frames(adapter.cancel_events("Cancellation requested."))
             elif task.exception() is not None:
-                yield self.frames(adapter.error_events(GraphWorkerError()))
+                code = RunnerDiagnostics.safe_code(
+                    getattr(task.exception(), "code", None)
+                )
+                yield self.frames(
+                    adapter.error_events(
+                        RunnerError(code) if code else GraphWorkerError()
+                    )
+                )
             else:
                 yield self.frames(adapter.translate("end", {}))
                 yield self.frames(adapter.final_events())

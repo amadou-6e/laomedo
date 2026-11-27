@@ -7,6 +7,13 @@ own browser authentication. Session leases here are opaque revocation identifier
 Verified browser token renewal may carry an opaque lease forward until the renewed token expires. renew_lease preserves its original revocation identity; resolve_lease prunes expired aliases. Only the browser integration verifies cookies and supplies renewal evidence. No credentials are stored in this map.
 No framework, browser-cookie, Docker SDK or ACP dependency loads on package import.
 
+`ProviderControllers.prepare_graph` discovers each approved account's native model
+catalog once before any graph Agent starts. It checks the pinned model and effort,
+never substitutes a selection, holds only the account's discovery reservation
+during native work, and rechecks the graph lease/generation afterward. Discovery
+submits zero model turns. A cold or invalid later review node therefore refuses
+before an earlier editing node can spend a turn.
+
 ```text
 connections/
   base.py          BaseProviderConnection: provider lifecycle adapter contract

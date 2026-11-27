@@ -13,6 +13,7 @@ from laomedo.agents.agents.claude.agent import ClaudeAgent
 from laomedo.agents.agents.claude.models import ClaudePolicy
 from laomedo.agents.agents.claude.utils import normalize_models
 from laomedo.agents.errors import RunnerError
+from laomedo.agents.agents.base.agent import BaseAgent
 
 
 def native(model="fable", levels=None):
@@ -85,6 +86,27 @@ class ClaudeModelTests(unittest.TestCase):
         self.assertEqual(result["submitted_turns"], 0)
         self.runner._check_auth.assert_called_once_with(timeout=15)
         self.assertEqual(list(self.runner.state.iterdir()), [])
+
+    def test_cold_native_runner_requires_zero_turn_discovery_before_preparation(self):
+        self.runner.turn_timeout = 180
+        request = {
+            "task": "review fixture",
+            "model": "claude-fable-test",
+            "effort": "low",
+            "skill_refs": [],
+        }
+        with self.assertRaisesRegex(RunnerError, "runner_model_catalog_unavailable"):
+            self.runner._prepare(request)
+        with self.transport():
+            self.assertEqual(self.runner.model_catalog()["submitted_turns"], 0)
+        with patch.object(
+            BaseAgent,
+            "_prepare",
+            side_effect=RunnerError("control_preparation_reached"),
+        ) as prepare:
+            with self.assertRaisesRegex(RunnerError, "control_preparation_reached"):
+                self.runner._prepare(request)
+        prepare.assert_called_once_with(request)
 
     def test_timeout_and_native_errors_are_safe_and_release_lock(self):
         for error in (

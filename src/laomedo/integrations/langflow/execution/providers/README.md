@@ -82,9 +82,16 @@ The canvas API contract is deliberately narrow:
 | Foreign/absent Flow or active Stop receipt | 404 without disclosing the other owner's state. |
 | Body exceeds 16 MiB | 413 `assistant_input_invalid`. |
 | Malformed body / unsupported configuration | 422 `assistant_input_invalid` / `isolated_graph_unsupported`. |
-| Mid-stream execution failure | AG-UI `RUN_ERROR` with fixed public runtime failure; no raw exception text. |
+| Mid-stream execution failure | AG-UI `RUN_ERROR` with a sanitized host machine code or fixed runtime fallback; no raw exception text. |
 
 Worker progress and output text are observations, not proof of workspace changes.
+Before worker startup, the executor drains a zero-turn native catalog preflight
+for every selected account, including on cancellation. No Agent can start before
+all pinned model/effort choices pass. `ProviderGraphDispatcher.failures` retains
+only the first sanitized host machine code for each vertex/action; the existing
+Job metadata records these refusals without task text, exception strings or paths.
+The canvas may show a sanitized host failure code instead of the generic runtime
+code; worker messages cannot select that public code.
 The host's acknowledged native records decide Agent completion; the independently
 verified snapshot-derived patch remains the evidence supplied to the reviewer.
 

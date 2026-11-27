@@ -20,6 +20,7 @@ from laomedo.integrations.langflow.execution.providers.models import (
     ProviderWorkerEvent,
 )
 from lfx.workflow.adapters import StreamAdapterContext, get_stream_adapter
+from laomedo.agents.errors import RunnerError
 from laomedo.integrations.langflow.execution.providers.settings import (
     PROVIDER_PROGRESS_QUEUE_SIZE,
 )
@@ -108,6 +109,23 @@ class ProviderCanvasTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response.status_code, 403)
         self.executor.execute.assert_not_awaited()
         self.routes.snapshot.assert_not_awaited()
+
+    async def test_host_error_code_is_visible_but_arbitrary_details_are_not(self):
+        for code, expected in (
+            (
+                "runner_model_catalog_unavailable_check_runner_connection",
+                "runner_model_catalog_unavailable_check_runner_connection",
+            ),
+            ("private_secret_value", "github_graph_runtime_unavailable"),
+        ):
+            with self.subTest(code=code):
+                self.executor.execute.side_effect = RunnerError(code)
+                async with self.client() as client:
+                    response = await client.post(
+                        "/api/v2/workflows", json=self.payload()
+                    )
+                self.assertIn(expected, response.text)
+                self.assertNotIn("private_secret", response.text)
 
     async def test_stop_cannot_cancel_another_owners_task(self):
         identifier = uuid4()

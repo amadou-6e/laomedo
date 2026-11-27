@@ -24,6 +24,7 @@ from laomedo.agents.connections.models import StagedGraphReview
 from laomedo.agents.connections.models import GraphReviewDispatch
 from laomedo.agents.connections.models import GraphNodeStop
 from laomedo.agents.agents.base.models import VerifiedReviewProvenance
+from laomedo.agents.agents.base.models import ModelCatalog
 from laomedo.agents.connections.settings import MAX_PENDING_VERIFIED_REVIEWS
 from laomedo.agents.connections.settings import VERIFIED_REVIEW_GRANT_SECONDS
 from laomedo.host.runner.http.server import RunnerServer
@@ -588,6 +589,40 @@ class ProviderControllers:
             if slot is None or slot.creating or slot.runner is None:
                 raise ProviderConnectionError("provider_runner_unavailable")
             return slot
+
+    def prepare_graph(self, capability, graph_digest):
+        """Discover all approved native selections before any graph node can start."""
+        plan = self.graph_runs.plan(capability, graph_digest)
+        catalogs = {}
+        for node in plan.nodes:
+            if node.policy is None:
+                raise ProviderConnectionError("verified_review_unavailable")
+            self.graph_runs.resolve(capability, graph_digest, node.vertex_id)
+            key = (node.connection_id, node.generation)
+            if key not in catalogs:
+                slot = self.graph_native(plan.profile_id, node)
+                self.admit_operation(slot, catalog=True)
+                try:
+                    catalogs[key] = ModelCatalog.from_payload(
+                        slot.runner.model_catalog()
+                    )
+                finally:
+                    with self.service._lock:
+                        slot.operations -= 1
+                        slot.catalog_operations -= 1
+            self.graph_runs.resolve(capability, graph_digest, node.vertex_id)
+            choice = next(
+                (
+                    choice
+                    for choice in catalogs[key].models
+                    if node.policy.model in (choice.id, choice.resolved_model)
+                ),
+                None,
+            )
+            if choice is None or node.policy.effort not in choice.reasoning_efforts:
+                raise RunnerError(
+                    "runner_model_catalog_unavailable_check_runner_connection"
+                )
 
     def reserve_graph_review(self, slot, admitted, response_gate):
         """Bind a fenced review reservation before its caller opens the start gate."""

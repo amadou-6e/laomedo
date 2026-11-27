@@ -44,6 +44,7 @@ class ProviderGraphDispatcher:
         self.aliases = {}
         self.staged = {}
         self.node_outcomes = {}
+        self.failures = {}
 
     def observe_node(self, vertex_id, record):
         """Retain terminal build evidence from native records, never worker claims."""
@@ -197,6 +198,11 @@ class ProviderGraphDispatcher:
                 RunnerDiagnostics.safe_code(getattr(error, "code", None))
                 or "provider_runner_unavailable"
             )
+            if call.vertex_id in {node.vertex_id for node in self.plan.nodes}:
+                self.failures.setdefault(
+                    (call.vertex_id, call.action),
+                    {"node_id": call.vertex_id, "operation": call.action, "code": code},
+                )
             return ProviderWorkerReply(
                 request_id=call.request_id,
                 status=409,

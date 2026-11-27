@@ -4,6 +4,7 @@ from pathlib import Path
 import tempfile
 import time
 import unittest
+from unittest.mock import Mock, patch
 from uuid import uuid4
 
 from laomedo.agents.connections.controllers import ProviderControllers
@@ -19,6 +20,8 @@ from laomedo.integrations.langflow.execution.providers.dispatcher import (
 )
 from laomedo.integrations.langflow.execution.providers.models import ProviderWorkerCall
 from test_agents.test_connections.test_controllers import FakeNativeAgent
+from laomedo.agents.errors import RunnerError
+from laomedo.agents.connections.errors import ProviderConnectionError
 
 
 class ProviderDispatcherTests(unittest.TestCase):
@@ -155,3 +158,66 @@ class ProviderDispatcherTests(unittest.TestCase):
         self.assertEqual(
             self.controllers.finish_graph(self.capability)[0].status, "cancelled"
         )
+
+    def test_catalog_preflight_checks_every_pinned_choice_without_starting(self):
+        slot = self.controllers.graph_native(self.profile, self.plan.nodes[0])
+        slot.runner.model_catalog = Mock(
+            return_value={"models": [{"id": "m", "efforts": ["low"]}]}
+        )
+        second = self.plan.nodes[0].model_copy(
+            update={
+                "vertex_id": "later",
+                "policy": GraphNodePolicy(model="missing", effort="low", task="review"),
+            }
+        )
+        plan = self.plan.model_copy(update={"nodes": (*self.plan.nodes, second)})
+        capability = self.controllers.graph_runs.admit(plan)
+        with patch.object(slot.runner, "start_async") as start:
+            with self.assertRaisesRegex(
+                RunnerError, "runner_model_catalog_unavailable"
+            ):
+                self.controllers.prepare_graph(capability, plan.graph_digest)
+            start.assert_not_called()
+        slot.runner.model_catalog.assert_called_once()
+        self.assertEqual((slot.operations, slot.catalog_operations), (0, 0))
+        slot.runner.model_catalog.return_value = {
+            "models": [
+                {"id": "m", "efforts": ["low"]},
+                {"id": "alias", "resolved_model": "missing", "efforts": ["low"]},
+            ]
+        }
+        self.controllers.prepare_graph(capability, plan.graph_digest)
+        self.assertEqual(slot.runner.model_catalog.call_count, 2)
+
+    def test_discovery_rechecks_revocation_and_releases_reservations(self):
+        slot = self.controllers.graph_native(self.profile, self.plan.nodes[0])
+
+        def discover():
+            self.assertEqual((slot.operations, slot.catalog_operations), (1, 1))
+            self.service.cancel_lease("lease")
+            return {"models": [{"id": "m", "efforts": ["low"]}]}
+
+        slot.runner.model_catalog = discover
+        with self.assertRaises(ProviderConnectionError):
+            self.controllers.prepare_graph(self.capability, self.plan.graph_digest)
+        self.assertEqual((slot.operations, slot.catalog_operations), (0, 0))
+
+    def test_native_refusal_records_only_sanitized_host_code(self):
+        with patch.object(
+            self.controllers,
+            "start_graph_node",
+            side_effect=RunnerError("private_secret_value"),
+        ):
+            reply = self.call("/v1/runs/async", body=self.body)
+        self.assertEqual(reply.payload["error_category"], "provider_runner_unavailable")
+        self.assertEqual(
+            list(self.dispatcher.failures.values()),
+            [
+                {
+                    "node_id": "codex",
+                    "operation": "http",
+                    "code": "provider_runner_unavailable",
+                }
+            ],
+        )
+        self.assertNotIn("private_secret", repr(self.dispatcher.failures))

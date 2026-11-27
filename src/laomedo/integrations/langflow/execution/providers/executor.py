@@ -4,6 +4,8 @@ import asyncio
 from uuid import UUID, uuid4
 
 from laomedo.agents.connections.errors import ProviderConnectionError
+from laomedo.agents.errors import RunnerError
+from laomedo.agents.interface.models import RunnerDiagnostics
 from laomedo.github.contract import repository_from_url
 from laomedo.github.issues.gateway import GitHubIssueGateway
 from laomedo.github.transport.rest.public import PublicGitHubIssueTransport
@@ -75,6 +77,25 @@ class ProviderGraphExecutor:
             owner, browser.lease_hash, flow_id or uuid4(), uuid4(), graph
         )
 
+    async def _prepare_native(self, capability, graph_digest):
+        """Drain bounded native discovery even if Stop is requested repeatedly."""
+        preparation = asyncio.create_task(
+            asyncio.to_thread(self.controllers.prepare_graph, capability, graph_digest)
+        )
+        cancelled = False
+        while not preparation.done():
+            try:
+                await asyncio.shield(preparation)
+            except asyncio.CancelledError:
+                cancelled = True
+            except Exception:
+                break
+        if cancelled:
+            if not preparation.cancelled():
+                preparation.exception()
+            raise asyncio.CancelledError()
+        return preparation.result()
+
     async def execute(self, snapshot, request, actor, run_id, *, on_event=None):
         """Project the actual isolated result into the existing assistant evidence owner."""
         from lfx.graph.schema import RunOutputs
@@ -109,6 +130,7 @@ class ProviderGraphExecutor:
         self.workers[job_id] = None
         worker = dispatcher = capability = activity = None
         created = succeeded = False
+        failure_code = None
         try:
             # Native job UUID uniqueness is the durable replay barrier. This
             # API-only app has no native queue consumer or graph recovery loop.
@@ -121,6 +143,7 @@ class ProviderGraphExecutor:
             created = True
             await jobs.update_job_status(job_id, JobStatus.IN_PROGRESS)
             capability = self.controllers.graph_runs.admit(prepared.plan)
+            await self._prepare_native(capability, prepared.plan.graph_digest)
             gateway = await asyncio.to_thread(self._public_gateway, prepared)
             from laomedo.agents.activity.settings import Settings as ActivitySettings
             from laomedo.integrations.langflow.execution.providers.activity import (
@@ -147,12 +170,20 @@ class ProviderGraphExecutor:
             result = await worker.run(job)
             self.browser(owner)
             if result.event != "completed":
+                if dispatcher.failures:
+                    raise RunnerError(list(dispatcher.failures.values())[-1]["code"])
                 raise GraphWorkerError()
             succeeded = True
             return RunResponse(
                 outputs=[RunOutputs.model_validate(value) for value in result.outputs],
                 session_id=str(job_id),
             )
+        except Exception as error:
+            failure_code = (
+                RunnerDiagnostics.safe_code(getattr(error, "code", None))
+                or "provider_runner_unavailable"
+            )
+            raise
         finally:
             if activity is not None:
                 activity.close()
@@ -176,6 +207,15 @@ class ProviderGraphExecutor:
                         job_id,
                         {
                             "isolated_provider_nodes": nodes,
+                            "isolated_provider_failures": (
+                                list(dispatcher.failures.values())
+                                if dispatcher is not None
+                                else (
+                                    [{"operation": "preparation", "code": failure_code}]
+                                    if failure_code
+                                    else []
+                                )
+                            ),
                             "native_cleanup_confirmed": job_id not in self.uncertain,
                         },
                     )

@@ -4,6 +4,8 @@ from contextlib import ExitStack
 from copy import deepcopy
 from types import SimpleNamespace
 import unittest
+import asyncio
+import threading
 from unittest.mock import AsyncMock, Mock, patch
 from uuid import uuid4
 
@@ -35,7 +37,7 @@ class ProviderExecutorTests(unittest.IsolatedAsyncioTestCase):
         self.addCleanup(self.stack.close)
         self.owner, self.flow, self.job_id = uuid4(), uuid4(), uuid4()
         self.controllers = SimpleNamespace(
-            service=Mock(), graph_runs=Mock(), finish_graph=Mock()
+            service=Mock(), graph_runs=Mock(), finish_graph=Mock(), prepare_graph=Mock()
         )
         self.executor = ProviderGraphExecutor(
             None, SimpleNamespace(admission=Mock()), self.controllers
@@ -58,7 +60,8 @@ class ProviderExecutorTests(unittest.IsolatedAsyncioTestCase):
             patch("langflow.services.deps.get_job_service", return_value=self.jobs)
         )
         self.dispatcher = SimpleNamespace(
-            node_outcomes={"codex": {"node_id": "codex", "state": "succeeded"}}
+            node_outcomes={"codex": {"node_id": "codex", "state": "succeeded"}},
+            failures={},
         )
         self.stack.enter_context(
             patch(
@@ -111,6 +114,29 @@ class ProviderExecutorTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertTrue(metadata["native_cleanup_confirmed"])
         self.assertEqual(self.executor.workers, {})
+
+    async def test_host_refusal_survives_worker_generic_failure(self):
+        from laomedo.agents.errors import RunnerError
+
+        failure = {
+            "node_id": "claude",
+            "operation": "http",
+            "code": "runner_model_catalog_unavailable_check_runner_connection",
+        }
+        self.dispatcher.failures = {("claude", "http"): failure}
+        self.worker.run.return_value = GraphWorkerResult(
+            event="failed", job_id=self.job_id, code="github_graph_runtime_unavailable"
+        )
+        with self.assertRaisesRegex(RunnerError, "runner_model_catalog_unavailable"):
+            await self.executor.execute(
+                self.snapshot, self.request, self.actor, str(self.job_id)
+            )
+        self.assertEqual(
+            self.jobs.update_job_metadata.call_args.args[1][
+                "isolated_provider_failures"
+            ],
+            [failure],
+        )
         self.assertEqual(self.executor.uncertain, {})
 
     def test_readiness_plans_without_issuing_authority_or_creating_a_job(self):
@@ -118,6 +144,50 @@ class ProviderExecutorTests(unittest.IsolatedAsyncioTestCase):
         self.executor.admission.prepare.assert_called_once()
         self.controllers.graph_runs.admit.assert_not_called()
         self.jobs.create_job.assert_not_called()
+        self.worker_factory.assert_not_called()
+        self.controllers.prepare_graph.assert_not_called()
+
+    async def test_catalog_failure_refuses_before_worker_or_model_dispatch(self):
+        from laomedo.agents.errors import RunnerError
+
+        self.controllers.prepare_graph.side_effect = RunnerError(
+            "runner_model_catalog_unavailable_check_runner_connection"
+        )
+        with self.assertRaisesRegex(RunnerError, "runner_model_catalog_unavailable"):
+            await self.executor.execute(
+                self.snapshot, self.request, self.actor, str(self.job_id)
+            )
+        self.worker_factory.assert_not_called()
+        self.controllers.finish_graph.assert_called_once()
+        self.assertEqual(self.executor.workers, {})
+
+    async def test_cancelled_discovery_is_drained_before_authority_cleanup(self):
+        entered, release = threading.Event(), threading.Event()
+        self.addCleanup(release.set)
+
+        def prepare(*args):
+            entered.set()
+            if not release.wait(5):
+                raise RuntimeError("control timed out")
+
+        self.controllers.prepare_graph.side_effect = prepare
+        task = asyncio.create_task(
+            self.executor.execute(
+                self.snapshot, self.request, self.actor, str(self.job_id)
+            )
+        )
+        self.assertTrue(await asyncio.to_thread(entered.wait, 2))
+        task.cancel()
+        await asyncio.sleep(0.01)
+        self.assertFalse(task.done())
+        task.cancel()
+        await asyncio.sleep(0.01)
+        self.assertFalse(task.done())
+        self.controllers.finish_graph.assert_not_called()
+        release.set()
+        with self.assertRaises(asyncio.CancelledError):
+            await task
+        self.controllers.finish_graph.assert_called_once()
         self.worker_factory.assert_not_called()
 
     async def test_approved_text_is_projected_before_admission_without_saved_graph_mutation(
