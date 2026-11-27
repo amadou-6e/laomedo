@@ -273,6 +273,7 @@ class ProviderCatalogTests(unittest.TestCase):
                 "TextOutput",
                 "Prompt Template",
                 "CombineText",
+                "MCPTools",
             },
             classified,
         )

@@ -108,7 +108,8 @@ class ProviderCanvasRoutes:
             graph, snapshot=get_catalog_policy_service().snapshot
         )
         graph = self.executor.admission.input_graph(graph, payload.input_value, "text")
-        self.executor.validate_graph(UUID(str(owner.id)), identifier, graph)
+        prepared = self.executor.validate_graph(UUID(str(owner.id)), identifier, graph)
+        await self.executor.check_registered(prepared)
         return snapshot.model_copy(update={"data": graph}, deep=True)
 
     async def run(self, request: Request, user=Depends(get_current_active_user)):

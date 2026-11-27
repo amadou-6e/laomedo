@@ -20,6 +20,7 @@ from laomedo.integrations.langflow.execution.providers.dispatcher import (
     ProviderGraphDispatcher,
 )
 from laomedo.integrations.langflow.execution.worker.errors import GraphWorkerError
+from laomedo.integrations.langflow.execution.providers.mcp import RegisteredMcpTools
 
 
 class ProviderGraphExecutor:
@@ -34,6 +35,7 @@ class ProviderGraphExecutor:
         )
         self.workers = {}
         self.uncertain = {}
+        self.mcp_resources = {}
 
     def browser(self, owner):
         """Require the real verified browser context, not graph or MCP selectors."""
@@ -98,6 +100,11 @@ class ProviderGraphExecutor:
             raise asyncio.CancelledError()
         return preparation.result()
 
+    async def check_registered(self, prepared):
+        """Dry-check registered ownership/version without discovery or native grants."""
+        if prepared.mcps:
+            await RegisteredMcpTools(self.controllers.service, prepared).check()
+
     async def execute(self, snapshot, request, actor, run_id, *, on_event=None):
         """Project the actual isolated result into the existing assistant evidence owner."""
         from lfx.graph.schema import RunOutputs
@@ -121,6 +128,8 @@ class ProviderGraphExecutor:
         prepared = self.admission.prepare(
             owner, browser.lease_hash, UUID(str(snapshot.id)), job_id, graph
         )
+        if request.output_component in {item.vertex_id for item in prepared.mcps}:
+            raise ProviderConnectionError("mcp_tool_not_selected")
         job = prepared.job.model_copy(
             update={
                 "outputs": (
@@ -144,6 +153,11 @@ class ProviderGraphExecutor:
             )
             created = True
             await jobs.update_job_status(job_id, JobStatus.IN_PROGRESS)
+            if prepared.mcps:
+                resources = RegisteredMcpTools(self.controllers.service, prepared)
+                self.mcp_resources[job_id] = resources
+                plan = await resources.prepare()
+                prepared = prepared.model_copy(update={"plan": plan})
             capability = self.controllers.graph_runs.admit(prepared.plan)
             await self._prepare_native(capability, prepared.plan.graph_digest)
             gateway = await asyncio.to_thread(self._public_gateway, prepared)
@@ -165,6 +179,8 @@ class ProviderGraphExecutor:
                 prepared.issues,
                 gateway=gateway,
                 activity=activity,
+                worker_graph_digest=job.graph_digest,
+                mcp_resources=self.mcp_resources.get(job_id),
             )
             worker = DockerProviderGraphWorker(self.settings, job, dispatcher)
             worker.on_event = on_event
@@ -178,6 +194,8 @@ class ProviderGraphExecutor:
             # Native completion is independent of permission to release its outputs.
             self.browser(owner)
             await asyncio.to_thread(self.admission.check_resources, graph)
+            if job_id in self.mcp_resources:
+                await self.mcp_resources[job_id].check()
             return RunResponse(
                 outputs=[RunOutputs.model_validate(value) for value in result.outputs],
                 session_id=str(job_id),
@@ -192,6 +210,7 @@ class ProviderGraphExecutor:
             if activity is not None:
                 activity.close()
             self.workers.pop(job_id, None)
+            await self._close_mcp(job_id)
             if worker is None and capability is not None:
                 await asyncio.shield(
                     asyncio.to_thread(self.controllers.finish_graph, capability)
@@ -220,7 +239,8 @@ class ProviderGraphExecutor:
                                     else []
                                 )
                             ),
-                            "native_cleanup_confirmed": job_id not in self.uncertain,
+                            "native_cleanup_confirmed": job_id not in self.uncertain
+                            and job_id not in self.mcp_resources,
                         },
                     )
                 )
@@ -234,12 +254,30 @@ class ProviderGraphExecutor:
 
     async def reconcile(self):
         """Retry cleanup of revoked receipts only; never restart a graph or native task."""
+        for job_id in tuple(self.mcp_resources):
+            if job_id not in self.workers:
+                resources = self.mcp_resources[job_id]
+                await self._close_mcp(job_id)
+                if job_id not in self.mcp_resources and job_id not in self.uncertain:
+                    from langflow.services.deps import get_job_service
+
+                    try:
+                        await get_job_service().update_job_metadata(
+                            job_id, {"native_cleanup_confirmed": True}
+                        )
+                    except Exception:
+                        # Retain the closed receipt until evidence persistence succeeds.
+                        self.mcp_resources[job_id] = resources
         for job_id, worker in tuple(self.uncertain.items()):
             try:
                 await worker._finish_job(job_id)
             except Exception:
                 continue
-            if worker.stops is not None and all(item.settled for item in worker.stops):
+            if (
+                job_id not in self.mcp_resources
+                and worker.stops is not None
+                and all(item.settled for item in worker.stops)
+            ):
                 from langflow.services.deps import get_job_service
 
                 try:
@@ -249,3 +287,24 @@ class ProviderGraphExecutor:
                 except Exception:
                     continue
                 self.uncertain.pop(job_id, None)
+
+    async def _close_mcp(self, job_id):
+        """Drain exact resource teardown despite repeated cancellation; retain failures."""
+        resources = self.mcp_resources.get(job_id)
+        if resources is None:
+            return
+        cleanup = asyncio.create_task(resources.close())
+        while not cleanup.done():
+            try:
+                await asyncio.shield(cleanup)
+            except asyncio.CancelledError:
+                continue
+            except Exception:
+                break
+        if not cleanup.cancelled() and cleanup.exception() is None:
+            self.mcp_resources.pop(job_id, None)
+
+    async def close(self):
+        """Revoke and drain only this executor's MCP resources during app teardown."""
+        for job_id in tuple(self.mcp_resources):
+            await self._close_mcp(job_id)

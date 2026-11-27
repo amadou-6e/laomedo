@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from laomedo.integrations.langflow.execution.worker.models import NativeGraphJob
 from laomedo.agents.connections.models import GraphRunPlan
+from laomedo.integrations.langflow.assistant.models import ResourceBinding
 from laomedo.integrations.langflow.execution.providers.settings import (
     PROVIDER_EVENT_BYTES,
 )
@@ -97,6 +98,36 @@ class PublicIssueSelection(BaseModel):
     state: Literal["open", "closed", "all"] = "all"
 
 
+class GraphMcpSelection(BaseModel):
+    """Host-only registered resource pin and exact connected Agent targets."""
+
+    model_config = ConfigDict(frozen=True, strict=True, extra="forbid")
+    vertex_id: str = Field(min_length=1, max_length=512, description="Selection node.")
+    name: str = Field(
+        min_length=1, max_length=256, description="Registered server name."
+    )
+    binding: ResourceBinding = Field(
+        description="Canonical owner-validated resource pin."
+    )
+    targets: tuple[str, ...] = Field(
+        min_length=1, max_length=40, description="Exact connected Agent vertices."
+    )
+
+    @model_validator(mode="after")
+    def registered_server(self):
+        """Refuse another resource kind or noncanonical registered identity/version."""
+        if (
+            self.binding.kind != "mcp"
+            or str(UUID(self.binding.id)) != self.binding.id
+            or str(int(self.binding.version)) != self.binding.version
+            or int(self.binding.version) < 1
+            or self.name.casefold() == "laomedo"
+            or len(set(self.targets)) != len(self.targets)
+        ):
+            raise ValueError("mcp_registration_unavailable")
+        return self
+
+
 class PreparedProviderGraph(BaseModel):
     """Host-only approved selections beside a separately credential-free bootstrap."""
 
@@ -104,3 +135,10 @@ class PreparedProviderGraph(BaseModel):
     plan: GraphRunPlan = Field(exclude=True, repr=False)
     job: ProviderWorkerJob
     issues: tuple[PublicIssueSelection, ...] = ()
+    mcps: tuple[GraphMcpSelection, ...] = Field(
+        default=(),
+        max_length=32,
+        exclude=True,
+        repr=False,
+        description="Registered MCP selections retained only by the host.",
+    )

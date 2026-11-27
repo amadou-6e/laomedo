@@ -185,6 +185,8 @@ class AssistantRuntime:
                         )
                     for runner in self.runners.values():
                         await asyncio.to_thread(runner.shutdown)
+                    if self.graph_executor is not None:
+                        await self.graph_executor.close()
 
     def require_ready(self):
         """Refuse unconfigured deployments without inventing a runner or app origin."""
@@ -635,6 +637,7 @@ class AssistantRuntime:
         result = dispatch.run(
             self.graph_executor.validate_graph, context.owner_id, workflow_id, data
         )
+        await self.graph_executor.check_registered(result)
         await self.authorize(context)
         return result
 

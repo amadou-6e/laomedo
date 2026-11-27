@@ -57,6 +57,7 @@ class ProviderSupervisorTests(unittest.IsolatedAsyncioTestCase):
             controllers=controllers,
             capability="host-only",
             graph_digest=plan.graph_digest,
+            worker_graph_digest=digest,
             issues={},
         )
         return DockerProviderGraphWorker(None, job, dispatcher), job
@@ -134,5 +135,16 @@ class ProviderSupervisorTests(unittest.IsolatedAsyncioTestCase):
     async def test_graph_substitution_refuses_before_any_container_control(self):
         worker, job = self.worker()
         job.graph = {"nodes": [{"id": "substituted"}], "edges": []}
+        with self.assertRaises(GraphWorkerError):
+            worker._validate_graph(job)
+
+    async def test_host_selection_and_worker_projection_have_separate_fixed_digests(
+        self,
+    ):
+        worker, job = self.worker()
+        worker.plan.graph_digest = "sha256:" + "b" * 64
+        self.assertEqual(worker._job_scope(job.job_id).graph_digest, job.graph_digest)
+        worker._validate_graph(job)
+        job.graph_digest = "c" * 64
         with self.assertRaises(GraphWorkerError):
             worker._validate_graph(job)

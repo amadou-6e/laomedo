@@ -23,11 +23,13 @@ from laomedo.integrations.langflow.graph_admission.node_runs import (
     GitHubNodeRunAdmission,
 )
 from laomedo.integrations.langflow.execution.providers.models import (
+    GraphMcpSelection,
     PreparedProviderGraph,
     ProviderNodeRoute,
     ProviderWorkerJob,
     PublicIssueSelection,
 )
+from laomedo.integrations.langflow.graph_admission.models import GitHubCatalogSnapshot
 
 
 class ProviderGraphAdmission:
@@ -104,7 +106,7 @@ class ProviderGraphAdmission:
             if "skill_reference" in connected
             else ()
         )
-        if review_source is not None and references:
+        if review_source is not None and (references or connected.get("mcp_tools")):
             raise ProviderConnectionError("verified_review_unavailable")
         task = value(template, "task", "")
         if not isinstance(task, str):
@@ -195,6 +197,56 @@ class ProviderGraphAdmission:
             if self.catalog.classification(node["data"]["type"]) == "LaomedoSkill":
                 self._skill(node, {})
 
+    def _mcp(self, node, connected, targets):
+        """Admit a name-only, version-pinned registered Toolset selection."""
+        template = node["data"]["node"]["template"]
+        value = self._value
+        if (
+            connected
+            or set(template)
+            - {
+                "_type",
+                "code",
+                "mcp_server",
+                "use_cache",
+                "verify_ssl",
+                "headers",
+                "tool_execution_timeout",
+                "tool",
+                "tool_placeholder",
+            }
+            or node["data"]["node"].get("tool_mode") is not True
+            or value(template, "verify_ssl", True) is not True
+            or value(template, "use_cache", False) is not False
+            or value(template, "tool_execution_timeout", 0) not in (None, 0)
+            or any(
+                value(template, field) not in (None, "", [], {})
+                for field in ("headers", "tool", "tool_placeholder")
+            )
+        ):
+            raise ProviderConnectionError("verified_review_unavailable")
+        try:
+            selected = value(template, "mcp_server")
+            binding = NodeResourceBindings.model_validate(
+                node["data"].get("laomedo_authoring_bindings") or {}
+            )
+            if (
+                not isinstance(selected, dict)
+                or set(selected) != {"name"}
+                or binding.connection_id is not None
+                or binding.generation is not None
+                or len(binding.resources) != 1
+            ):
+                raise ProviderConnectionError("verified_review_unavailable")
+            return GraphMcpSelection(
+                vertex_id=node["id"],
+                name=selected["name"],
+                binding=binding.resources[0],
+                targets=tuple(sorted(targets)),
+            )
+        except (ValidationError, ValueError, TypeError, KeyError):
+            raise ProviderConnectionError("mcp_registration_unavailable") from None
+
     def _issue(self, node, connected):
         template = node["data"]["node"]["template"]
         if (
@@ -241,7 +293,20 @@ class ProviderGraphAdmission:
             source, target = edge["source"], edge["target"]
             field = edge["data"]["targetHandle"]["fieldName"]
             output = edge["data"]["sourceHandle"]["name"]
-            if source not in nodes or target not in nodes or field in connected[target]:
+            if (
+                source not in nodes
+                or target not in nodes
+                or (field in connected[target] and field != "mcp_tools")
+            ):
+                raise ProviderConnectionError("verified_review_unavailable")
+            if kinds[target] == "MCPTools" or (
+                kinds[source] == "MCPTools"
+                and (
+                    kinds[target] not in self.AGENTS
+                    or field != "mcp_tools"
+                    or output != "component_as_tool"
+                )
+            ):
                 raise ProviderConnectionError("verified_review_unavailable")
             if kinds[target] == "LaomedoSkill" or (
                 kinds[source] == "LaomedoSkill"
@@ -254,7 +319,9 @@ class ProviderGraphAdmission:
                 raise ProviderConnectionError("verified_review_unavailable")
             if kinds[target] in self.AGENTS:
                 if (
-                    field not in {"task", "verified_changes", "skill_reference"}
+                    field
+                    not in {"task", "verified_changes", "skill_reference", "mcp_tools"}
+                    or (field == "mcp_tools" and kinds[source] != "MCPTools")
                     or (
                         field == "skill_reference"
                         and (kinds[source] != "LaomedoSkill" or output != "skill")
@@ -269,7 +336,10 @@ class ProviderGraphAdmission:
                     )
                 ):
                     raise ProviderConnectionError("verified_review_unavailable")
-            connected[target][field] = source
+            if field == "mcp_tools":
+                connected[target].setdefault(field, []).append(source)
+            else:
+                connected[target][field] = source
         selected, issues = [], []
         with self.connections._lock:
             self.connections.check_lease(lease_hash)
@@ -279,6 +349,27 @@ class ProviderGraphAdmission:
             for key in nodes
             if kinds[key] == "LaomedoSkill"
         }
+        mcps = tuple(
+            self._mcp(
+                nodes[key],
+                connected[key],
+                [
+                    target
+                    for target in nodes
+                    if key in connected[target].get("mcp_tools", [])
+                ],
+            )
+            for key in nodes
+            if kinds[key] == "MCPTools"
+        )
+        for target in nodes:
+            bindings = [
+                selection.binding.id
+                for selection in mcps
+                if target in selection.targets
+            ]
+            if len(bindings) != len(set(bindings)):
+                raise ProviderConnectionError("mcp_duplicate_tool")
         # This initial executor requires every admitted Agent to complete.
         # Cycles/conditional scheduling cannot satisfy that closed contract.
         remaining = set(nodes)
@@ -286,7 +377,14 @@ class ProviderGraphAdmission:
             ready = {
                 key
                 for key in remaining
-                if not (set(connected[key].values()) & remaining)
+                if not (
+                    {
+                        source
+                        for value in connected[key].values()
+                        for source in (value if isinstance(value, list) else [value])
+                    }
+                    & remaining
+                )
             }
             if not ready:
                 raise ProviderConnectionError("verified_review_unavailable")
@@ -315,6 +413,8 @@ class ProviderGraphAdmission:
                             if "options" in field:
                                 field["options"] = []
                             field.pop("options_metadata", None)
+                elif kind == "MCPTools":
+                    continue
                 elif kind not in self.PLUMBING:
                     raise ProviderConnectionError("verified_review_unavailable")
                 node["data"].pop("laomedo_authoring_bindings", None)
@@ -327,15 +427,30 @@ class ProviderGraphAdmission:
                 nodes=tuple(selected),
                 deadline=time.monotonic() + timeout_seconds,
             )
+        removed = {selection.vertex_id for selection in mcps}
+        graph["nodes"] = [node for node in graph["nodes"] if node["id"] not in removed]
+        graph["edges"] = [
+            edge for edge in graph["edges"] if edge["source"] not in removed
+        ]
+        if not graph["nodes"]:
+            raise ProviderConnectionError("verified_review_unavailable")
+        worker_digest = GitHubRunAuthority.digest_graph(graph)
         return PreparedProviderGraph(
             plan=plan,
             issues=tuple(issues),
+            mcps=mcps,
             job=ProviderWorkerJob(
                 job_id=job_id,
                 flow_id=flow_id,
                 graph=graph,
-                graph_digest=digest,
-                catalog=self.catalog.snapshot,
+                graph_digest=worker_digest,
+                catalog=GitHubCatalogSnapshot(
+                    entries=tuple(
+                        entry
+                        for entry in self.catalog.snapshot.entries
+                        if entry.classification != "MCPTools"
+                    )
+                ),
                 timeout_seconds=timeout_seconds,
                 providers=tuple(
                     ProviderNodeRoute(vertex_id=node.vertex_id, port=10000 + index)

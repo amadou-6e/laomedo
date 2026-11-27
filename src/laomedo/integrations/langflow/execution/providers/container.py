@@ -56,7 +56,7 @@ class DockerProviderGraphWorker(DockerGraphWorker):
         return GraphWorkerScope(
             owner_id=self.plan.profile_id,
             flow_id=self.plan.flow_id,
-            graph_digest=self.plan.graph_digest.removeprefix("sha256:"),
+            graph_digest=self.dispatcher.worker_graph_digest,
             first_vertex=self.first_vertex,
         )
 
@@ -75,7 +75,7 @@ class DockerProviderGraphWorker(DockerGraphWorker):
         if (
             job.job_id != self.job_id
             or job.flow_id != self.plan.flow_id
-            or "sha256:" + job.graph_digest != self.plan.graph_digest
+            or job.graph_digest != self.dispatcher.worker_graph_digest
             or GitHubRunAuthority.digest_graph(job.graph) != job.graph_digest
             or {route.vertex_id for route in job.providers}
             != {node.vertex_id for node in self.plan.nodes}

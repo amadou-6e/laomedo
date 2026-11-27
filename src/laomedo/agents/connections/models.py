@@ -10,6 +10,7 @@ from laomedo.agents.agents.base.models import VerifiedReviewProvenance
 from laomedo.agents.connections.errors import ProviderConnectionError
 from laomedo.agents.connections.settings import GRAPH_NODE_TASK_BYTES
 from laomedo.skills.registry.models import SkillReference
+from laomedo.agents.mcp.models import McpRegistration
 
 
 class GraphNodePolicy(BaseModel):
@@ -22,6 +23,12 @@ class GraphNodePolicy(BaseModel):
     task_from_input: bool = False
     timeout_seconds: int = Field(default=180, ge=1, le=86400)
     skills: tuple[SkillReference, ...] = Field(default=(), max_length=16)
+    mcp_registration: McpRegistration | None = Field(
+        default=None,
+        exclude=True,
+        repr=False,
+        description="Host-prepared tools; never accepted from the graph worker.",
+    )
 
     def native_request(self, body, request_id):
         """Preserve permitted task data while refusing added native authority."""
@@ -51,7 +58,13 @@ class GraphNodePolicy(BaseModel):
         timeout = body.get("run_timeout_seconds", self.timeout_seconds)
         if type(timeout) is not int or not 1 <= timeout <= self.timeout_seconds:
             raise ProviderConnectionError("verified_review_unavailable")
-        return {**body, "request_id": request_id}
+        request = {**body, "request_id": request_id}
+        if self.mcp_registration is not None:
+            request["mcp_manifest"] = self.mcp_registration.manifest.model_dump(
+                mode="json"
+            )
+            request["mcp_registration"] = str(self.mcp_registration.registration_id)
+        return request
 
 
 class OwnedWorkspaceChanges(BaseModel):

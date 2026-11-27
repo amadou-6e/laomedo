@@ -1,9 +1,12 @@
 """Host dispatcher tests with real admission/controllers and inert native runs."""
 
 from pathlib import Path
+import hashlib
+import json
 import tempfile
 import time
 import unittest
+from types import SimpleNamespace
 from unittest.mock import Mock, patch
 from uuid import uuid4
 
@@ -22,6 +25,7 @@ from laomedo.integrations.langflow.execution.providers.models import ProviderWor
 from test_agents.test_connections.test_controllers import FakeNativeAgent
 from laomedo.agents.errors import RunnerError
 from laomedo.agents.connections.errors import ProviderConnectionError
+from laomedo.agents.mcp.models import McpManifest, McpRegistration, McpTool
 
 
 class ProviderDispatcherTests(unittest.TestCase):
@@ -149,6 +153,65 @@ class ProviderDispatcherTests(unittest.TestCase):
         )
         self.assertEqual(self.call("/v1/runs/async", body=self.body).status, 202)
         self.assertEqual(self.call("/v1/runs/async", body=self.body).status, 409)
+
+    def test_mcp_host_grant_preserves_worker_intent_without_releasing_native_hash(self):
+        registration = McpRegistration(
+            registration_id=uuid4(),
+            manifest=McpManifest(
+                tools=(
+                    McpTool(
+                        server="fixture",
+                        upstream_name="echo",
+                        display_name="echo",
+                        description="Echo",
+                        input_schema={"type": "object"},
+                    ),
+                )
+            ),
+        )
+        node = self.plan.nodes[0]
+        node = node.model_copy(
+            update={
+                "policy": node.policy.model_copy(
+                    update={"mcp_registration": registration}
+                )
+            }
+        )
+        plan = self.plan.model_copy(update={"nodes": (node,)})
+        capability = self.controllers.graph_runs.admit(plan)
+        fence = SimpleNamespace(check_dispatch=Mock())
+        self.dispatcher = ProviderGraphDispatcher(
+            self.controllers, capability, plan.graph_digest, mcp_resources=fence
+        )
+        slot = self.controllers.graph_native(self.profile, node)
+        slot.runner.start_async = Mock(wraps=slot.runner.start_async)
+        reply = self.call("/v1/runs/async", body=self.body)
+        self.assertEqual(reply.status, 202)
+        fence.check_dispatch.assert_called_once()
+        native = slot.runner.start_async.call_args.args[0]
+        self.assertEqual(native["mcp_registration"], str(registration.registration_id))
+        expected = (
+            "sha256:"
+            + hashlib.sha256(
+                json.dumps(
+                    {
+                        key: value
+                        for key, value in self.body.items()
+                        if key != "request_id"
+                    },
+                    sort_keys=True,
+                    separators=(",", ":"),
+                    ensure_ascii=False,
+                ).encode()
+            ).hexdigest()
+        )
+        self.assertEqual(reply.payload["request_hash"], expected)
+        self.assertNotIn(str(registration.registration_id), json.dumps(reply.payload))
+        fence.check_dispatch.side_effect = ProviderConnectionError(
+            "provider_connection_unavailable"
+        )
+        self.assertEqual(self.call("/v1/runs/async", body=self.body).status, 409)
+        slot.runner.start_async.assert_called_once()
 
     def test_lease_revocation_refuses_every_further_operation(self):
         self.assertEqual(self.call("/v1/runs/async", body=self.body).status, 202)

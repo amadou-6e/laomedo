@@ -16,6 +16,8 @@ from laomedo.integrations.langflow.graph_admission.settings import (
 class GitHubGraphCatalog:
     """Validate exact classified sources without executing posted Python."""
 
+    COMPONENT_TYPES = GITHUB_GRAPH_COMPONENT_TYPES
+
     def __init__(self, snapshot: GitHubCatalogSnapshot):
         """Pin an immutable host snapshot; duplicate or unclassified entries refuse."""
         self.snapshot = snapshot
@@ -23,7 +25,7 @@ class GitHubGraphCatalog:
         self._classifications = {}
         for entry in snapshot.entries:
             if (
-                entry.classification not in GITHUB_GRAPH_COMPONENT_TYPES
+                entry.classification not in self.COMPONENT_TYPES
                 or entry.component_type in self._codes
             ):
                 raise GitHubNodeAuthorizationError()
@@ -49,11 +51,11 @@ class GitHubGraphCatalog:
             for components in registry.values():
                 for name, component in components.items():
                     classification = name
-                    if classification not in GITHUB_GRAPH_COMPONENT_TYPES:
+                    if classification not in cls.COMPONENT_TYPES:
                         if not isinstance(name, str) or not name.startswith("ext:"):
                             continue
                         classification = component.get("name")
-                        if classification not in GITHUB_GRAPH_COMPONENT_TYPES:
+                        if classification not in cls.COMPONENT_TYPES:
                             continue
                         if component.get("namespaced_id") != name:
                             raise GitHubNodeAuthorizationError()

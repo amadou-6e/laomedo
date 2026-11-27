@@ -10,6 +10,12 @@ from laomedo.integrations.langflow.graph_admission.catalog import GitHubGraphCat
 from laomedo.integrations.langflow.execution.worker.errors import GraphWorkerError
 
 
+class ProviderGraphCatalog(GitHubGraphCatalog):
+    """Extend only host selection admission; MCP sources never enter a worker."""
+
+    COMPONENT_TYPES = GitHubGraphCatalog.COMPONENT_TYPES | {"MCPTools"}
+
+
 class ProviderComponentCatalog:
     """One startup-only catalog; no posted code or component hooks enter the host."""
 
@@ -26,6 +32,8 @@ class ProviderComponentCatalog:
         from lfx.components.input_output.text_output import TextOutputComponent
         from lfx.components.models_and_agents.prompt import PromptComponent
         from lfx.components.processing.combine_text import CombineTextComponent
+        from lfx.components.models_and_agents.mcp_component import MCPToolsComponent
+        from lfx.custom.custom_component.component import Component
 
         registry = {"input_output": {}, "laomedo": {}}
         for component in (
@@ -36,6 +44,13 @@ class ProviderComponentCatalog:
         ):
             node = component().to_frontend_node()
             registry["input_output"][node["data"]["type"]] = node["data"]["node"]
+        # Metadata only: the native constructor creates transport clients and
+        # consults settings. Initialize only the pinned native Component base;
+        # MCP execution hooks are never called in the credential broker.
+        selection = object.__new__(MCPToolsComponent)
+        Component.__init__(selection)
+        node = selection.to_frontend_node()
+        registry["laomedo"][node["data"]["type"]] = node["data"]["node"]
         for filename, name in self.FILES:
             path = components_root / "laomedo" / filename
             if not path.is_file() or path.is_symlink():
@@ -53,7 +68,7 @@ class ProviderComponentCatalog:
                 raise GraphWorkerError()
             registry["laomedo"][name] = node["data"]["node"]
         self._registry = registry
-        self.admission = GitHubGraphCatalog.capture(registry)
+        self.admission = ProviderGraphCatalog.capture(registry)
 
     async def for_owner(self, owner):
         """Project installed policy-filtered templates without dynamic discovery."""

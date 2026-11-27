@@ -47,8 +47,31 @@ The host materializer rechecks bytes before a model starts.
 release without rewriting a completed native outcome. The imported registry is
 the existing host-wide local registry exposed by assistant Skill discovery;
 this path does not expand private GitHub Skill-source access across profiles.
-Registered MCP-server execution has its own selection/custody boundary and is
-not implicitly enabled by the local Skill path.
+Registered MCP execution is a separate host-owned boundary. `GraphMcpSelection`
+in `models.py` retains the existing canonical resource binding, installed node
+identity, registered name and exact Agent targets. `RegisteredMcpTools` in
+`mcp.py` checks profile/lease/server/version without releasing configuration
+during readiness. Only an approved run decrypts the selected registration and
+opens its native transport. Native STDIO/SSRF policies remain mandatory.
+`prepare` creates invocation-local native clients and exact per-Agent manifests;
+`check` fences discovery, each tool call and output release; `close` revokes its
+registrations before closing only its owned clients/session managers. Tool
+arguments and results are not copied into new activity records.
+
+The execution projection removes registered MCP selection nodes and their tool
+edges from the worker graph: their host owner resolves them, without evaluating
+MCP component code in the credential broker. The approved selection digest stays
+bound to the host plan; the worker separately verifies its projected graph.
+`GraphNodePolicy.native_request` rejects worker-supplied manifests/registrations
+and injects only the host-prepared registration. Request aliases and cancellation
+correlation describe worker intent, not native credentials or tool authority.
+For MCP sources the worker-visible request hash covers that validated intent;
+native history retains the separate semantic hash including the approved tool
+manifest. Host review provenance is recomputed from native workspace snapshots,
+never inferred from the projected hash. `check_dispatch` repeats metadata and
+account-generation checks on the app loop before a worker-thread start.
+Verified-review Claude targets cannot acquire external tools. No endpoint,
+command, header, credential or native client crosses into the graph worker.
 
 Text-only graphs use the same isolated worker and browser lease without granting
 any Agent authority. The fixed native Combine Text component joins instructions
@@ -60,6 +83,9 @@ remain visible before a user approves a run.
 `catalog.py` owns `ProviderComponentCatalog`. It builds metadata only from fixed
 operator-installed classes and component files at startup. It never accepts a
 browser component dictionary, component path or Python string for evaluation.
+`ProviderGraphCatalog` extends only host selection admission with `MCPTools`;
+the shared GitHub worker catalog still refuses that class. MCP metadata uses
+the installed native Component base without running the transport constructor.
 The same immutable host snapshot supplies assistant authoring and worker code
 identities; worker-produced metadata cannot establish trust.
 

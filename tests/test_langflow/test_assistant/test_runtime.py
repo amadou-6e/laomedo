@@ -133,14 +133,15 @@ class RuntimeTests(unittest.IsolatedAsyncioTestCase):
                 executor = ProviderGraphExecutor(
                     None,
                     SimpleNamespace(admission=None),
-                    SimpleNamespace(service=service),
+                    SimpleNamespace(service=service, skill_store=None),
                 )
-                executor.admission.prepare = Mock(return_value="planned")
+                planned = SimpleNamespace(mcps=())
+                executor.admission.prepare = Mock(return_value=planned)
                 self.runtime.graph_executor = executor
                 with self.assertRaises(ProviderConnectionError):
                     executor.validate_graph(self.owner, uuid4(), {})
                 self.assertEqual(
-                    await self.runtime.plan_graph(context, uuid4(), {}), "planned"
+                    await self.runtime.plan_graph(context, uuid4(), {}), planned
                 )
                 self.assertIsNone(ProviderGraphBindings.session.get())
                 self.assertIsNone(get_current_auth_context())

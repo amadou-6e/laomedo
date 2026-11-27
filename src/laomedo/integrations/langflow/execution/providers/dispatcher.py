@@ -1,6 +1,8 @@
 """Host-only provider and anonymous-Issue dispatch behind one isolated job pipe."""
 
 import threading
+import hashlib
+import json
 from uuid import UUID
 
 from laomedo.agents.connections.errors import ProviderConnectionError
@@ -25,11 +27,16 @@ class ProviderGraphDispatcher:
         *,
         gateway=None,
         activity=None,
+        worker_graph_digest=None,
+        mcp_resources=None,
     ):
         self.controllers = controllers
         self.capability = capability
         self.graph_digest = graph_digest
         self.plan = controllers.graph_runs.plan(capability, graph_digest)
+        self.worker_graph_digest = worker_graph_digest or graph_digest.removeprefix(
+            "sha256:"
+        )
         self.issues = {item.vertex_id: item for item in issues}
         if len(self.issues) != len(issues) or (
             gateway is not None
@@ -45,6 +52,8 @@ class ProviderGraphDispatcher:
         self.staged = {}
         self.node_outcomes = {}
         self.failures = {}
+        self.intent_hashes = {}
+        self.mcp_resources = mcp_resources
 
     def observe_node(self, vertex_id, record):
         """Retain terminal build evidence from native records, never worker claims."""
@@ -63,6 +72,8 @@ class ProviderGraphDispatcher:
             key: value for key, value in record.items() if key in PROVIDER_STATUS_FIELDS
         }
         result["client_request_id"] = self.aliases.get(vertex_id)
+        if vertex_id in self.intent_hashes:
+            result["request_hash"] = self.intent_hashes[vertex_id]
         result["precheck"] = PrecheckEvidence.from_result(
             record.get("precheck")
         ).model_dump()
@@ -91,7 +102,28 @@ class ProviderGraphDispatcher:
     def _start(self, call, node):
         """Dispatch one approved native node without exposing its gateway or grant."""
         alias = self._alias(call.body)
+        if self.mcp_resources is not None:
+            self.mcp_resources.check_dispatch()
         if node.review_source is None:
+            if node.policy is not None and node.policy.mcp_registration is not None:
+                # Validate before retaining even observational worker intent.
+                node.policy.native_request(call.body, alias)
+                canonical = {
+                    key: value
+                    for key, value in call.body.items()
+                    if key != "request_id"
+                }
+                self.intent_hashes[call.vertex_id] = (
+                    "sha256:"
+                    + hashlib.sha256(
+                        json.dumps(
+                            canonical,
+                            sort_keys=True,
+                            separators=(",", ":"),
+                            ensure_ascii=False,
+                        ).encode("utf-8")
+                    ).hexdigest()
+                )
             record = self.controllers.start_graph_node(
                 self.capability, self.graph_digest, call.vertex_id, call.body
             )

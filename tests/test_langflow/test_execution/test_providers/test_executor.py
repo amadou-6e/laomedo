@@ -93,6 +93,7 @@ class ProviderExecutorTests(unittest.IsolatedAsyncioTestCase):
             plan=SimpleNamespace(graph_digest="sha256:" + "a" * 64),
             job=Mock(),
             issues=(),
+            mcps=(),
         )
         self.executor.admission.prepare = Mock(return_value=self.prepared)
         self.executor.admission.check_resources = Mock()
@@ -188,6 +189,58 @@ class ProviderExecutorTests(unittest.IsolatedAsyncioTestCase):
         self.worker_factory.assert_not_called()
         self.controllers.finish_graph.assert_called_once()
         self.assertEqual(self.executor.workers, {})
+
+    async def test_mcp_discovery_failure_never_starts_a_worker_or_model(self):
+        from laomedo.agents.mcp.errors import McpError
+
+        self.prepared.mcps = (SimpleNamespace(vertex_id="tools"),)
+        resources = SimpleNamespace(
+            prepare=AsyncMock(side_effect=McpError("mcp_registration_unavailable")),
+            close=AsyncMock(),
+        )
+        with patch(
+            "laomedo.integrations.langflow.execution.providers.executor.RegisteredMcpTools",
+            return_value=resources,
+        ):
+            with self.assertRaises(McpError):
+                await self.executor.execute(
+                    self.snapshot, self.request, self.actor, str(self.job_id)
+                )
+        self.worker_factory.assert_not_called()
+        self.controllers.graph_runs.admit.assert_not_called()
+        self.controllers.prepare_graph.assert_not_called()
+        resources.close.assert_awaited_once()
+        self.assertEqual(self.executor.mcp_resources, {})
+
+    async def test_mcp_cleanup_failure_is_retained_and_reconciled_without_reexecution(
+        self,
+    ):
+        self.prepared.mcps = (SimpleNamespace(vertex_id="tools"),)
+        self.prepared.model_copy = Mock(return_value=self.prepared)
+        resources = SimpleNamespace(
+            prepare=AsyncMock(return_value=self.prepared.plan),
+            check=AsyncMock(),
+            close=AsyncMock(side_effect=OSError("fixture cleanup failed")),
+        )
+        with patch(
+            "laomedo.integrations.langflow.execution.providers.executor.RegisteredMcpTools",
+            return_value=resources,
+        ):
+            await self.executor.execute(
+                self.snapshot, self.request, self.actor, str(self.job_id)
+            )
+        self.assertIs(self.executor.mcp_resources[self.job_id], resources)
+        self.assertFalse(
+            self.jobs.update_job_metadata.call_args.args[1]["native_cleanup_confirmed"]
+        )
+        resources.close.side_effect = None
+        await self.executor.reconcile()
+        self.assertEqual(self.executor.mcp_resources, {})
+        self.assertEqual(
+            self.jobs.update_job_metadata.call_args.args[1],
+            {"native_cleanup_confirmed": True},
+        )
+        self.worker.run.assert_awaited_once()
 
     async def test_cancelled_discovery_is_drained_before_authority_cleanup(self):
         entered, release = threading.Event(), threading.Event()
