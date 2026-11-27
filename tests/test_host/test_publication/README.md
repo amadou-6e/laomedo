@@ -10,6 +10,7 @@ of Docker, GitHub or a real graph.
 | Frozen bundle execution | `test_bundle/test_stage.py`, `BundleStageTests` | Exact bundle identity, binary export, reviewed image and cleanup uncertainty |
 | Container ownership | `test_bundle/test_ownership.py`, `BundleStageOwnershipTests` | Exclusive reservation, exact identity and safe orphan reconciliation |
 | Verification worker | `test_bundle/test_verifier.py`, `BundleVerifierTests` | Claim ordering, trusted active bindings, status freshness and no redispatch |
+| Host publication handoff | `test_handoff/test_store.py`, `PublicationHandoffTests` | Output validation, host publishing phase, per-run rejection isolation and uncertain readback |
 | Verified Git snapshot | `test_verified.py`, `VerifiedStageTests` | Immutable snapshots, integrity, grant binding and unknown remote outcomes |
 
 Each TestCase owns fresh temporary state. `setUp` prepares that case; existing
@@ -19,10 +20,16 @@ Tests that need an intercepted Git command import `CallbackGitRunner` from
 
 The bundle leaf groups three related owners without repeating `bundle` in every
 filename. Ingestion and verified snapshots remain separate concerns beside it.
-Its stage check loads only the existing pinned EXP-139 consumer through
-`support.retained`; historical bytes and the ordinary provider-free behavior
-remain unchanged. No test imports another TestCase to borrow setup.
+Its stage checks call the installed bundle boundary directly. Campaign-only
+composition controls remain archived on `exp`; no historical loader is needed
+for these production assertions. No test imports another TestCase to borrow setup.
 
 ```powershell
 python -m unittest discover -s tests/test_host/test_publication -t tests -v
 ```
+
+The regression boundary also covers divergent verified history, changed file
+identity during ingestion, exclusion of agent Git hooks/remotes from private
+staging, and safe persisted unexpected failures. These assertions target the
+production ingestion, verified Git stage and verifier APIs; no campaign module
+is imported. They are internal controls, not live publication acceptance.

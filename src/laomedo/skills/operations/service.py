@@ -32,7 +32,8 @@ from laomedo.skills.operations.models.history import SkillCommitReceipt
 from laomedo.skills.operations.models.history import SkillComparison
 from laomedo.skills.operations.models.history import SkillFileChange
 from laomedo.skills.operations.models.history import SkillOperationResult
-from laomedo.skills.registry.models import SkillPolicyReference, SkillReference
+from laomedo.skills.registry.models import SkillPolicyReference
+from laomedo.skills.registry.models import SkillReference
 from laomedo.skills.registry.errors import ConflictError
 from laomedo.skills.registry.errors import SkillStoreError
 from laomedo.skills.registry.store import SkillStore

@@ -8,9 +8,11 @@ broker. It owns two separate runtimes that share only local-Docker control:
 - [`profile/`](profile/README.md): one long-lived, network-free native API
   container per profile for operational graph state.
 
-Neither runtime owns profile identity, GitHub tokens or mediation grants. The
-implementation is incomplete and is not connected to the ordinary preview
-launcher, browser admission or the canvas.
+Neither runtime owns profile identity, GitHub tokens or mediation grants.
+The explicit isolated-provider preview mode connects admitted saved-account
+graphs to `providers/` through browser admission and the canvas. Ordinary
+native execution remains separate; selecting this mode does not enable arbitrary
+graph code in the credential broker.
 
 ## Shared layout
 
@@ -22,6 +24,7 @@ execution/
   utils.py     private_state_path
   worker/      single-job worker (see its README)
   profile/     per-profile native API (see its README)
+  providers/   host-mediated saved-provider jobs (see its README)
 ```
 
 `base.py` owns `BaseDockerRuntime`, shared local-daemon control. Its control
@@ -34,6 +37,13 @@ independent lease registration. Shared control raises the subclass's
 `runtime_error`, so callers see `GraphWorkerError` or `NativeProfileError`.
 Subclasses keep their own mount and authority policy; shared transport never
 chooses an owner or creates a grant.
+
+`_local_context` resolves and verifies the literal local daemon endpoint, removes
+the mutable context selector from that job's control environment, and pins
+`DOCKER_HOST` for subsequent create/inspect/remove calls. Both worker and profile
+reservations carry the same endpoint into `LeaseClient`, so independent cleanup
+cannot silently follow a retargeted Docker context. A service's `service.json`
+publication, after its initial heartbeat pair, is its startup-ready receipt.
 
 `settings.py` owns `BaseDockerRuntimeSettings`: image digest, lease state, Docker
 context, resource limits and control timeout, accepted only from explicit host

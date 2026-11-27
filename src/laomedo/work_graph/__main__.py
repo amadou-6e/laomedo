@@ -1,5 +1,12 @@
 """Import/fetch snapshots, then inspect a filtered projection."""
 
+from laomedo.work_graph.github import fetch
+from laomedo.work_graph.github import import_pages
+from laomedo.work_graph.grants import LocalGrantAuthority
+from laomedo.work_graph.launch import relevant_content_digest
+from laomedo.work_graph.local_launch import launch_local_saved_flow
+from laomedo.work_graph.models import GraphSnapshot
+
 from datetime import datetime
 from datetime import timedelta
 from datetime import timezone
@@ -7,11 +14,8 @@ from pathlib import Path
 from pydantic import ValidationError
 import argparse
 import json
-import laomedo.work_graph.github as _work_graph_github
-import laomedo.work_graph.grants as _work_graph_grants
-import laomedo.work_graph.launch as _work_graph_launch
-import laomedo.work_graph.local_launch as _work_graph_local_launch
-import laomedo.work_graph.models as _work_graph_models
+
+
 import sys
 
 
@@ -55,7 +59,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "launch":
             print(
                 json.dumps(
-                    _work_graph_local_launch.launch_local_saved_flow(
+                    launch_local_saved_flow(
                         snapshot_path=args.snapshot,
                         work_key=args.work_key,
                         flow_id=args.flow_id,
@@ -69,7 +73,7 @@ def main(argv: list[str] | None = None) -> int:
                 )
             )
         elif args.command == "issue-grant":
-            snapshot = _work_graph_models.GraphSnapshot.from_dict(
+            snapshot = GraphSnapshot.from_dict(
                 json.loads(args.snapshot.read_text(encoding="utf-8"))
             )
             if not snapshot.source_complete or args.work_key not in {
@@ -84,15 +88,13 @@ def main(argv: list[str] | None = None) -> int:
                 raise ValueError(
                     "Interactive host terminal required for grant confirmation"
                 )
-            content_digest = _work_graph_launch.relevant_content_digest(
-                snapshot, args.work_key
-            )
+            content_digest = relevant_content_digest(snapshot, args.work_key)
             confirmation = input(
                 f"Selected content {content_digest}. Type {args.work_key} to confirm a local zero-turn grant: "
             )
             if confirmation != args.work_key:
                 raise ValueError("Operator confirmation did not match selected work")
-            authority = _work_graph_grants.LocalGrantAuthority(args.grant_store)
+            authority = LocalGrantAuthority(args.grant_store)
             expiry = (
                 datetime.now(timezone.utc) + timedelta(minutes=args.expires_in_minutes)
             ).isoformat()
@@ -117,15 +119,15 @@ def main(argv: list[str] | None = None) -> int:
                 )
             )
         elif args.command == "inspect":
-            snapshot = _work_graph_models.GraphSnapshot.from_dict(
+            snapshot = GraphSnapshot.from_dict(
                 json.loads(args.snapshot.read_text(encoding="utf-8"))
             )
             print(json.dumps(snapshot.project(args.state, tuple(args.label)), indent=2))
         else:
             snapshot = (
-                _work_graph_github.fetch(args.repo)
+                fetch(args.repo)
                 if args.command == "fetch"
-                else _work_graph_github.import_pages(
+                else import_pages(
                     args.repo, json.loads(args.file.read_text(encoding="utf-8"))
                 )
             )

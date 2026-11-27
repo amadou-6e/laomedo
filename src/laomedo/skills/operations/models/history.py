@@ -7,16 +7,12 @@ from pydantic import JsonValue, field_serializer
 from typing import Literal
 from datetime import datetime, timezone
 from uuid import uuid4
-from laomedo.skills.registry.models import (
-    SkillImportRecord,
-    SkillPolicyReference,
-    SkillReference,
-)
+from laomedo.skills.registry.models import SkillImportRecord
+from laomedo.skills.registry.models import SkillPolicyReference
+from laomedo.skills.registry.models import SkillReference
 from laomedo.skills.registry.utils.diff import patch_for
-from laomedo.skills.operations.models.provenance import (
-    EditorProvenance,
-    ImportedSkillEditor,
-)
+from laomedo.skills.operations.models.provenance import EditorProvenance
+from laomedo.skills.operations.models.provenance import ImportedSkillEditor
 
 
 class SkillCommit(BaseModel):

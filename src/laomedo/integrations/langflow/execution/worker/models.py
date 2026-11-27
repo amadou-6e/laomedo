@@ -9,8 +9,18 @@ from laomedo.github.node_runs.models import GitHubWorkerReadRequest
 from laomedo.integrations.langflow.graph_admission.models import GitHubCatalogSnapshot
 
 
-class GraphWorkerJob(BaseModel):
-    """Host-approved bootstrap for exactly one isolated native graph process."""
+class GraphWorkerScope(BaseModel):
+    """Host-only projection of one admitted job, independent of account provider."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid", strict=True)
+    owner_id: UUID
+    flow_id: UUID
+    graph_digest: str
+    first_vertex: str
+
+
+class NativeGraphJob(BaseModel):
+    """Credential-free graph definition shared by isolated native job drivers."""
 
     model_config = ConfigDict(frozen=True, extra="forbid", hide_input_in_errors=True)
     version: Literal[1] = Field(default=1, description="Private pipe protocol version.")
@@ -24,13 +34,6 @@ class GraphWorkerJob(BaseModel):
     )
     catalog: GitHubCatalogSnapshot = Field(
         description="Immutable host code identities pinned to this admission."
-    )
-    capability: SecretStr = Field(
-        exclude=True,
-        repr=False,
-        min_length=43,
-        max_length=43,
-        description="Job-only broker capability injected on the private pipe, not in graph data.",
     )
     inputs: list[dict[str, str]] = Field(
         default_factory=list,
@@ -46,6 +49,22 @@ class GraphWorkerJob(BaseModel):
         gt=0,
         allow_inf_nan=False,
         description="Remaining real execution timeout in seconds, supplied by job policy.",
+    )
+
+    def private_payload(self):
+        """Project only this job's graph data and immutable execution metadata."""
+        return self.model_dump(mode="json")
+
+
+class GraphWorkerJob(NativeGraphJob):
+    """GitHub job bootstrap with one narrowly scoped private read capability."""
+
+    capability: SecretStr = Field(
+        exclude=True,
+        repr=False,
+        min_length=43,
+        max_length=43,
+        description="Job-only broker capability on the private pipe, not graph data.",
     )
 
     def private_payload(self):

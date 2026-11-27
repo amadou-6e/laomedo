@@ -24,7 +24,7 @@ class LocalProfileSetupTests(unittest.TestCase):
         self.launcher = self.repo / "tools/start_local_profiles.ps1"
         self.powershell = shutil.which("powershell.exe")
 
-    def prepare(self, runtime, port=17864, mode="Prepare"):
+    def prepare(self, runtime, port=17864, mode="Prepare", *, extra=()):
         return subprocess.run(
             [
                 self.powershell,
@@ -43,6 +43,7 @@ class LocalProfileSetupTests(unittest.TestCase):
                 str(runtime),
                 "-Port",
                 str(port),
+                *extra,
             ],
             capture_output=True,
             text=True,
@@ -89,6 +90,13 @@ class LocalProfileSetupTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("fixed origin does not match", result.stderr)
         self.assertEqual(marker, (runtime / "local-profiles.json").read_bytes())
+
+    def test_isolated_graph_mode_requires_explicit_worker_and_source_before_setup(self):
+        runtime = self.root / "runtime"
+        result = self.prepare(runtime, mode="Check", extra=("-IsolatedProviderGraphs",))
+        self.assertNotEqual(result.returncode, 0)
+        self.assertFalse(runtime.exists())
+        self.assertIn("immutable worker image", result.stderr)
 
     def test_refuses_relative_runtime(self):
         result = self.prepare("relative-runtime")

@@ -49,8 +49,10 @@ class OpenCodeComponentTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(fields["model"]["options"], [])
         self.assertFalse(fields["model"]["combobox"])
         self.assertEqual(fields["effort"]["options"], ["default"])
+        # Preserve connected Resume edges; canvas policy hides disconnected
+        # compatibility ports instead of deleting their metadata.
+        self.assertTrue(fields["run_reference"]["show"])
         for name in (
-            "run_reference",
             "run_reference_json",
             "skill_id",
             "revision_id",
@@ -73,7 +75,7 @@ class OpenCodeComponentTests(unittest.IsolatedAsyncioTestCase):
         import json
         import os
         import tempfile
-        import laomedo.integrations.langflow.agent.component as codex
+        import laomedo.agents.interface.langflow.component as codex
 
         node = self.node()
         fields = {item.name: item.model_dump() for item in node.inputs}
@@ -146,7 +148,9 @@ class OpenCodeComponentTests(unittest.IsolatedAsyncioTestCase):
             manager.services[ServiceType.SETTINGS_SERVICE] = (
                 SettingsService.initialize()
             )
-        flow = json.loads((ROOT / "examples/opencode-node/flow.json").read_text())
+        flow = json.loads(
+            (ROOT / "tests/test_agents/test_examples/data/opencode.json").read_text()
+        )
         agent = next(
             n for n in flow["data"]["nodes"] if n["id"] == "OpenCode-read-project"
         )
@@ -163,7 +167,7 @@ class OpenCodeComponentTests(unittest.IsolatedAsyncioTestCase):
         )
         flow["data"]["nodes"] = [agent]
         flow["data"]["edges"] = []
-        from laomedo.integrations.langflow.agent.component import AgentComponent
+        from laomedo.agents.interface.langflow.component import AgentComponent
 
         with patch.object(
             AgentComponent,

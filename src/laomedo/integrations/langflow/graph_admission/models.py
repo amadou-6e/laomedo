@@ -1,6 +1,24 @@
 """Pinned host component identities for saved-account graph admission."""
 
 from pydantic import BaseModel, ConfigDict, Field
+from typing import Literal
+
+
+class ResourceBinding(BaseModel):
+    """Safe resource identity and version; never an endpoint, config or credential."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    kind: Literal["skill", "mcp"] = Field(
+        description="Concern owning the resource reference."
+    )
+    id: str = Field(
+        min_length=1, max_length=200, description="Owner-validated opaque identity."
+    )
+    version: str = Field(
+        min_length=1,
+        max_length=200,
+        description="Immutable Skill revision or MCP configuration epoch.",
+    )
 
 
 class GitHubCatalogEntry(BaseModel):

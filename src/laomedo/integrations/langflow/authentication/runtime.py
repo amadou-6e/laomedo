@@ -127,6 +127,11 @@ class PrivateBrowserRuntime:
             policy=self.policy,
             resource_policy=PrivateGitHubResponsePolicy(connections),
         )
+        from laomedo.integrations.langflow.local_profiles.cookies import (
+            ProfileCookieBoundary,
+        )
+
+        ProfileCookieBoundary.outermost(app)
         self._upstream_lifespan = app.router.lifespan_context
         app.router.lifespan_context = self.lifespan
 

@@ -1,0 +1,129 @@
+{
+  "caller": {
+    "case": "server",
+    "duration_seconds": 3.031,
+    "kind": "http_error",
+    "response": {
+      "code": "EXECUTION_TIMEOUT",
+      "job_id": "6f18170b-d6d0-4669-9525-b41b6d619407",
+      "message": "Workflow execution exceeded 3 seconds",
+      "timeout_seconds": 3
+    },
+    "route": "v2",
+    "started_utc": "2026-10-05T10:51:49.396376+00:00",
+    "status": 408
+  },
+  "clock_after": {
+    "container_utc": 1791197519.5864983,
+    "estimated_offset_seconds": 0.030971,
+    "host_after_utc": 1791197519.5976,
+    "host_before_utc": 1791197519.513455,
+    "uncertainty_seconds": 0.042073
+  },
+  "clock_before": {
+    "container_utc": 1791197509.3546004,
+    "estimated_offset_seconds": 0.030645,
+    "host_after_utc": 1791197509.365855,
+    "host_before_utc": 1791197509.282055,
+    "uncertainty_seconds": 0.0419
+  },
+  "config": {
+    "caller_timeout_seconds": 15,
+    "case": "server",
+    "component_timeout_seconds": 8,
+    "image": "langflowai/langflow@sha256:34055a07d446de51760e28dab6332e22624e5f48dca611567779992fc32c5ec0",
+    "langflow_version": "1.12.3",
+    "poll_offsets_seconds": [
+      0,
+      1,
+      4,
+      7
+    ],
+    "runner_delay_seconds": 6,
+    "server_timeout_seconds": 3
+  },
+  "container_status": "running",
+  "host_invocation_monotonic_elapsed_seconds": 3.031,
+  "runner_events": [
+    {
+      "case": "server",
+      "container_monotonic_seconds": 190350.484321535,
+      "event": "entered",
+      "utc": "2026-10-05T10:51:50.131591+00:00"
+    },
+    {
+      "case": "server",
+      "container_monotonic_seconds": 190356.486703091,
+      "event": "effect",
+      "utc": "2026-10-05T10:51:56.133965+00:00"
+    },
+    {
+      "case": "server",
+      "container_monotonic_seconds": 190356.488337223,
+      "event": "response_written",
+      "utc": "2026-10-05T10:51:56.135611+00:00"
+    }
+  ],
+  "status_snapshots": [
+    {
+      "actual_offset_seconds": 0.0,
+      "detail_code": "JOB_FAILED",
+      "detail_error": "Job failed",
+      "detail_message": "Job 6f18170b-d6d0-4669-9525-b41b6d619407 has failed execution.",
+      "detail_type": "dict",
+      "error_detail_present": false,
+      "error_detail_type": "NoneType",
+      "http_status": 500,
+      "observed_utc": "2026-10-05T10:51:52.431635+00:00",
+      "response_keys": [
+        "detail"
+      ],
+      "target_offset_seconds": 0
+    },
+    {
+      "actual_offset_seconds": 1.0,
+      "detail_code": "JOB_FAILED",
+      "detail_error": "Job failed",
+      "detail_message": "Job 6f18170b-d6d0-4669-9525-b41b6d619407 has failed execution.",
+      "detail_type": "dict",
+      "error_detail_present": false,
+      "error_detail_type": "NoneType",
+      "http_status": 500,
+      "observed_utc": "2026-10-05T10:51:53.427588+00:00",
+      "response_keys": [
+        "detail"
+      ],
+      "target_offset_seconds": 1
+    },
+    {
+      "actual_offset_seconds": 4.0,
+      "detail_code": "JOB_FAILED",
+      "detail_error": "Job failed",
+      "detail_message": "Job 6f18170b-d6d0-4669-9525-b41b6d619407 has failed execution.",
+      "detail_type": "dict",
+      "error_detail_present": false,
+      "error_detail_type": "NoneType",
+      "http_status": 500,
+      "observed_utc": "2026-10-05T10:51:56.422119+00:00",
+      "response_keys": [
+        "detail"
+      ],
+      "target_offset_seconds": 4
+    },
+    {
+      "actual_offset_seconds": 7.0,
+      "detail_code": "JOB_FAILED",
+      "detail_error": "Job failed",
+      "detail_message": "Job 6f18170b-d6d0-4669-9525-b41b6d619407 has failed execution.",
+      "detail_type": "dict",
+      "error_detail_present": false,
+      "error_detail_type": "NoneType",
+      "http_status": 500,
+      "observed_utc": "2026-10-05T10:51:59.433379+00:00",
+      "response_keys": [
+        "detail"
+      ],
+      "target_offset_seconds": 7
+    }
+  ]
+}

@@ -5,6 +5,8 @@ from __future__ import annotations
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+DOCKER_CHECK_TIMEOUT_SECONDS = 5
+
 
 class Settings(BaseSettings):
     """Read at point of use; no cached environment, dotenv or credential contents.

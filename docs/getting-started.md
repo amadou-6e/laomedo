@@ -74,16 +74,15 @@ native sessions; do not substitute a full personal profile mount.
 
 ```powershell
 docker info
-docker build -t laomedo-claude-controller:2.1.310 docker/claude
+docker build -t laomedo-claude-controller:2.1.310-acp0.98.0 docker/claude
 docker volume create --label laomedo.provider=claude laomedo-claude-quickstart-profile
-docker run --rm -it --mount type=volume,source=laomedo-claude-quickstart-profile,target=/profile laomedo-claude-controller:2.1.310 auth login
+docker run --rm -it --mount type=volume,source=laomedo-claude-quickstart-profile,target=/profile laomedo-claude-controller:2.1.310-acp0.98.0 auth login
 ```
 
 Complete the native subscription sign-in. The controller image's CLI is pinned;
 the runner resolves and checks its immutable image identity on startup. Existing
-single-user installations can instead opt into access-login mirroring through
-their host configuration; see [the controller guide](../docker/claude/README.md).
-This walkthrough uses the dedicated-volume login above.
+installations use Settings > Providers for app-owned sign-in or explicit native
+sign-in in the dedicated standalone profile. Host credential copying is not supported.
 
 ## 4. Start the supervisor and runner
 
@@ -101,12 +100,12 @@ Laomedo vision document directory within this Git checkout, not a synthetic
 project. It exposes `README.md` at the root of the Agent's private draft.
 
 ```powershell
-& $pythonExe -m laomedo.agents.providers.claude.cli `
+& $pythonExe -m laomedo.agents.agents.claude.cli `
   --state "$runtimeRoot/runner" `
   --skill-store "$runtimeRoot/registry" `
   --source "$repoPath/docs/vision-and-goals" `
   --lease-service "$runtimeRoot/lease" `
-  --image laomedo-claude-controller:2.1.310 `
+  --image laomedo-claude-controller:2.1.310-acp0.98.0 `
   --profile-volume laomedo-claude-quickstart-profile `
   --port 8769
 ```

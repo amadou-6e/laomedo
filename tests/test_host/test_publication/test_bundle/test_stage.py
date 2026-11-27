@@ -1,10 +1,5 @@
 """No-provider checks for bounded frozen-bundle verification and export."""
 
-from support.retained import load_retained_shared
-
-load_retained_shared("experiments.exp139.runtime")
-
-
 import hashlib
 import json
 from pathlib import Path
@@ -30,31 +25,6 @@ IMAGE_ID = PINNED_IMAGE_ID
 
 
 class BundleStageTests(unittest.TestCase):
-    def test_exp139_verifier_reads_commit_from_real_frozen_bundle(self):
-        from experiments.exp139.runtime import verify_attempt
-
-        self.assertNotIn("advertised_commit", self.frozen)
-        # Exercise the real freeze receipt/header boundary, not a fabricated
-        # receipt containing a field that the producer never supplies.
-        config = {"baseline_sha256": self.baseline_hash}
-        campaign = self.root
-        # Match the composition's fixed private directory names.
-        self.runner.rename(campaign / "runner")
-        with patch(
-            "experiments.exp139.runtime.verify_frozen_bundle",
-            return_value={"status": "verified"},
-        ) as verifier:
-            self.assertEqual(
-                verify_attempt(campaign, config, "run-a", "attempt-1"),
-                {"status": "verified"},
-            )
-            self.assertEqual(verifier.call_args.kwargs["commit"], self.commit)
-        bundle = campaign / "private-stage/run-a/attempt-1/input.bundle"
-        bundle.write_bytes(bundle.read_bytes() + b"TAMPER")
-        with patch("experiments.exp139.runtime.verify_frozen_bundle") as verifier:
-            with self.assertRaises(BundleStageError):
-                verify_attempt(campaign, config, "run-a", "attempt-1")
-            verifier.assert_not_called()
 
     def test_export_stream_keeps_binary_bytes_and_rejects_oversize(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -176,112 +146,6 @@ class BundleStageTests(unittest.TestCase):
         self.exported_bytes = self.exported.read_bytes()
         self.frozen = freeze_run_bundle(
             self.runner, self.private, run_id="run-a", attempt_id="attempt-1"
-        )
-
-    def _git(self, directory, *args):
-        result = subprocess.run(
-            ["git", "-C", str(directory), *args], capture_output=True, check=True
-        )
-        return result.stdout.decode().strip()
-
-    def _fake_docker(
-        self,
-        *,
-        network="none",
-        cleanup=True,
-        success=True,
-        output=None,
-        export_class="ok",
-    ):
-        commands = []
-        removed = False
-        started = False
-        exported = self.exported_bytes if output is None else output
-        config = {
-            "Image": IMAGE_ID,
-            "Id": "c" * 64,
-            "HostConfig": {
-                "NetworkMode": network,
-                "ReadonlyRootfs": True,
-                "Memory": MEMORY_BYTES,
-                "PidsLimit": 32,
-                "Tmpfs": {"/stage": "rw,nosuid,noexec,size=32m"},
-                "CapDrop": ["ALL"],
-                "SecurityOpt": ["no-new-privileges"],
-            },
-            "Config": {"User": "10001:10001", "Labels": {}},
-            "Mounts": [
-                {"Type": "bind", "RW": False, "Destination": target}
-                for target in ("/baseline.bundle", "/input.bundle", "/verify.sh")
-            ],
-            "State": {"Running": False, "ExitCode": 0},
-        }
-
-        def run(args, timeout=30):
-            nonlocal removed, started
-            commands.append(args)
-            operation = args[1]
-            if operation == "inspect":
-                name = commands[0][commands[0].index("--name") + 1]
-                config["Name"] = "/" + name
-                label = next(
-                    value
-                    for value in commands[0]
-                    if value.startswith("laomedo.bundle-stage-token=")
-                )
-                config["Config"]["Labels"]["laomedo.bundle-stage-token"] = label.split(
-                    "=", 1
-                )[1]
-                config["State"] = {
-                    "Running": started and success and not removed,
-                    "ExitCode": 0 if success else 128,
-                }
-                config["Config"]["Labels"]["laomedo.bundle-stage"] = commands[0][
-                    commands[0].index("--name") + 1
-                ]
-                return subprocess.CompletedProcess(
-                    args,
-                    1 if (removed and cleanup) else 0,
-                    json.dumps([config]),
-                    "No such object: removed" if removed and cleanup else "",
-                )
-            if operation == "start":
-                started = True
-                return subprocess.CompletedProcess(args, 0, "", "")
-            if operation == "logs":
-                return subprocess.CompletedProcess(
-                    args,
-                    0,
-                    "STAGE_VERIFIED\n" if success else "STAGE_FAILED=integrity\n",
-                    "",
-                )
-            if operation == "rm":
-                removed = True
-            return subprocess.CompletedProcess(args, 0, "", "")
-
-        def export_stream(args, destination, timeout=30):
-            commands.append(args)
-            if export_class != "ok":
-                return {"class": export_class, "returncode": 1}
-            if not config["State"]["Running"]:
-                return {"class": "command_failed", "returncode": 1}
-            Path(destination).write_bytes(exported)
-            return {"class": "ok", "returncode": 0, "bytes": len(exported)}
-
-        return run, export_stream, commands
-
-    def _verify(self, docker, export):
-        return verify_frozen_bundle(
-            self.runner,
-            self.private,
-            run_id="run-a",
-            attempt_id="attempt-1",
-            baseline_bundle=self.baseline_bundle,
-            expected_baseline_sha256=self.baseline_hash,
-            commit=self.commit,
-            image_id=IMAGE_ID,
-            docker=docker,
-            export=export,
         )
 
     def test_bundle_header_is_exactly_one_expected_ref(self):
@@ -421,6 +285,112 @@ class BundleStageTests(unittest.TestCase):
         self.assertEqual(result["status"], "failed")
         self.assertEqual(result["container"]["status"], "output_invalid")
         self.assertTrue(any(call[1] == "rm" for call in commands))
+
+    def _git(self, directory, *args):
+        result = subprocess.run(
+            ["git", "-C", str(directory), *args], capture_output=True, check=True
+        )
+        return result.stdout.decode().strip()
+
+    def _fake_docker(
+        self,
+        *,
+        network="none",
+        cleanup=True,
+        success=True,
+        output=None,
+        export_class="ok",
+    ):
+        commands = []
+        removed = False
+        started = False
+        exported = self.exported_bytes if output is None else output
+        config = {
+            "Image": IMAGE_ID,
+            "Id": "c" * 64,
+            "HostConfig": {
+                "NetworkMode": network,
+                "ReadonlyRootfs": True,
+                "Memory": MEMORY_BYTES,
+                "PidsLimit": 32,
+                "Tmpfs": {"/stage": "rw,nosuid,noexec,size=32m"},
+                "CapDrop": ["ALL"],
+                "SecurityOpt": ["no-new-privileges"],
+            },
+            "Config": {"User": "10001:10001", "Labels": {}},
+            "Mounts": [
+                {"Type": "bind", "RW": False, "Destination": target}
+                for target in ("/baseline.bundle", "/input.bundle", "/verify.sh")
+            ],
+            "State": {"Running": False, "ExitCode": 0},
+        }
+
+        def run(args, timeout=30):
+            nonlocal removed, started
+            commands.append(args)
+            operation = args[1]
+            if operation == "inspect":
+                name = commands[0][commands[0].index("--name") + 1]
+                config["Name"] = "/" + name
+                label = next(
+                    value
+                    for value in commands[0]
+                    if value.startswith("laomedo.bundle-stage-token=")
+                )
+                config["Config"]["Labels"]["laomedo.bundle-stage-token"] = label.split(
+                    "=", 1
+                )[1]
+                config["State"] = {
+                    "Running": started and success and not removed,
+                    "ExitCode": 0 if success else 128,
+                }
+                config["Config"]["Labels"]["laomedo.bundle-stage"] = commands[0][
+                    commands[0].index("--name") + 1
+                ]
+                return subprocess.CompletedProcess(
+                    args,
+                    1 if (removed and cleanup) else 0,
+                    json.dumps([config]),
+                    "No such object: removed" if removed and cleanup else "",
+                )
+            if operation == "start":
+                started = True
+                return subprocess.CompletedProcess(args, 0, "", "")
+            if operation == "logs":
+                return subprocess.CompletedProcess(
+                    args,
+                    0,
+                    "STAGE_VERIFIED\n" if success else "STAGE_FAILED=integrity\n",
+                    "",
+                )
+            if operation == "rm":
+                removed = True
+            return subprocess.CompletedProcess(args, 0, "", "")
+
+        def export_stream(args, destination, timeout=30):
+            commands.append(args)
+            if export_class != "ok":
+                return {"class": export_class, "returncode": 1}
+            if not config["State"]["Running"]:
+                return {"class": "command_failed", "returncode": 1}
+            Path(destination).write_bytes(exported)
+            return {"class": "ok", "returncode": 0, "bytes": len(exported)}
+
+        return run, export_stream, commands
+
+    def _verify(self, docker, export):
+        return verify_frozen_bundle(
+            self.runner,
+            self.private,
+            run_id="run-a",
+            attempt_id="attempt-1",
+            baseline_bundle=self.baseline_bundle,
+            expected_baseline_sha256=self.baseline_hash,
+            commit=self.commit,
+            image_id=IMAGE_ID,
+            docker=docker,
+            export=export,
+        )
 
 
 if __name__ == "__main__":

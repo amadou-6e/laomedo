@@ -1,20 +1,14 @@
 {
-  "scope": "Current maintained graph sources and recognized LFX source hashes follow the formatted develop components; digest protects every other graph value. No old component bodies, revision chain, fixture/live acceptance or historical export mutation.",
+  "scope": "Current maintained graphs and internal saved-wire inputs use canonical component source and recognized source hashes. Digests preserve all other graph values. Historical execution originals remain unchanged on exp; these are not new acceptance records.",
   "files": [
     {
-      "path": "examples/claude-agent/current-template-flow.json",
+      "path": "examples/langflow-contract-routing/flow.json",
       "nodes": [
         {
-          "node_id": "agent",
-          "component": "components/laomedo/claude_agent.py",
+          "node_id": "issue",
+          "component": "examples/langflow-workgraph-demo/fixture_issue.py",
           "has_code_hash": true
-        }
-      ],
-      "graph_values_sha256": "27c2ed4bb2adb83e1a5f8ac6b37a6955c9235311f6f6c5d07e2c8953f6123df2"
-    },
-    {
-      "path": "examples/claude-agent/flow.json",
-      "nodes": [
+        },
         {
           "node_id": "skill",
           "component": "components/laomedo/skill.py",
@@ -22,54 +16,36 @@
         },
         {
           "node_id": "agent",
-          "component": "components/laomedo/claude_agent.py",
-          "has_code_hash": true
-        }
-      ],
-      "graph_values_sha256": "bd8291f6857527e42d1ee3d368d535e9a2916e956eeb9b0eb25fdafedca6ad3c"
-    },
-    {
-      "path": "examples/native-codex-node/flow.json",
-      "nodes": [
-        {
-          "node_id": "LaomedoSkill-native",
-          "component": "components/laomedo/skill.py",
-          "has_code_hash": true
-        },
-        {
-          "node_id": "LaomedoCodexAgent-native",
           "component": "components/laomedo/codex_agent.py",
           "has_code_hash": true
-        }
-      ],
-      "graph_values_sha256": "1e099a730e3c30398b180d709dab1c32d50e5cf8d0b0704f9bc6cbc98e46a217"
-    },
-    {
-      "path": "examples/opencode-node/flow.json",
-      "nodes": [
+        },
         {
-          "node_id": "OpenCode-pinned-skill",
-          "component": "components/laomedo/skill.py",
+          "node_id": "contract",
+          "component": "components/laomedo/output_contract.py",
           "has_code_hash": true
         },
         {
-          "node_id": "OpenCode-read-project",
-          "component": "components/laomedo/opencode_agent.py",
+          "node_id": "success",
+          "component": "examples/langflow-workgraph-demo/destination.py",
           "has_code_hash": true
-        }
-      ],
-      "graph_values_sha256": "93472574c8a66297bb2c3962927506582794ea34ac242e758e53a5724c3af690"
-    },
-    {
-      "path": "examples/skill-agent-pilot/pilot-flow.json",
-      "nodes": [
+        },
         {
-          "node_id": "LaomedoRunner-laomedo",
-          "component": "examples/skill-agent-pilot/langflow_component.py",
+          "node_id": "failure",
+          "component": "examples/langflow-workgraph-demo/destination.py",
+          "has_code_hash": true
+        },
+        {
+          "node_id": "rejection",
+          "component": "examples/langflow-workgraph-demo/destination.py",
+          "has_code_hash": true
+        },
+        {
+          "node_id": "recovery",
+          "component": "examples/langflow-workgraph-demo/destination.py",
           "has_code_hash": true
         }
       ],
-      "graph_values_sha256": "b6b01e6f3963ad0808f625117e9d0d18ebc8b9bd3bc22e2ae8fa871685bc881a"
+      "graph_values_sha256": "f7e2b760e09bd7bdbec951c605ba768023f6b77c0a2b4506be218587a1974c53"
     },
     {
       "path": "examples/langflow-workgraph-demo/flow.json",
@@ -125,16 +101,33 @@
           "has_code_hash": true
         }
       ],
-      "graph_values_sha256": "b8d0576923ef25a07434e5ea5d42846784bcb4fe4e6746145c773c6cf12956f2"
+      "graph_values_sha256": "15910ee1fde2ffdd83a7fe4f3c342b62f4b2d67a3092118eb413c85d45960a8a"
     },
     {
-      "path": "examples/langflow-contract-routing/flow.json",
+      "path": "examples/skill-agent-pilot/pilot-flow.json",
       "nodes": [
         {
-          "node_id": "issue",
-          "component": "examples/langflow-workgraph-demo/fixture_issue.py",
+          "node_id": "LaomedoRunner-laomedo",
+          "component": "examples/skill-agent-pilot/langflow_component.py",
           "has_code_hash": true
-        },
+        }
+      ],
+      "graph_values_sha256": "b6b01e6f3963ad0808f625117e9d0d18ebc8b9bd3bc22e2ae8fa871685bc881a"
+    },
+    {
+      "path": "tests/test_agents/test_examples/data/claude-template.json",
+      "nodes": [
+        {
+          "node_id": "agent",
+          "component": "components/laomedo/claude_agent.py",
+          "has_code_hash": true
+        }
+      ],
+      "graph_values_sha256": "49b4f3c34c724d16fcc5407e74b13653b2d1301e00e383e8f756a16e8699a052"
+    },
+    {
+      "path": "tests/test_agents/test_examples/data/claude.json",
+      "nodes": [
         {
           "node_id": "skill",
           "component": "components/laomedo/skill.py",
@@ -142,36 +135,43 @@
         },
         {
           "node_id": "agent",
-          "component": "components/laomedo/codex_agent.py",
-          "has_code_hash": true
-        },
-        {
-          "node_id": "contract",
-          "component": "components/laomedo/output_contract.py",
-          "has_code_hash": true
-        },
-        {
-          "node_id": "success",
-          "component": "examples/langflow-workgraph-demo/destination.py",
-          "has_code_hash": true
-        },
-        {
-          "node_id": "failure",
-          "component": "examples/langflow-workgraph-demo/destination.py",
-          "has_code_hash": true
-        },
-        {
-          "node_id": "rejection",
-          "component": "examples/langflow-workgraph-demo/destination.py",
-          "has_code_hash": true
-        },
-        {
-          "node_id": "recovery",
-          "component": "examples/langflow-workgraph-demo/destination.py",
+          "component": "components/laomedo/claude_agent.py",
           "has_code_hash": true
         }
       ],
-      "graph_values_sha256": "95c188cdd8de45003003d12c77a805399fd85844d7b8c6f332793462f5237274"
+      "graph_values_sha256": "49a0b7245ddaafad693d00a2978af0d61aae136b0134ba8c48bb11989e3d8dbc"
+    },
+    {
+      "path": "tests/test_agents/test_examples/data/codex.json",
+      "nodes": [
+        {
+          "node_id": "LaomedoSkill-native",
+          "component": "components/laomedo/skill.py",
+          "has_code_hash": true
+        },
+        {
+          "node_id": "LaomedoCodexAgent-native",
+          "component": "components/laomedo/codex_agent.py",
+          "has_code_hash": true
+        }
+      ],
+      "graph_values_sha256": "9e003228076c05d38fcd6d1bab0d1bcd8837570872b509e82139319665136e28"
+    },
+    {
+      "path": "tests/test_agents/test_examples/data/opencode.json",
+      "nodes": [
+        {
+          "node_id": "OpenCode-pinned-skill",
+          "component": "components/laomedo/skill.py",
+          "has_code_hash": true
+        },
+        {
+          "node_id": "OpenCode-read-project",
+          "component": "components/laomedo/opencode_agent.py",
+          "has_code_hash": true
+        }
+      ],
+      "graph_values_sha256": "dd6ee3eb5b898daa3e06d04b22c6af5075c7c22d116e60470a53347bef391751"
     }
   ]
 }

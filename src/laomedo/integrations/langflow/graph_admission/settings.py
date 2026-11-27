@@ -18,6 +18,7 @@ GITHUB_GRAPH_COMPONENT_TYPES = frozenset(
         "ChatOutput",
         "TextInput",
         "TextOutput",
+        "CombineText",
         "Prompt",
         "Prompt Template",
     }

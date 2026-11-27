@@ -7,8 +7,8 @@ from lfx.io import DataInput
 from lfx.io import MultilineInput
 from lfx.io import Output
 from lfx.schema import Data
-from laomedo.agents.contracts.output import evaluate_envelope
-from laomedo.agents.contracts.output import requirements
+from laomedo.agents.interface.output.utils import evaluate_envelope
+from laomedo.agents.interface.output.utils import requirements
 
 
 class LaomedoOutputContract(Component):
@@ -43,12 +43,24 @@ class LaomedoOutputContract(Component):
         self.status = result["contract_status"]
         return Data(data=result)
 
+    def success(self) -> Data:
+        return self._route("success")
+
+    def failure(self) -> Data:
+        return self._route("failure")
+
+    def rejection(self) -> Data:
+        return self._route("rejection")
+
+    def recovery(self) -> Data:
+        return self._route("recovery")
+
     def _pre_run_setup(self):
         self._routing_result = None
 
     def _route(self, selected):
-        from laomedo.agents.contracts.graph import verified_route_submission
-        from laomedo.agents.contracts.graph import route_destination
+        from laomedo.integrations.langflow.output.utils import verified_route_submission
+        from laomedo.integrations.langflow.output.utils import route_destination
         from copy import deepcopy
 
         cached = getattr(self, "_routing_result", None)
@@ -64,15 +76,3 @@ class LaomedoOutputContract(Component):
             return Data(data={})
         self.status = destination
         return Data(data={"route": destination, "validation": validation})
-
-    def success(self) -> Data:
-        return self._route("success")
-
-    def failure(self) -> Data:
-        return self._route("failure")
-
-    def rejection(self) -> Data:
-        return self._route("rejection")
-
-    def recovery(self) -> Data:
-        return self._route("recovery")

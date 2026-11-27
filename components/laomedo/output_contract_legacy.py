@@ -7,8 +7,8 @@ from lfx.io import DataInput
 from lfx.io import MultilineInput
 from lfx.io import Output
 from lfx.schema import Data
-from laomedo.agents.contracts.output import evaluate_envelope
-from laomedo.agents.contracts.output import requirements
+from laomedo.agents.interface.output.utils import evaluate_envelope
+from laomedo.agents.interface.output.utils import requirements
 
 
 class LaomedoOutputContractLegacy(Component):

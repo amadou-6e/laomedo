@@ -30,10 +30,6 @@ class AppLauncher:
             raise ValueError(
                 "This app launch command currently requires a Codex runner."
             )
-        if "lease_service" not in config:
-            raise ValueError(
-                "Configure the independent Codex lease service before launch."
-            )
         if not Path(config["source"]).is_dir():
             raise ValueError("The configured Codex source directory does not exist.")
         if settings.port == config["port"]:
@@ -55,6 +51,7 @@ class AppLauncher:
             "LANGFLOW_COMPONENTS_PATH": str(settings.components.resolve()),
             "LANGFLOW_AUTO_LOGIN": "true",
             "LANGFLOW_DO_NOT_TRACK": "true",
+            "LAOMEDO_ASSISTANT_APP_URL": f"http://127.0.0.1:{settings.port}",
         }
         environment["LAOMEDO_CODEX_RUNNER_URL"] = f"http://127.0.0.1:{config['port']}"
         return environment

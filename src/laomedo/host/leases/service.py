@@ -2,18 +2,30 @@
 
 from __future__ import annotations
 
-import laomedo.host.leases.server as _leases_server
 from pathlib import Path
-import laomedo.host.leases.settings as _leases_settings
-import laomedo.host.leases.grants as _leases_grants
-import laomedo.host.leases.models as _leases_models
-import laomedo.host.leases.utils as _leases_utils
-import laomedo.host.mediation.store as _mediation_store
 import logging
 import os
 import secrets
 import threading
 import time
+
+from laomedo.host.leases.models import LeaseCleanupObservation
+from laomedo.host.leases.models import LeaseRefusalRecord
+from laomedo.host.leases.models import LeaseRevocationRecord
+from laomedo.host.leases.server import LeaseHTTPServer
+from laomedo.host.leases.settings import GRANT_TTL_SECONDS
+from laomedo.host.leases.settings import LOSS_SECONDS
+from laomedo.host.leases.settings import MAX_FROM_HEARTBEAT_SECONDS
+from laomedo.host.leases.settings import POLL_SECONDS
+from laomedo.host.leases.grants import GrantBook
+from laomedo.host.leases.models import ContainerIdentity
+from laomedo.host.leases.utils import _read_float
+from laomedo.host.leases.utils import _read_json
+from laomedo.host.leases.utils import _write_float
+from laomedo.host.leases.utils import _write_json
+from laomedo.host.leases.utils import cleanup_after_loss
+from laomedo.host.leases.utils import inspect_exact
+from laomedo.host.mediation.store import MediationStore
 
 
 class LeaseService:
@@ -23,16 +35,16 @@ class LeaseService:
         *,
         port: int = 0,
         host: str = "127.0.0.1",
-        loss_seconds: float = _leases_settings.LOSS_SECONDS,
-        cleanup=_leases_utils.cleanup_after_loss,
-        mediator: _mediation_store.MediationStore | None = None,
+        loss_seconds: float = LOSS_SECONDS,
+        cleanup=cleanup_after_loss,
+        mediator: MediationStore | None = None,
         mediation_authority=None,
     ):
         self.state = state.resolve()
         (self.state / "leases").mkdir(parents=True, exist_ok=True)
         self.loss_seconds = loss_seconds
         self.cleanup = cleanup
-        self.book = _leases_grants.GrantBook(self.state / "grant-events.jsonl")
+        self.book = GrantBook(self.state / "grant-events.jsonl")
         self.mediator = mediator
         self.mediation_authority = mediation_authority
         self.lease_scope = str(self.state)
@@ -40,9 +52,7 @@ class LeaseService:
             # An old service instance cannot continue authorizing writes after
             # restart. Its lease is not silently adopted by this instance.
             mediator.revoke_lease_scope(self.lease_scope)
-        self.server = _leases_server.LeaseHTTPServer(
-            self.book, mediator, None, host=host, port=port
-        )
+        self.server = LeaseHTTPServer(self.book, mediator, None, host=host, port=port)
         self.instance = secrets.token_hex(8)
         self.stopping = threading.Event()
         self._finishing: set[Path] = set()
@@ -52,23 +62,71 @@ class LeaseService:
     def port(self) -> int:
         return self.server.server_address[1]
 
+    def tick(self) -> None:
+        for lease_dir in sorted((self.state / "leases").iterdir()):
+            if (
+                not lease_dir.is_dir()
+                or (lease_dir / "result.json").exists()
+                or lease_dir in self._finishing
+            ):
+                continue
+            try:
+                self._tick_lease(lease_dir, time.time())
+            except Exception as error:
+                # One runner-controlled lease must not stop revocation and
+                # exact-container cleanup for every other run.
+                self._refuse_lease(lease_dir, time.time(), error)
+
+    def serve(self) -> None:
+        # A previous instance's publication must not become valid again when
+        # this instance refreshes the heartbeat files on the same state path.
+        (self.state / "service.json").unlink(missing_ok=True)
+        # Refuse startup if either initial heartbeat cannot be published.
+        # Clients may see service.json only after both are fresh.
+        self._publish_heartbeat()
+        _write_json(
+            self.state / "service.json",
+            {
+                "pid": os.getpid(),
+                "port": self.port,
+                "instance": self.instance,
+                "started_at": time.time(),
+            },
+        )
+        threading.Thread(target=self.server.serve_forever, daemon=True).start()
+        threading.Thread(target=self._beat, daemon=True).start()
+        try:
+            while not self.stopping.is_set():
+                self.tick()
+                self.stopping.wait(POLL_SECONDS)
+        finally:
+            self.server.shutdown()
+            self.server.server_close()
+
     def _beat(self) -> None:
         while not self.stopping.is_set():
             try:
                 self._publish_heartbeat()
             except OSError:
-                logging.warning("lease_service_heartbeat_write_failed")
+                pass  # The publication boundary already emitted safe metadata.
             self.stopping.wait(1)
 
     def _publish_heartbeat(self) -> None:
-        _leases_utils._write_float(self.state / "service.alive", time.time())
-        _leases_utils._write_float(
-            self.state / "service.alive.monotonic", time.monotonic()
-        )
+        """Publish existing heartbeats and identify only the observed OS stage."""
+        from laomedo.host.leases.utils import log_heartbeat_failure
+
+        stage = "service_wall"
+        try:
+            _write_float(self.state / "service.alive", time.time())
+            stage = "service_monotonic"
+            _write_float(self.state / "service.alive.monotonic", time.monotonic())
+        except OSError as error:
+            log_heartbeat_failure(stage, error)
+            raise
 
     def _accept(self, lease_dir: Path, lease: dict, now: float) -> None:
-        beat = _leases_utils._read_float(lease_dir / "heartbeat")
-        beat_monotonic = _leases_utils._read_float(lease_dir / "heartbeat.monotonic")
+        beat = _read_float(lease_dir / "heartbeat")
+        beat_monotonic = _read_float(lease_dir / "heartbeat.monotonic")
         now_monotonic = time.monotonic()
         if (
             beat is None
@@ -79,10 +137,9 @@ class LeaseService:
             or now - beat > self.loss_seconds
         ):
             raise RuntimeError("lease_heartbeat_invalid")
-        expiry_cap = min(beat, now) + _leases_settings.MAX_FROM_HEARTBEAT_SECONDS
+        expiry_cap = min(beat, now) + MAX_FROM_HEARTBEAT_SECONDS
         expiry_cap_monotonic = (
-            min(beat_monotonic, now_monotonic)
-            + _leases_settings.MAX_FROM_HEARTBEAT_SECONDS
+            min(beat_monotonic, now_monotonic) + MAX_FROM_HEARTBEAT_SECONDS
         )
         if self.mediator is None:
             grant_id, secret = self.book.issue(
@@ -122,7 +179,7 @@ class LeaseService:
                 connection_generation=scope.get("connection_generation"),
                 target_prs=scope.get("target_prs", {}),
                 base_branch=scope.get("base_branch", "main"),
-                ttl_seconds=_leases_settings.GRANT_TTL_SECONDS,
+                ttl_seconds=GRANT_TTL_SECONDS,
                 lease_token=lease["token"],
                 lease_scope=self.lease_scope,
                 service_instance=self.instance,
@@ -137,7 +194,7 @@ class LeaseService:
             )
             with os.fdopen(descriptor, "w", encoding="utf-8") as secret_file:
                 secret_file.write(secret)
-            _leases_utils._write_json(
+            _write_json(
                 lease_dir / "accepted.json",
                 {
                     "instance": self.instance,
@@ -185,54 +242,45 @@ class LeaseService:
         revoked_at_monotonic = time.monotonic()
         # Publish the authorization boundary separately from container cleanup
         # so callers can verify denial while the old container still exists.
-        _leases_utils._write_json(
+        _write_json(
             lease_dir / "revoked.json",
-            {
-                "reason": reason,
-                "revoked_grants": revoked,
-                "detected_at": now,
-                "revoked_at": revoked_at,
-                "detected_at_monotonic": detected_at_monotonic,
-                "revoked_at_monotonic": revoked_at_monotonic,
-            },
+            LeaseRevocationRecord(
+                reason=reason,
+                revoked_grants=revoked,
+                detected_at=now,
+                revoked_at=revoked_at,
+                detected_at_monotonic=detected_at_monotonic,
+                revoked_at_monotonic=revoked_at_monotonic,
+            ).to_record(),
         )
 
         def finish_cleanup() -> None:
             try:
                 if reason == "done":
-                    state, _ = _leases_utils.inspect_exact(
-                        _leases_models.ContainerIdentity(
-                            name=lease["name"],
-                            run_id=lease["run_id"],
-                            token=lease["token"],
-                        )
-                    )
+                    state, _ = inspect_exact(ContainerIdentity.from_registration(lease))
                     verified, detail = state == "absent", state
                 else:
                     verified, detail = self.cleanup(
-                        _leases_models.ContainerIdentity(
-                            name=lease["name"],
-                            run_id=lease["run_id"],
-                            token=lease["token"],
-                        )
+                        ContainerIdentity.from_registration(lease)
                     )
             except Exception:
                 verified, detail = False, "cleanup_error"
+            cleanup = LeaseCleanupObservation.from_result(verified, detail)
             try:
-                _leases_utils._write_json(
+                _write_json(
                     lease_dir / "result.json",
-                    {
-                        "reason": reason,
-                        "revoked_grants": revoked,
-                        "detected_at": now,
-                        "revoked_at": revoked_at,
-                        "cleanup_finished_at": time.time(),
-                        "detected_at_monotonic": detected_at_monotonic,
-                        "revoked_at_monotonic": revoked_at_monotonic,
-                        "cleanup_finished_at_monotonic": time.monotonic(),
-                        "cleanup_verified": verified,
-                        "state": detail,
-                    },
+                    LeaseRevocationRecord(
+                        reason=reason,
+                        revoked_grants=revoked,
+                        detected_at=now,
+                        revoked_at=revoked_at,
+                        cleanup_finished_at=time.time(),
+                        detected_at_monotonic=detected_at_monotonic,
+                        revoked_at_monotonic=revoked_at_monotonic,
+                        cleanup_finished_at_monotonic=time.monotonic(),
+                        cleanup_verified=cleanup.verified,
+                        state=cleanup.state,
+                    ).to_record(),
                 )
             finally:
                 with self._finishing_lock:
@@ -242,23 +290,8 @@ class LeaseService:
             target=finish_cleanup, daemon=True, name="laomedo-lease-cleanup"
         ).start()
 
-    def tick(self) -> None:
-        for lease_dir in sorted((self.state / "leases").iterdir()):
-            if (
-                not lease_dir.is_dir()
-                or (lease_dir / "result.json").exists()
-                or lease_dir in self._finishing
-            ):
-                continue
-            try:
-                self._tick_lease(lease_dir, time.time())
-            except Exception as error:
-                # One runner-controlled lease must not stop revocation and
-                # exact-container cleanup for every other run.
-                self._refuse_lease(lease_dir, time.time(), error)
-
     def _tick_lease(self, lease_dir: Path, now: float) -> None:
-        lease = _leases_utils._read_json(lease_dir / "lease.json")
+        lease = _read_json(lease_dir / "lease.json")
         if (
             lease is None
             or lease.get("token") != lease_dir.name
@@ -271,15 +304,15 @@ class LeaseService:
         if not (lease_dir / "accepted.json").exists():
             self._accept(lease_dir, lease, now)
             return
-        accepted = _leases_utils._read_json(lease_dir / "accepted.json")
+        accepted = _read_json(lease_dir / "accepted.json")
         if accepted is None or accepted.get("instance") != self.instance:
             self._finish(lease_dir, lease, "service_restart", now)
             return
         if (lease_dir / "done").exists():
             self._finish(lease_dir, lease, "done", now)
             return
-        beat = _leases_utils._read_float(lease_dir / "heartbeat")
-        beat_monotonic = _leases_utils._read_float(lease_dir / "heartbeat.monotonic")
+        beat = _read_float(lease_dir / "heartbeat")
+        beat_monotonic = _read_float(lease_dir / "heartbeat.monotonic")
         now = time.time()
         now_monotonic = time.monotonic()
         if (
@@ -295,20 +328,17 @@ class LeaseService:
             self.book.renew(
                 lease["token"],
                 now,
-                min(beat, now) + _leases_settings.MAX_FROM_HEARTBEAT_SECONDS,
-                min(beat_monotonic, now_monotonic)
-                + _leases_settings.MAX_FROM_HEARTBEAT_SECONDS,
+                min(beat, now) + MAX_FROM_HEARTBEAT_SECONDS,
+                min(beat_monotonic, now_monotonic) + MAX_FROM_HEARTBEAT_SECONDS,
             )
         elif not self.mediator.renew_lease(
             run_id=lease["run_id"],
             lease_token=lease["token"],
             lease_scope=self.lease_scope,
-            ttl_seconds=_leases_settings.GRANT_TTL_SECONDS,
-            expires_not_after=min(beat, now)
-            + _leases_settings.MAX_FROM_HEARTBEAT_SECONDS,
+            ttl_seconds=GRANT_TTL_SECONDS,
+            expires_not_after=min(beat, now) + MAX_FROM_HEARTBEAT_SECONDS,
             expires_not_after_monotonic=(
-                min(beat_monotonic, now_monotonic)
-                + _leases_settings.MAX_FROM_HEARTBEAT_SECONDS
+                min(beat_monotonic, now_monotonic) + MAX_FROM_HEARTBEAT_SECONDS
             ),
         ):
             self._finish(lease_dir, lease, "grant_expired", now)
@@ -318,7 +348,7 @@ class LeaseService:
             if lease_dir in self._finishing:
                 return
             self._finishing.add(lease_dir)
-        lease = _leases_utils._read_json(lease_dir / "lease.json")
+        lease = _read_json(lease_dir / "lease.json")
         valid = (
             lease is not None
             and lease.get("token") == lease_dir.name
@@ -342,7 +372,7 @@ class LeaseService:
             # The final result waits for exact cleanup. Give a registering
             # runner the refusal immediately, without implying cleanup has
             # finished or allowing dispatch.
-            _leases_utils._write_json(
+            _write_json(
                 lease_dir / "refused.json", {"error_code": code, "detected_at": now}
             )
         except OSError:
@@ -370,29 +400,26 @@ class LeaseService:
                 if valid:
                     try:
                         cleanup_verified, detail = self.cleanup(
-                            _leases_models.ContainerIdentity(
-                                name=lease["name"],
-                                run_id=lease["run_id"],
-                                token=lease["token"],
-                            )
+                            ContainerIdentity.from_registration(lease)
                         )
                     except Exception:
                         detail = "cleanup_error"
-                _leases_utils._write_json(
+                cleanup = LeaseCleanupObservation.from_result(cleanup_verified, detail)
+                _write_json(
                     lease_dir / "result.json",
-                    {
-                        "reason": (
+                    LeaseRefusalRecord(
+                        reason=(
                             "refused"
                             if not (lease_dir / "accepted.json").exists()
                             else "lease_error"
                         ),
-                        "error_code": code,
-                        "detected_at": now,
-                        "revoked_grants": revoked,
-                        "revocation_verified": revocation_verified,
-                        "cleanup_verified": cleanup_verified,
-                        "state": detail,
-                    },
+                        error_code=code,
+                        detected_at=now,
+                        revoked_grants=revoked,
+                        revocation_verified=revocation_verified,
+                        cleanup_verified=cleanup.verified,
+                        state=cleanup.state,
+                    ).to_record(),
                 )
             except OSError:
                 # A broken directory may be retried, but cannot starve peers.
@@ -404,29 +431,3 @@ class LeaseService:
         threading.Thread(
             target=finish_refusal, daemon=True, name="laomedo-lease-refusal"
         ).start()
-
-    def serve(self) -> None:
-        # A previous instance's publication must not become valid again when
-        # this instance refreshes the heartbeat files on the same state path.
-        (self.state / "service.json").unlink(missing_ok=True)
-        # Refuse startup if either initial heartbeat cannot be published.
-        # Clients may see service.json only after both are fresh.
-        self._publish_heartbeat()
-        _leases_utils._write_json(
-            self.state / "service.json",
-            {
-                "pid": os.getpid(),
-                "port": self.port,
-                "instance": self.instance,
-                "started_at": time.time(),
-            },
-        )
-        threading.Thread(target=self.server.serve_forever, daemon=True).start()
-        threading.Thread(target=self._beat, daemon=True).start()
-        try:
-            while not self.stopping.is_set():
-                self.tick()
-                self.stopping.wait(_leases_settings.POLL_SECONDS)
-        finally:
-            self.server.shutdown()
-            self.server.server_close()

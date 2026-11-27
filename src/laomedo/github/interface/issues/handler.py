@@ -3,7 +3,8 @@
 from http.server import BaseHTTPRequestHandler
 import json
 import secrets
-from laomedo.github.issues.contract import ERROR_CODES, PRE_DISPATCH_ERRORS
+from laomedo.github.issues.contract import ERROR_CODES
+from laomedo.github.issues.contract import PRE_DISPATCH_ERRORS
 from laomedo.host.mediation.errors import KnownRejected
 
 
@@ -38,6 +39,11 @@ class IssueRequestHandler(BaseHTTPRequestHandler):
             body = json.loads(self.rfile.read(size))
             if not isinstance(body, dict):
                 raise ValueError("invalid_request")
+            public_only = body.pop("public_only", None)
+            if public_only is not None and (
+                public_only is not True or not self.server.public_only
+            ):
+                raise ValueError("invalid_request")
             if self.path == "/v1/github-issues/discover" and set(body) == {
                 "repository_url",
                 "labels",
@@ -51,6 +57,8 @@ class IssueRequestHandler(BaseHTTPRequestHandler):
                 "issue_number",
                 "operation",
             }:
+                if self.server.public_only and body["operation"]:
+                    raise ValueError("invalid_request")
                 executing_write = bool(body["operation"])
                 result = self.server.gateway.execute(**body)
             else:

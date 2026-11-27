@@ -1,0 +1,568 @@
+{
+  "base": [
+    {
+      "data": {
+        "repository": {
+          "nameWithOwner": "verify/exp16",
+          "issues": {
+            "totalCount": 3,
+            "pageInfo": {
+              "hasNextPage": false,
+              "endCursor": null
+            },
+            "nodes": [
+              {
+                "id": "C-10",
+                "number": 10,
+                "url": "https://github.com/verify/exp16/issues/10",
+                "title": "Fixture C-10",
+                "body": "Synthetic task.",
+                "state": "CLOSED",
+                "updatedAt": "2026-10-05T09:00:00Z",
+                "labels": {
+                  "totalCount": 0,
+                  "nodes": []
+                },
+                "blockedBy": {
+                  "totalCount": 0,
+                  "nodes": []
+                },
+                "blocking": {
+                  "totalCount": 0,
+                  "nodes": []
+                }
+              },
+              {
+                "id": "S-20",
+                "number": 20,
+                "url": "https://github.com/verify/exp16/issues/20",
+                "title": "Fixture S-20",
+                "body": "Synthetic task.",
+                "state": "OPEN",
+                "updatedAt": "2026-10-05T09:00:00Z",
+                "labels": {
+                  "totalCount": 1,
+                  "nodes": [
+                    {
+                      "name": "work"
+                    }
+                  ]
+                },
+                "blockedBy": {
+                  "totalCount": 1,
+                  "nodes": [
+                    {
+                      "id": "C-10",
+                      "url": "https://github.com/verify/exp16/issues/10",
+                      "repository": {
+                        "nameWithOwner": "verify/exp16"
+                      }
+                    }
+                  ]
+                },
+                "blocking": {
+                  "totalCount": 0,
+                  "nodes": []
+                }
+              },
+              {
+                "id": "I-30",
+                "number": 30,
+                "url": "https://github.com/verify/exp16/issues/30",
+                "title": "Fixture I-30",
+                "body": "Synthetic task.",
+                "state": "OPEN",
+                "updatedAt": "2026-10-05T09:00:00Z",
+                "labels": {
+                  "totalCount": 0,
+                  "nodes": []
+                },
+                "blockedBy": {
+                  "totalCount": 0,
+                  "nodes": []
+                },
+                "blocking": {
+                  "totalCount": 0,
+                  "nodes": []
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "content_changed": [
+    {
+      "data": {
+        "repository": {
+          "nameWithOwner": "verify/exp16",
+          "issues": {
+            "totalCount": 3,
+            "pageInfo": {
+              "hasNextPage": false,
+              "endCursor": null
+            },
+            "nodes": [
+              {
+                "id": "C-10",
+                "number": 10,
+                "url": "https://github.com/verify/exp16/issues/10",
+                "title": "Fixture C-10",
+                "body": "Synthetic task.",
+                "state": "CLOSED",
+                "updatedAt": "2026-10-05T09:00:00Z",
+                "labels": {
+                  "totalCount": 0,
+                  "nodes": []
+                },
+                "blockedBy": {
+                  "totalCount": 0,
+                  "nodes": []
+                },
+                "blocking": {
+                  "totalCount": 0,
+                  "nodes": []
+                }
+              },
+              {
+                "id": "S-20",
+                "number": 20,
+                "url": "https://github.com/verify/exp16/issues/20",
+                "title": "Fixture S-20",
+                "body": "Changed task body.",
+                "state": "OPEN",
+                "updatedAt": "2026-10-05T09:30:00Z",
+                "labels": {
+                  "totalCount": 1,
+                  "nodes": [
+                    {
+                      "name": "work"
+                    }
+                  ]
+                },
+                "blockedBy": {
+                  "totalCount": 1,
+                  "nodes": [
+                    {
+                      "id": "C-10",
+                      "url": "https://github.com/verify/exp16/issues/10",
+                      "repository": {
+                        "nameWithOwner": "verify/exp16"
+                      }
+                    }
+                  ]
+                },
+                "blocking": {
+                  "totalCount": 0,
+                  "nodes": []
+                }
+              },
+              {
+                "id": "I-30",
+                "number": 30,
+                "url": "https://github.com/verify/exp16/issues/30",
+                "title": "Fixture I-30",
+                "body": "Synthetic task.",
+                "state": "OPEN",
+                "updatedAt": "2026-10-05T09:00:00Z",
+                "labels": {
+                  "totalCount": 0,
+                  "nodes": []
+                },
+                "blockedBy": {
+                  "totalCount": 0,
+                  "nodes": []
+                },
+                "blocking": {
+                  "totalCount": 0,
+                  "nodes": []
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "opened_blocker": [
+    {
+      "data": {
+        "repository": {
+          "nameWithOwner": "verify/exp16",
+          "issues": {
+            "totalCount": 3,
+            "pageInfo": {
+              "hasNextPage": false,
+              "endCursor": null
+            },
+            "nodes": [
+              {
+                "id": "C-10",
+                "number": 10,
+                "url": "https://github.com/verify/exp16/issues/10",
+                "title": "Fixture C-10",
+                "body": "Synthetic task.",
+                "state": "OPEN",
+                "updatedAt": "2026-10-05T09:00:00Z",
+                "labels": {
+                  "totalCount": 0,
+                  "nodes": []
+                },
+                "blockedBy": {
+                  "totalCount": 0,
+                  "nodes": []
+                },
+                "blocking": {
+                  "totalCount": 0,
+                  "nodes": []
+                }
+              },
+              {
+                "id": "S-20",
+                "number": 20,
+                "url": "https://github.com/verify/exp16/issues/20",
+                "title": "Fixture S-20",
+                "body": "Synthetic task.",
+                "state": "OPEN",
+                "updatedAt": "2026-10-05T09:00:00Z",
+                "labels": {
+                  "totalCount": 1,
+                  "nodes": [
+                    {
+                      "name": "work"
+                    }
+                  ]
+                },
+                "blockedBy": {
+                  "totalCount": 1,
+                  "nodes": [
+                    {
+                      "id": "C-10",
+                      "url": "https://github.com/verify/exp16/issues/10",
+                      "repository": {
+                        "nameWithOwner": "verify/exp16"
+                      }
+                    }
+                  ]
+                },
+                "blocking": {
+                  "totalCount": 0,
+                  "nodes": []
+                }
+              },
+              {
+                "id": "I-30",
+                "number": 30,
+                "url": "https://github.com/verify/exp16/issues/30",
+                "title": "Fixture I-30",
+                "body": "Synthetic task.",
+                "state": "OPEN",
+                "updatedAt": "2026-10-05T09:00:00Z",
+                "labels": {
+                  "totalCount": 0,
+                  "nodes": []
+                },
+                "blockedBy": {
+                  "totalCount": 0,
+                  "nodes": []
+                },
+                "blocking": {
+                  "totalCount": 0,
+                  "nodes": []
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "unresolved_external": [
+    {
+      "data": {
+        "repository": {
+          "nameWithOwner": "verify/exp16",
+          "issues": {
+            "totalCount": 3,
+            "pageInfo": {
+              "hasNextPage": false,
+              "endCursor": null
+            },
+            "nodes": [
+              {
+                "id": "C-10",
+                "number": 10,
+                "url": "https://github.com/verify/exp16/issues/10",
+                "title": "Fixture C-10",
+                "body": "Synthetic task.",
+                "state": "CLOSED",
+                "updatedAt": "2026-10-05T09:00:00Z",
+                "labels": {
+                  "totalCount": 0,
+                  "nodes": []
+                },
+                "blockedBy": {
+                  "totalCount": 0,
+                  "nodes": []
+                },
+                "blocking": {
+                  "totalCount": 0,
+                  "nodes": []
+                }
+              },
+              {
+                "id": "S-20",
+                "number": 20,
+                "url": "https://github.com/verify/exp16/issues/20",
+                "title": "Fixture S-20",
+                "body": "Synthetic task.",
+                "state": "OPEN",
+                "updatedAt": "2026-10-05T09:00:00Z",
+                "labels": {
+                  "totalCount": 1,
+                  "nodes": [
+                    {
+                      "name": "work"
+                    }
+                  ]
+                },
+                "blockedBy": {
+                  "totalCount": 1,
+                  "nodes": [
+                    {
+                      "id": "E-77",
+                      "url": "https://github.com/other/private/issues/77",
+                      "repository": {
+                        "nameWithOwner": "other/private"
+                      }
+                    }
+                  ]
+                },
+                "blocking": {
+                  "totalCount": 0,
+                  "nodes": []
+                }
+              },
+              {
+                "id": "I-30",
+                "number": 30,
+                "url": "https://github.com/verify/exp16/issues/30",
+                "title": "Fixture I-30",
+                "body": "Synthetic task.",
+                "state": "OPEN",
+                "updatedAt": "2026-10-05T09:00:00Z",
+                "labels": {
+                  "totalCount": 0,
+                  "nodes": []
+                },
+                "blockedBy": {
+                  "totalCount": 0,
+                  "nodes": []
+                },
+                "blocking": {
+                  "totalCount": 0,
+                  "nodes": []
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "cycle": [
+    {
+      "data": {
+        "repository": {
+          "nameWithOwner": "verify/exp16",
+          "issues": {
+            "totalCount": 3,
+            "pageInfo": {
+              "hasNextPage": false,
+              "endCursor": null
+            },
+            "nodes": [
+              {
+                "id": "C-10",
+                "number": 10,
+                "url": "https://github.com/verify/exp16/issues/10",
+                "title": "Fixture C-10",
+                "body": "Synthetic task.",
+                "state": "OPEN",
+                "updatedAt": "2026-10-05T09:00:00Z",
+                "labels": {
+                  "totalCount": 0,
+                  "nodes": []
+                },
+                "blockedBy": {
+                  "totalCount": 1,
+                  "nodes": [
+                    {
+                      "id": "S-20",
+                      "url": "https://github.com/verify/exp16/issues/20",
+                      "repository": {
+                        "nameWithOwner": "verify/exp16"
+                      }
+                    }
+                  ]
+                },
+                "blocking": {
+                  "totalCount": 0,
+                  "nodes": []
+                }
+              },
+              {
+                "id": "S-20",
+                "number": 20,
+                "url": "https://github.com/verify/exp16/issues/20",
+                "title": "Fixture S-20",
+                "body": "Synthetic task.",
+                "state": "OPEN",
+                "updatedAt": "2026-10-05T09:00:00Z",
+                "labels": {
+                  "totalCount": 1,
+                  "nodes": [
+                    {
+                      "name": "work"
+                    }
+                  ]
+                },
+                "blockedBy": {
+                  "totalCount": 1,
+                  "nodes": [
+                    {
+                      "id": "C-10",
+                      "url": "https://github.com/verify/exp16/issues/10",
+                      "repository": {
+                        "nameWithOwner": "verify/exp16"
+                      }
+                    }
+                  ]
+                },
+                "blocking": {
+                  "totalCount": 0,
+                  "nodes": []
+                }
+              },
+              {
+                "id": "I-30",
+                "number": 30,
+                "url": "https://github.com/verify/exp16/issues/30",
+                "title": "Fixture I-30",
+                "body": "Synthetic task.",
+                "state": "OPEN",
+                "updatedAt": "2026-10-05T09:00:00Z",
+                "labels": {
+                  "totalCount": 0,
+                  "nodes": []
+                },
+                "blockedBy": {
+                  "totalCount": 0,
+                  "nodes": []
+                },
+                "blocking": {
+                  "totalCount": 0,
+                  "nodes": []
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "incomplete": [
+    {
+      "data": {
+        "repository": {
+          "nameWithOwner": "verify/exp16",
+          "issues": {
+            "totalCount": 3,
+            "pageInfo": {
+              "hasNextPage": false,
+              "endCursor": null
+            },
+            "nodes": [
+              {
+                "id": "C-10",
+                "number": 10,
+                "url": "https://github.com/verify/exp16/issues/10",
+                "title": "Fixture C-10",
+                "body": "Synthetic task.",
+                "state": "CLOSED",
+                "updatedAt": "2026-10-05T09:00:00Z",
+                "labels": {
+                  "totalCount": 0,
+                  "nodes": []
+                },
+                "blockedBy": {
+                  "totalCount": 0,
+                  "nodes": []
+                },
+                "blocking": {
+                  "totalCount": 0,
+                  "nodes": []
+                }
+              },
+              {
+                "id": "S-20",
+                "number": 20,
+                "url": "https://github.com/verify/exp16/issues/20",
+                "title": "Fixture S-20",
+                "body": "Synthetic task.",
+                "state": "OPEN",
+                "updatedAt": "2026-10-05T09:00:00Z",
+                "labels": {
+                  "totalCount": 1,
+                  "nodes": [
+                    {
+                      "name": "work"
+                    }
+                  ]
+                },
+                "blockedBy": {
+                  "totalCount": 2,
+                  "nodes": [
+                    {
+                      "id": "C-10",
+                      "url": "https://github.com/verify/exp16/issues/10",
+                      "repository": {
+                        "nameWithOwner": "verify/exp16"
+                      }
+                    }
+                  ]
+                },
+                "blocking": {
+                  "totalCount": 0,
+                  "nodes": []
+                }
+              },
+              {
+                "id": "I-30",
+                "number": 30,
+                "url": "https://github.com/verify/exp16/issues/30",
+                "title": "Fixture I-30",
+                "body": "Synthetic task.",
+                "state": "OPEN",
+                "updatedAt": "2026-10-05T09:00:00Z",
+                "labels": {
+                  "totalCount": 0,
+                  "nodes": []
+                },
+                "blockedBy": {
+                  "totalCount": 0,
+                  "nodes": []
+                },
+                "blocking": {
+                  "totalCount": 0,
+                  "nodes": []
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+  ]
+}

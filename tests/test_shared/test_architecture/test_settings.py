@@ -57,6 +57,9 @@ class SettingsContractTests(unittest.TestCase):
                     self.assertTrue(field.description)
                 continue
             for name, field in cls.model_fields.items():
+                if field.annotation in {int, float}:
+                    continue  # Positive transport budgets have their own typed checks.
+                self.assertIn(field.annotation, (str, str | None))
                 with self.subTest(module=module.__name__, field=name):
                     alias = field.validation_alias
                     with patch.dict(os.environ, {}, clear=True):
@@ -85,11 +88,37 @@ class SettingsContractTests(unittest.TestCase):
                         ):  # Windows environment keys are case-insensitive.
                             self.assertEqual(getattr(cls(), name), field.default)
 
+    def test_numeric_transport_budgets_validate_at_point_of_use(self):
+        from pydantic import ValidationError
+
+        checked = set()
+        for module, cls in self.classes():
+            if module.__name__ == "laomedo.integrations.langflow.launch.settings":
+                continue  # This launcher accepts explicit CLI arguments only.
+            for name, field in cls.model_fields.items():
+                if field.annotation not in {int, float}:
+                    continue
+                checked.add((module.__name__, name))
+                with (
+                    self.subTest(module=module.__name__, field=name),
+                    patch.dict(os.environ, {}, clear=True),
+                ):
+                    self.assertIsInstance(field.validation_alias, str)
+                    self.assertGreater(getattr(cls(), name), 0)
+                    expected = field.default + 1
+                    os.environ[field.validation_alias] = str(expected)
+                    self.assertEqual(getattr(cls(), name), expected)
+                    for invalid in ("", "0", "-1", "nan", "inf", "private-test-value"):
+                        os.environ[field.validation_alias] = invalid
+                        with self.assertRaises(ValidationError) as failure:
+                            cls()
+                        self.assertNotIn("private-test-value", str(failure.exception))
+        self.assertTrue(checked, "Numeric budget coverage must not silently disappear")
+
     def test_flags_retain_exact_one_comparison_at_consumers(self):
         consumers = {
-            "agents/providers/codex/servers.py": {"otel", "multi_agent"},
-            "agents/providers/claude/runner.py": {"mirror_host_login"},
-            "activity/opencode/telemetry.py": {"otel"},
+            "agents/agents/codex/runtime.py": {"otel", "multi_agent"},
+            "agents/agents/opencode/activity/telemetry.py": {"otel"},
         }
         for relative, fields in consumers.items():
             tree = ast.parse((SOURCE / relative).read_text())
@@ -152,14 +181,13 @@ class SettingsContractTests(unittest.TestCase):
         protected = {
             "host/runner/utils.py": "os.environ.items()",
             "git/command.py": "os.environ.items()",
-            "agents/providers/claude/utils.py": "os.environ.items()",
-            "host/credentials/claude/utils.py": "os.environ if environment is None",
+            "agents/agents/claude/policy.py": "env = dict(environment or {})",
             "skills/sources/repository.py": "os.environ.items()",
-            "agents/providers/codex/servers.py": "os.environ if docker_environment is None else docker_environment",
+            "agents/agents/codex/agent.py": "ConnectionSettings.environment_snapshot(None)",
             "host/publication/cli.py": "key in os.environ",
             "github/interface/issues/cli.py": "os.environ.get(args.github_token_env)",
             "github/interface/pull_requests/cli.py": "os.environ.get(args.github_token_env)",
-            "agents/handoffs/transport.py": '"LAOMEDO_" + provider.upper()',
+            "agents/interface/bridge.py": '"LAOMEDO_" + provider.upper()',
         }
         for relative, expression in protected.items():
             self.assertIn(expression, (SOURCE / relative).read_text(), relative)
@@ -181,6 +209,25 @@ class ErrorContractTests(unittest.TestCase):
                 cls = getattr(module, node.name)
                 with self.subTest(exception=cls.__name__):
                     self.assertGreater(len(ast.get_docstring(node) or ""), 35)
+                    if cls.__name__ == "RunnerRequestError":
+                        error = cls(
+                            "runner_dispatch_refused",
+                            {
+                                "http_status": 400,
+                                "stage": "runner_request",
+                                "errno": 13,
+                                "failure_kind": "os_error",
+                                "path": "private",
+                            },
+                        )
+                        self.assertEqual(error.code, "runner_dispatch_refused")
+                        self.assertEqual(error.diagnostics["http_status"], 400)
+                        self.assertNotIn("private", str(error))
+                        restored = pickle.loads(pickle.dumps(error))
+                        self.assertEqual(type(restored), cls)
+                        self.assertEqual(restored.__dict__, error.__dict__)
+                        self.assertEqual(str(restored), str(error))
+                        continue  # HTTP errors retain structured observations, not just a scalar code.
                     if cls.__name__ == "RunnerResultError":
                         error = cls(
                             {
@@ -209,7 +256,13 @@ class ErrorContractTests(unittest.TestCase):
                             self.assertEqual(restored.__dict__, error.__dict__)
                             self.assertEqual(str(restored), str(error))
                         continue  # Native timeout protocol differs from scalar domain errors.
-                    if cls.__name__ == "PushOutcomeUnknown":
+                    if cls.__name__ == "ImageBuildError":
+                        error = cls("image_version_verification_failed")
+                        code = "container_image_build_failed"
+                        self.assertEqual(
+                            error.phase, "image_version_verification_failed"
+                        )
+                    elif cls.__name__ == "PushOutcomeUnknown":
                         error = cls("timeout", None)
                         code = "push_outcome_unknown"
                     elif isinstance(getattr(cls, "code", None), str):
@@ -229,7 +282,8 @@ class ErrorContractTests(unittest.TestCase):
                     self.assertEqual(str(restored), code)
 
     def test_registry_conflict_is_still_a_skill_store_value_error(self):
-        from laomedo.skills.registry.errors import ConflictError, SkillStoreError
+        from laomedo.skills.registry.errors import ConflictError
+        from laomedo.skills.registry.errors import SkillStoreError
 
         error = ConflictError("base_revision_changed")
         self.assertIsInstance(error, SkillStoreError)

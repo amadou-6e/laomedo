@@ -17,6 +17,17 @@ backend. Its modes are Prepare, Check and Serve. Check validates configuration;
 it is not a server or login test. The existing preview and other runtime folders
 are left unchanged. PIN entry belongs in the browser, never a command argument.
 
+The opt-in `-IsolatedProviderGraphs` mode uses the separate API-only provider
+broker, a fixed component catalog and per-job Docker workers. Supply
+`-GraphWorkerImage` with the immutable local image ID and
+`-ProviderSourceWorkspace` with an explicitly selected clean source tree. Agents
+work on independent copies; do not select a tree containing credentials or
+private runtime state. The worker receives no host mounts, network, account
+stores or review grants. Ordinary custom-code previews remain a separate mode.
+The curated mode supports canvas execution and assistant-approved runs.
+[PR #312](https://github.com/amadou-6e/laomedo/pull/312) records the tested
+revisions, real integration examples and their limits.
+
 The backend admits fresh owned state or its recognized current schema before
 migrations. Partial, corrupt or unexpected identity state is refused without
 repair. One internal startup identity satisfies upstream's initialization contract

@@ -7,12 +7,12 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
 
-from laomedo.agents.workflow.errors import LaunchError
-from laomedo.agents.workflow.store import WorkflowRunStore
+from laomedo.work_graph.runs.errors import LaunchError
+from laomedo.work_graph.runs.store import WorkflowRunStore
 
 ROOT = Path(__file__).resolve().parents[1]
-OBSERVATION = ROOT / "experiments" / "exp65" / "observation.json"
-FLOW = ROOT / "experiments" / "exp03" / "flow.json"
+OBSERVATION = ROOT / "tests/test_work_graph/fixtures/timeout-observation.json"
+FLOW = ROOT / "tests/test_work_graph/fixtures/frozen-flow.json"
 
 
 class TimeoutTraceTests(unittest.TestCase):

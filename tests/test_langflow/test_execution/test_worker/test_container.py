@@ -1,6 +1,7 @@
 """Deployment boundaries checked before a private job enters Docker."""
 
 import copy
+import json
 import asyncio
 import os
 from pathlib import Path
@@ -11,11 +12,12 @@ import time
 import threading
 from types import SimpleNamespace
 import unittest
-from unittest.mock import patch
+from unittest.mock import patch, AsyncMock, Mock
 from uuid import uuid4
 from support.docker import DockerTestContainer
 
-from pydantic import ValidationError
+from pydantic import SecretStr, ValidationError
+from laomedo.host.leases.models import ContainerIdentity
 
 from laomedo.integrations.langflow.execution.worker.container import DockerGraphWorker
 from laomedo.integrations.langflow.execution.base import BaseDockerRuntime
@@ -31,6 +33,7 @@ from laomedo.github.node_runs.worker_access import GitHubWorkerAccess
 from laomedo.integrations.langflow.execution.worker.models import (
     GraphWorkerCall,
     GraphWorkerJob,
+    GraphWorkerScope,
 )
 from test_github.test_node_runs.test_authority import NodeConnectionFixture
 
@@ -123,6 +126,58 @@ class DockerDeploymentTests(unittest.TestCase):
             )
 
 
+class DockerEndpointTests(unittest.IsolatedAsyncioTestCase):
+    """Registration and later Docker control stay on the exact inspected daemon."""
+
+    async def test_local_context_is_pinned_into_environment_and_lease_registration(
+        self,
+    ):
+        endpoint = "npipe:////./pipe/dockerDesktopLinuxEngine"
+        worker = DockerGraphWorker(
+            SimpleNamespace(
+                docker_context="desktop-linux", lease_state=Path(tempfile.gettempdir())
+            ),
+            None,
+            None,
+        )
+        worker._control = AsyncMock(
+            return_value=subprocess.CompletedProcess(
+                [], 0, json.dumps(endpoint).encode(), b""
+            )
+        )
+        environment = {"DOCKER_CONTEXT": "desktop-linux"}
+        self.assertEqual(await worker._local_context(environment), endpoint)
+        self.assertNotIn("DOCKER_CONTEXT", environment)
+        self.assertEqual(environment["DOCKER_HOST"], endpoint)
+        identity = ContainerIdentity(
+            name="fixture",
+            run_id=str(uuid4()),
+            token=SecretStr("a" * 32),
+            docker_endpoint=endpoint,
+        )
+        with patch(
+            "laomedo.integrations.langflow.execution.base.LeaseClient", autospec=True
+        ) as factory:
+            await worker._start_lease(identity, threading.Event())
+        self.assertEqual(factory.call_args.kwargs["docker_endpoint"], endpoint)
+
+    async def test_remote_or_malformed_daemon_does_not_change_control_environment(self):
+        worker = DockerGraphWorker(
+            SimpleNamespace(docker_context="desktop-linux"), None, None
+        )
+        for endpoint in ("tcp://remote:2375", {}, None, 1):
+            with self.subTest(endpoint=endpoint):
+                worker._control = AsyncMock(
+                    return_value=subprocess.CompletedProcess(
+                        [], 0, json.dumps(endpoint).encode(), b""
+                    )
+                )
+                environment = {"DOCKER_CONTEXT": "desktop-linux"}
+                with self.assertRaises(GraphWorkerError):
+                    await worker._local_context(environment)
+                self.assertEqual(environment, {"DOCKER_CONTEXT": "desktop-linux"})
+
+
 class SyntheticContainerReader:
     """Synthetic provider boundary; the supervisor and native worker remain real."""
 
@@ -189,6 +244,42 @@ class WorkerCancellationTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(GraphWorkerError):
             await asyncio.wait_for(pending, 1.0)
         self.assertTrue(stopped.is_set())
+
+    async def test_authority_cleanup_failure_still_removes_the_owned_container(self):
+        job = SimpleNamespace(
+            job_id=uuid4(), flow_id=uuid4(), graph_digest="fixture", graph={}
+        )
+        worker = DockerGraphWorker(None, None, None)
+        worker._job_scope = Mock(
+            return_value=GraphWorkerScope(
+                owner_id=uuid4(),
+                flow_id=job.flow_id,
+                graph_digest=job.graph_digest,
+                first_vertex="fixture",
+            )
+        )
+        worker._validate_graph = Mock()
+        worker._authorize_job = AsyncMock()
+        worker._local_context = AsyncMock()
+        worker._environment = Mock(return_value={})
+        lease = SimpleNamespace(finish=Mock())
+
+        async def register():
+            return lease
+
+        worker._start_lease = Mock(
+            side_effect=lambda *args: asyncio.create_task(register())
+        )
+        worker._control = AsyncMock(return_value=SimpleNamespace(returncode=1))
+        worker._finish_job = AsyncMock(
+            side_effect=RuntimeError("fixture cleanup failure")
+        )
+        worker._remove = AsyncMock()
+        with self.assertRaisesRegex(RuntimeError, "fixture cleanup failure"):
+            await worker.run(job)
+        worker._remove.assert_awaited_once()
+        lease.finish.assert_called_once()
+        self.assertNotIn(job.job_id, worker._jobs)
 
 
 @unittest.skipUnless(
@@ -302,7 +393,7 @@ class ContainerSupervisorTests(unittest.IsolatedAsyncioTestCase):
             )
             try:
                 deadline = time.monotonic() + 15.0
-                while not (Path(directory) / "service.alive").exists():
+                while not (Path(directory) / "service.json").exists():
                     self.assertIsNone(service.poll(), "Lease service failed to start")
                     self.assertLess(time.monotonic(), deadline)
                     await asyncio.sleep(0.05)

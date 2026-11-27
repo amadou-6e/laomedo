@@ -5,7 +5,7 @@ from __future__ import annotations
 from hashlib import sha256
 from uuid import UUID
 import json
-import laomedo.agents.workflow.errors as _workflow_errors
+from laomedo.work_graph.runs.errors import LaunchError
 
 
 def _digest(value):
@@ -19,7 +19,7 @@ def _uuid(value, category):
     try:
         canonical = str(UUID(str(value)))
     except (TypeError, ValueError, AttributeError):
-        raise _workflow_errors.LaunchError(category) from None
+        raise LaunchError(category) from None
     if canonical != value:
-        raise _workflow_errors.LaunchError(category)
+        raise LaunchError(category)
     return canonical

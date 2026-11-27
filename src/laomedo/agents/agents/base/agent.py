@@ -1,0 +1,1173 @@
+"""Provider-neutral durable Agent lifecycle and workspace orchestration."""
+
+from __future__ import annotations
+
+from abc import ABC, abstractmethod
+from laomedo.agents.activity.models import ActivityPage
+from pathlib import Path
+from urllib.request import ProxyHandler, build_opener
+from uuid import uuid4
+from copy import deepcopy
+import hashlib
+import json
+import os
+import re
+import secrets
+import threading
+
+from laomedo.skills.registry.utils.files import inventory
+from laomedo.skills.registry.utils.hashing import tree_hash
+from laomedo.host.http import NoRedirect
+from laomedo.agents.artifacts.errors import ArtifactError
+from laomedo.agents.artifacts.utils import import_selected
+from laomedo.agents.artifacts.utils import relative_path
+from laomedo.agents.artifacts.utils import selections
+from laomedo.agents.interface.output.utils import verify_requirements
+from laomedo.agents.interface.models import SUPPORTED_PROVIDERS
+from laomedo.agents.agents.base.models import ReadinessObservation
+from laomedo.agents.agents.base.models import RuntimeBinding
+from laomedo.agents.agents.base.models import PreparedRunRecord
+from laomedo.agents.agents.base.models import VerifiedReviewProvenance
+from laomedo.agents.agents.base.models import PreparedWorkspaceState
+from laomedo.agents.agents.base.models import AgentSkillBinding
+from laomedo.agents.agents.base.models import SkillGitExclusion
+from laomedo.agents.agents.base.models import AgentGitHubScope
+from laomedo.agents.agents.base.models import AttemptFailureRecord
+from laomedo.agents.agents.base.settings import RUNNER_FAILURE_CODES
+from laomedo.agents.artifacts.models import ArtifactReference
+from laomedo.agents.orchestration.models import HandoffProvenance
+from laomedo.agents.errors import RunnerError
+from laomedo.agents.mcp.client import McpAccess
+from laomedo.agents.mcp.settings import McpSettings
+from laomedo.agents.mcp.models import McpManifest
+from laomedo.agents.mcp.errors import McpError
+from laomedo.agents.workspaces.utils import _copy_tree
+from laomedo.agents.agents.base.utils import _git_tree
+from laomedo.agents.workspaces.utils import _hash_tree
+from laomedo.agents.agents.base.utils import _id
+from laomedo.agents.agents.base.utils import _json
+from laomedo.agents.agents.base.utils import _private
+from laomedo.agents.agents.base.utils import _read
+from laomedo.agents.agents.base.utils import failure_observation
+from laomedo.agents.agents.base.utils import request_reservation
+from laomedo.agents.workspaces.errors import GitWorkspaceError
+from laomedo.agents.workspaces.workspace import AgentWorkspace
+from laomedo.agents.workspaces.models import WorkspacePaths
+from laomedo.agents.workspaces.models import WorkspaceChanges
+from laomedo.agents.workspaces.changes import verified_changes
+from laomedo.host.mediation.errors import MediationError
+from laomedo.skills.registry.store import SkillStore
+from laomedo.agents.workspaces.skills.errors import WorkspaceSkillError
+from laomedo.agents.workspaces.baseline import initialize
+from laomedo.agents.workspaces.skills.utils import install
+from laomedo.agents.workspaces.cleanup import remove_owned_tree
+from laomedo.agents.workspaces.skills.utils import verify
+
+
+from laomedo.agents.agents.base.base import BaseModelCatalog
+from laomedo.agents.agents.base.settings import ROLE_INIT_LOCK
+
+
+class BaseAgent(ABC):
+    """Template-method lifecycle; concrete providers own protocol and runtime policy."""
+
+    _supports_run_timeout = False
+    # Providers enabling this must run verified reviews without tools, plugins,
+    # external MCP servers or GitHub capabilities.
+    _supports_verified_review = False
+    # Fixed provider sandbox policy, never supplied by a graph or request.
+    workspace_guard_directories: tuple[str, ...] = ()
+
+    def __init__(
+        self,
+        state: Path,
+        skill_store: Path,
+        source_workspace: Path,
+        *,
+        lease_service: Path | None = None,
+        github_authority=None,
+        mediator_state: Path | None = None,
+        git_workspace: bool = False,
+        publication_controller=None,
+        artifact_sources=None,
+        mcp_settings: McpSettings | None = None,
+    ):
+        """Bind admitted configuration and owned state; provider startup errors propagate before use."""
+        self.state = _private(state)
+        self.mcp_settings = mcp_settings
+        self.store = SkillStore(skill_store)
+        self.source = source_workspace.expanduser().resolve()
+        self.git_workspace = git_workspace
+        if (
+            not self.source.is_dir()
+            or (self.source / ".git").is_dir() != git_workspace
+            or (not git_workspace and not _git_tree(self.source))
+        ):
+            raise RunnerError("source_workspace_must_be_git_tree")
+        if self.state == self.store.root or self.state.is_relative_to(self.store.root):
+            raise RunnerError("state_overlaps_skill_store")
+        self.state.mkdir(parents=True, exist_ok=True)
+        token_path = self.state / "api-token"
+        try:
+            fd = os.open(token_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        except FileExistsError:
+            pass
+        else:
+            with os.fdopen(fd, "w", encoding="utf-8") as token_file:
+                token_file.write(secrets.token_hex(32))
+        self.api_token = token_path.read_text(encoding="utf-8")
+        if not re.fullmatch(r"[0-9a-f]{64}", self.api_token):
+            raise RunnerError("invalid_runner_api_token")
+        (self.state / "runs").mkdir(exist_ok=True)
+        # The lease service is started independently of this runner, so a
+        # whole-process-tree kill of the runner cannot also kill it.
+        self.lease_service = Path(lease_service).resolve() if lease_service else None
+        self.artifact_sources = {}
+        for provider, source_state in (artifact_sources or {}).items():
+            if provider not in SUPPORTED_PROVIDERS:
+                raise RunnerError("invalid_artifact_provider")
+            self.artifact_sources[provider] = _private(Path(source_state))
+        self.publication_controller = publication_controller
+        self.github_authority = github_authority
+        self.mediator_state = _private(mediator_state) if mediator_state else None
+        for record_path in (self.state / "runs").glob("*/record.json"):
+            record = _read(record_path)
+            if record.get("status") in {"prepared", "running"}:
+                record["status"] = "interrupted"
+                record["error_category"] = "runner_restarted"
+                self.recover_interrupted(record)
+                _json(record_path, record)
+        self.instance_id = str(uuid4())
+        self.lock = threading.Lock()
+        self.control_lock = threading.Lock()
+        self.request_lock = threading.Lock()
+        self.cancel_flags = {}
+        self._mcp_access = {}
+        self._mcp_lock = threading.Lock()
+
+    @property
+    def credentials(self):
+        """Compose the declared native credential provider without reading secrets."""
+        with ROLE_INIT_LOCK:
+            if not hasattr(self, "_credential_service"):
+                self._credential_service = self.credential_type(self)
+            return self._credential_service
+
+    @property
+    def catalog(self) -> BaseModelCatalog:
+        """Lazily compose the declared provider catalog without native effects."""
+        # Construction and tests may query metadata before provider startup ends.
+        with ROLE_INIT_LOCK:
+            if not hasattr(self, "_catalog_service"):
+                self._catalog_service = self.catalog_type(self)
+            return self._catalog_service
+
+    @property
+    @abstractmethod
+    def provider(self) -> str:
+        """Concrete adapter identity; there is no default provider."""
+
+    @property
+    def supports_mediated_github(self) -> bool:
+        """Opt in only when the provider actually implements the mediated lease path."""
+        return False
+
+    def has_live_session(self, run_id):
+        """Report actual retained native resources between requests; default is none."""
+        return False
+
+    def close(self):
+        """Request cancellation of active work before the host releases this Agent."""
+        for flag in list(self.cancel_flags.values()):
+            flag.set()
+
+    def mcp_access(self, run_id):
+        """Return only in-memory admitted external access, never reconstruct a grant."""
+        return getattr(self, "_mcp_access", {}).get(run_id)
+
+    @staticmethod
+    def mcp_names(record):
+        """Derive exact non-secret provider tool names from an admitted manifest."""
+        manifest = record.get("mcp_manifest")
+        return (
+            ()
+            if manifest is None
+            else tuple(
+                tool.external_name()
+                for tool in McpManifest.model_validate(manifest).tools
+            )
+        )
+
+    def check_mcp(self, record):
+        """Refuse a saved MCP run without its live attempt capability before launch."""
+        access = self.mcp_access(record["run_id"])
+        if record.get("mcp_manifest") is not None:
+            if access is None:
+                raise RunnerError("mcp_registration_required")
+            try:
+                access.check_health(force=True)
+            except McpError as exc:
+                raise RunnerError(exc.code) from None
+        return access
+
+    def release_mcp(self, run_id, *, expected=None):
+        """Revoke an attempt's external access without masking native cleanup errors."""
+        if self.has_live_session(run_id):
+            return
+        with self._mcp_lock:
+            if expected is not None and self.mcp_access(run_id) is not expected:
+                return
+            access = self._mcp_access.pop(run_id, None)
+        if access:
+            try:
+                access.close()
+            except McpError:
+                # App loss has already removed access; remote tool effects remain unknown.
+                pass
+
+    def bind_mcp_resume(self, run_id, request):
+        """Require identical saved tools and a fresh live registration for HTTP resume."""
+        manifest = self._mcp_manifest(request)
+        saved = self.status(run_id).get("mcp_manifest")
+        if (manifest.model_dump(mode="json") if manifest else None) != saved:
+            raise RunnerError("mcp_resume_binding_mismatch")
+        with self._mcp_lock:
+            existing = self.mcp_access(run_id)
+            if existing is not None:
+                if self.has_live_session(run_id) and str(
+                    existing.connection.registration.registration_id
+                ) == request.get("mcp_registration"):
+                    existing.check_health(force=True)
+                    return existing
+                raise RunnerError("mcp_run_already_bound")
+            access = self._admit_mcp(request)
+            if access:
+                access.claim(run_id)
+                self._mcp_access[run_id] = access
+            return access
+
+    @abstractmethod
+    def runtime_binding(self) -> RuntimeBinding:
+        """Return this provider's current public record binding, without credentials."""
+
+    @abstractmethod
+    def recover_interrupted(self, record: dict) -> None:
+        """Clean up exact interrupted resources using only base state/module helpers.
+
+        Called during base construction, before concrete initialization finishes.
+        """
+
+    def model_catalog(self, *, refresh=False) -> dict:
+        """Project typed provider discovery into the unchanged application payload."""
+        return self.catalog.list_models(refresh=refresh).to_payload(
+            include_model_names=self.catalog.include_model_names
+        )
+
+    @abstractmethod
+    def read_activity(
+        self, run_id: str, attempt_id: str, *, after: int = 0, limit: int = 100
+    ) -> ActivityPage:
+        """Return common attempt-scoped replacement records without native execution."""
+
+    def read_events(
+        self,
+        run_id: str,
+        attempt_id: str,
+        *,
+        after: int = 0,
+        otel_after: int = 0,
+        limit: int = 100,
+        tail: bool = False,
+    ) -> dict:
+        """Read bounded retained raw evidence through the shared storage owner."""
+        from laomedo.agents.activity.runner.feed import read_feed
+
+        record = self.status(run_id)
+        root = self._run_dir(run_id)
+        path = (
+            root / "activity-attempts" / (_id(attempt_id) + ".json")
+            if attempt_id
+            else None
+        )
+        attempt = _read(path) if path and path.is_file() else None
+        if not attempt:
+            return {"run_id": run_id, "accepted": False, "events": []}
+        if attempt.get("id") != attempt_id:
+            raise RunnerError("activity_attempt_identity_mismatch")
+        boundary = attempt if attempt.get("native_end") is not None else None
+        feed = read_feed(
+            root / "activity-events.jsonl",
+            after=max(after, attempt["native_start"]),
+            limit=limit,
+            tail=tail,
+            before=boundary["native_end"] if boundary else None,
+        )
+        telemetry = read_feed(
+            root / "otel-events.jsonl",
+            after=max(otel_after, attempt["otel_start"]),
+            limit=200,
+            tail=tail,
+            before=boundary["otel_end"] if boundary else None,
+        )
+        return {
+            **feed,
+            "run_id": run_id,
+            "accepted": True,
+            "attempt": attempt,
+            "telemetry": telemetry,
+            "closed_boundary": boundary,
+            "status": record.get("status"),
+            "thread_id": record.get("thread_id"),
+            "model": record.get("effective_model"),
+            "attempt_finished": record.get("attempt_finished", False),
+        }
+
+    @abstractmethod
+    def preflight(self) -> dict:
+        """Report this provider's readiness and isolation checks."""
+
+    @abstractmethod
+    def resume(
+        self,
+        run_id: str,
+        task: str,
+        *,
+        expected_post_run_hash: str,
+        expected_thread_id: str,
+        model: str,
+        effort: str,
+        activity_attempt_id: str | None = None,
+        run_timeout_seconds: int | None = None,
+        native_command=None,
+    ) -> dict:
+        """Resume a bound execution; unsupported native commands refuse before effects."""
+
+    @abstractmethod
+    def readiness(self) -> ReadinessObservation:
+        """Check scoped execution availability without inference; explain blocked/unknown results."""
+
+    def editor_model_catalog(self):
+        """Provider-owned refresh semantics for an explicit editor discovery request."""
+        return self.model_catalog()
+
+    def prepare_initial_command(self, request: dict) -> str:
+        """Refuse an unsupported initial native command before any preparation effects."""
+        raise RunnerError("native_command_not_supported")
+
+    def prepare_resume(self, run_id, body):
+        """Validate provider extensions and refresh authentication before HTTP resume."""
+        if body.get("native_command") is not None:
+            raise RunnerError("native_command_not_supported")
+        self._validate_run_timeout(body.get("run_timeout_seconds"))
+        self._prepare_credentials()
+        return {}
+
+    def resume_async(self, run_id, body, *, response_gate=None):
+        """Admit a durable, idempotent resumed attempt before MCP/native effects."""
+        from laomedo.agents.agents.base.resume import ResumeDispatcher
+
+        return ResumeDispatcher(self).submit(run_id, body, response_gate=response_gate)
+
+    def lookup_resume(self, run_id, attempt_id):
+        """Read the existing resumed-attempt reservation without native dispatch."""
+        from laomedo.agents.agents.base.resume import ResumeDispatcher
+
+        return ResumeDispatcher(self).lookup(run_id, attempt_id)
+
+    def resume_guard(self, run_id, attempt_id=None):
+        """Serialize synchronous HTTP resume against durable asynchronous attempts."""
+        from laomedo.agents.agents.base.resume import ResumeDispatcher
+
+        return ResumeDispatcher(self).synchronous(run_id, attempt_id)
+
+    def pending_resumes(self):
+        """Observe durable continuation reservations without starting native work."""
+        from laomedo.agents.agents.base.resume import ResumeDispatcher
+
+        return ResumeDispatcher(self).pending()
+
+    def status(self, run_id: str) -> dict:
+        """Read an admitted retained run record without dispatching or repeating native work."""
+        return _read(self._run_dir(run_id) / "record.json")
+
+    def workspace_changes(self, run_id: str) -> WorkspaceChanges:
+        """Derive private snapshot-bound changes without admitting a new run."""
+        record = self.status(run_id)
+        if (
+            record.get("run_id") != run_id
+            or record.get("status") != "completed"
+            or record.get("snapshot_ready") is not True
+            or not isinstance(record.get("source_hash"), str)
+            or not isinstance(record.get("post_run_hash"), str)
+        ):
+            raise RunnerError("workspace_changes_run_incomplete")
+        root = self._run_dir(run_id)
+        patch = verified_changes(
+            root / "canonical",
+            root / "post-run",
+            source_hash=record["source_hash"],
+            post_run_hash=record["post_run_hash"],
+            imported_artifacts=record.get("imported_artifacts"),
+        )
+        if not patch:
+            raise RunnerError("workspace_changes_empty")
+        observed = self.status(run_id)
+        if any(
+            observed.get(key) != record.get(key)
+            for key in (
+                "status",
+                "snapshot_ready",
+                "source_hash",
+                "post_run_hash",
+                "imported_artifacts",
+            )
+        ):
+            raise RunnerError("workspace_snapshot_mismatch")
+        return WorkspaceChanges(
+            run_id=run_id,
+            source_hash=record["source_hash"],
+            post_run_hash=record["post_run_hash"],
+            patch_hash="sha256:" + hashlib.sha256(patch.encode("utf-8")).hexdigest(),
+            patch=patch,
+        )
+
+    def lookup_request(self, request_id: str) -> dict:
+        """Find one durable async run without starting or changing it."""
+        try:
+            _id(request_id)
+        except (TypeError, ValueError, AttributeError):
+            raise RunnerError("invalid_request_id") from None
+        with self.request_lock:
+            matches = []
+            for record_path in (self.state / "runs").glob("*/record.json"):
+                record = _read(record_path)
+                if record.get("client_request_id") == request_id:
+                    matches.append(record)
+            if not matches:
+                raise RunnerError("request_not_found")
+            if len(matches) != 1:
+                raise RunnerError("request_identity_conflict")
+            record = matches[0]
+            return {
+                key: record.get(key)
+                for key in (
+                    "client_request_id",
+                    "request_hash",
+                    "run_id",
+                    "provider",
+                    "raw_event_ref",
+                    "status",
+                )
+            }
+
+    def cancel(self, run_id: str) -> dict:
+        """Request cancellation of the selected existing run; acknowledgement does not establish native cleanup."""
+        if self.publication_controller is not None:
+            self.publication_controller.cancel(run_id)
+        with self.control_lock:
+            record = self.status(run_id)
+            if record["status"] == "prepared" and record.get("client_request_id"):
+                record.update(
+                    status="cancelled",
+                    error_category="cancelled_before_dispatch",
+                    cancel_requested=True,
+                    cancel_confirmed=True,
+                )
+                _json(self._run_dir(run_id) / "record.json", record)
+                return record
+            if record["status"] == "running":
+                flag = self.cancel_flags.get(run_id)
+                if flag is None:
+                    raise RunnerError("run_not_active_in_this_process")
+                flag.set()
+                record.update(cancel_requested=True, cancel_confirmed=False)
+                _json(self._run_dir(run_id) / "record.json", record)
+                return record
+            return record
+
+    def publish(self, run_id: str) -> dict:
+        """Delegate authorized publication to the configured host controller; run identity is not authority."""
+        if self.publication_controller is None:
+            raise RunnerError("publication_controller_unconfigured")
+        try:
+            result = self.publication_controller.publish(run_id)
+        except MediationError as error:
+            raise RunnerError(error.code) from None
+        return {
+            "status": "completed" if result["phase"] == "completed" else "failed",
+            "run_id": run_id,
+            "publication_handoff": result,
+        }
+
+    def start(self, request: dict) -> dict:
+        """Admit and prepare a fresh request, then execute its reserved native attempt without automatic replay."""
+        record = self._prepare(request)
+        try:
+            self._prepare_credentials()
+        except RunnerError as exc:
+            record.update(status="failed", error_category=str(exc))
+            _json(self._run_dir(record["run_id"]) / "record.json", record)
+            self.release_mcp(record["run_id"])
+            raise
+        try:
+            return self._execute(record["run_id"], request["task"], resume=False)
+        finally:
+            self.release_mcp(record["run_id"])
+
+    def start_async(
+        self,
+        request: dict,
+        *,
+        response_gate: threading.Event | None = None,
+        verified_review: VerifiedReviewProvenance | None = None,
+        dispatch_guard=None,
+    ) -> dict:
+        """Reserve one request identity, then run only after the HTTP reply."""
+        if not isinstance(request, dict):
+            raise RunnerError("invalid_request")
+        if dispatch_guard is not None and not callable(dispatch_guard):
+            raise RunnerError("invalid_request")
+        request_id = request.get("request_id")
+        try:
+            _id(request_id)
+        except (TypeError, ValueError, AttributeError):
+            raise RunnerError("invalid_request_id") from None
+        body = {key: value for key, value in request.items() if key != "request_id"}
+        if verified_review is not None and (
+            not self._supports_verified_review
+            or set(body)
+            - {"task", "model", "effort", "skill_refs", "run_timeout_seconds"}
+            or body.get("skill_refs") != []
+        ):
+            raise RunnerError("invalid_request")
+        manifest = self._mcp_manifest(body)
+        if manifest:
+            body["mcp_manifest"] = manifest.model_dump(mode="json")
+        semantic_request = McpAccess.semantic_request(body)
+        if verified_review is not None:
+            if not isinstance(verified_review, VerifiedReviewProvenance):
+                raise RunnerError("invalid_request")
+            semantic_request = {
+                "request": semantic_request,
+                "verified_review": verified_review.to_record(),
+            }
+        request_hash = (
+            "sha256:"
+            + hashlib.sha256(
+                json.dumps(
+                    semantic_request,
+                    sort_keys=True,
+                    separators=(",", ":"),
+                    ensure_ascii=False,
+                ).encode("utf-8")
+            ).hexdigest()
+        )
+        with request_reservation(
+            self.request_lock,
+            nonblocking=verified_review is not None or dispatch_guard is not None,
+        ):
+            for record_path in (self.state / "runs").glob("*/record.json"):
+                prior = _read(record_path)
+                if prior.get("client_request_id") == request_id:
+                    if prior.get("request_hash") != request_hash:
+                        raise RunnerError("request_identity_conflict")
+                    try:
+                        unused = self._admit_mcp(body)
+                    except RunnerError as exc:
+                        if exc.code != "mcp_registration_expired":
+                            raise
+                        unused = None
+                    active = self.mcp_access(prior["run_id"])
+                    if unused and unused.run_id not in (None, prior["run_id"]):
+                        raise RunnerError("mcp_run_binding_mismatch")
+                    if unused and (
+                        active is None
+                        or active.connection.registration.registration_id
+                        != unused.connection.registration.registration_id
+                    ):
+                        unused.close()
+                    return prior
+            record = self._prepare(
+                body,
+                client_request_id=request_id,
+                request_hash=request_hash,
+                verified_review=verified_review,
+            )
+            gate = response_gate or threading.Event()
+            if response_gate is None:
+                gate.set()
+            worker = threading.Thread(
+                target=self._async_worker,
+                args=(record["run_id"], body["task"], gate, dispatch_guard),
+                daemon=True,
+            )
+            worker.start()
+            return record
+
+    def select_artifacts(self, run_id, paths):
+        """Admit and project selected retained files under the existing run/artifact boundary."""
+        if not isinstance(paths, list) or len(paths) > 32:
+            raise ArtifactError("invalid_artifact_selection")
+        record = self.status(run_id)
+        snapshot = self._run_dir(run_id) / "post-run"
+        if record.get("status") != "completed" or _hash_tree(snapshot) != record.get(
+            "post_run_hash"
+        ):
+            raise ArtifactError("artifact_snapshot_mismatch")
+        result = []
+        for path in paths:
+            path = relative_path(path)
+            source = snapshot / path
+            if not source.is_file() or source.stat().st_size > 1024 * 1024:
+                raise ArtifactError("artifact_file_missing_or_too_large")
+            result.append(
+                ArtifactReference(
+                    provider=self.provider,
+                    run_id=run_id,
+                    snapshot_hash=record["post_run_hash"],
+                    path=path,
+                    content_hash="sha256:"
+                    + hashlib.sha256(source.read_bytes()).hexdigest(),
+                    destination="handoff/" + path,
+                ).model_dump()
+            )
+        if _hash_tree(snapshot) != record["post_run_hash"]:
+            raise ArtifactError("artifact_source_changed_during_selection")
+        return selections(result)
+
+    def _mcp_manifest(self, request):
+        """Validate paired external admission fields before identity lookup or effects."""
+        if ("mcp_manifest" in request) != ("mcp_registration" in request):
+            raise RunnerError("mcp_registration_required")
+        if "mcp_manifest" not in request:
+            return None
+        try:
+            _id(request["mcp_registration"])
+            return McpManifest.model_validate(request["mcp_manifest"])
+        except Exception:
+            raise RunnerError("mcp_manifest_invalid") from None
+
+    def _admit_mcp(self, request):
+        """Resolve exact tool identities using only host-owned local rendezvous state."""
+        manifest = self._mcp_manifest(request)
+        if manifest is None:
+            return None
+        try:
+            return McpAccess(
+                request["mcp_registration"],
+                manifest.model_dump(mode="json"),
+                settings=self.mcp_settings,
+            )
+        except McpError as exc:
+            raise RunnerError(exc.code) from None
+
+    def _normalize_activity(
+        self,
+        run_id,
+        attempt_id,
+        *,
+        after,
+        limit,
+        projector,
+        complete_from_snapshot=False,
+    ):
+        """Borrow shared journaling mechanics while retaining native provider interpretation."""
+        from laomedo.agents.activity.normalizer import ActivityNormalizer
+
+        return ActivityNormalizer(
+            self, projector, complete_from_snapshot=complete_from_snapshot
+        ).read(run_id, attempt_id, after=after, limit=limit)
+
+    def _validate_run_timeout(self, value) -> None:
+        """Refuse an unsupported override before allocating or dispatching a turn."""
+        if value is not None and not self._supports_run_timeout:
+            raise RunnerError("run_timeout_not_supported")
+
+    def _observe_readiness(
+        self, *, ready_on_success: bool | None, unverified_reason: str | None = None
+    ) -> ReadinessObservation:
+        """Normalize native admission failures without changing raw preflight callers."""
+        from laomedo.agents.registry import AgentProviderRegistry
+
+        scope = AgentProviderRegistry.descriptor(self.provider).readiness_scope
+        try:
+            payload = self.preflight()
+        except RunnerError as error:
+            return ReadinessObservation(
+                provider=self.provider,
+                ready=False,
+                reason=error.code,
+                scope=scope,
+                payload={"status": "blocked", "error_category": error.code},
+            )
+        status = payload.get("status")
+        if status == "blocked":
+            ready = False
+            reason = payload.get("error_category") or "execution_blocked"
+        elif status == "ready" and ready_on_success is True:
+            ready = True
+            reason = None
+        else:
+            ready = None
+            reason = unverified_reason or "readiness_not_verified"
+        return ReadinessObservation(
+            provider=self.provider,
+            ready=ready,
+            reason=reason,
+            scope=scope,
+            payload=deepcopy(payload),
+        )
+
+    @abstractmethod
+    def _execute(self, run_id, task, *, resume, activity_attempt_id=None) -> dict:
+        """Execute using the provider's protocol, cancellation and cleanup rules."""
+
+    def _prepare_credentials(self):
+        """Provider pre-dispatch authentication hook; neutral runners do nothing."""
+
+    def _run_dir(self, run_id: str) -> Path:
+        """Resolve an admitted run identifier under this Agent state root; reject invalid identities."""
+        return self.state / "runs" / _id(run_id)
+
+    def _retain_attempt_failure(
+        self,
+        root,
+        record,
+        attempt,
+        primary,
+        cleanup,
+        *,
+        cleanup_source=None,
+        cleanup_verified=None,
+    ):
+        """Best-effort private final snapshot; never change the public outcome.
+
+        Providers retain cleanup ownership and unconditional lock release. This
+        common writer accepts only their observed facts, never SDK/lease objects.
+        """
+        try:
+            if record is None or attempt is None or record.get("status") == "completed":
+                return
+            primary = primary or failure_observation(
+                stage="terminal", code=record.get("error_category")
+            )
+            if primary is None:
+                return
+            value = AttemptFailureRecord(
+                primary=primary,
+                cleanup=cleanup,
+                final_category=(
+                    record.get("error_category")
+                    if record.get("error_category") in RUNNER_FAILURE_CODES
+                    else None
+                ),
+                cleanup_source=cleanup_source,
+                cleanup_verified=cleanup_verified,
+            )
+            directory = root / "diagnostics"
+            directory.mkdir(mode=0o700, exist_ok=True)
+            _json(directory / (attempt["id"] + ".json"), value.to_record())
+        except Exception:
+            pass  # Diagnostics cannot replace execution or finalization errors.
+
+    def _reserve_turn(self) -> int:
+        # Diagnostic sequence only; neither corrupt accounting nor a write failure
+        # may become an authorization gate. Historical turn-ledger.json is untouched.
+        """Record the next native attempt counter without adding a verification-only authorization limit."""
+        ledger = self.state / "attempt-count.json"
+        count = getattr(self, "_observed_turns", 0)
+        try:
+            value = _read(ledger) if ledger.exists() else {}
+            saved = value.get("attempted_turns")
+        except (OSError, ValueError, TypeError, AttributeError):
+            saved = None
+        if type(saved) is int and saved >= 0:
+            count = max(count, saved)
+        else:
+            for path in (self.state / "runs").glob("*/record.json"):
+                try:
+                    prior = _read(path).get("attempt_number", 0)
+                    if type(prior) is int and prior >= 0:
+                        count = max(count, prior)
+                except (OSError, ValueError, TypeError, AttributeError):
+                    continue
+        self._observed_turns = count + 1
+        try:
+            _json(ledger, {"attempted_turns": count + 1})
+        except OSError:
+            pass
+        return count + 1
+
+    def _materialize(self, workspace: Path, ref: dict) -> dict:
+        """Create the admitted run-local workspace and pinned skill view; preserve existing cleanup failures."""
+        if not isinstance(ref, dict) or not all(
+            ref.get(k) for k in ("skill_id", "revision_id", "tree_hash")
+        ):
+            raise RunnerError("pinned_skill_ref_required")
+        if ref["revision_id"] != ref["tree_hash"]:
+            raise RunnerError("skill_ref_hash_mismatch")
+        record = self.store.revision(ref["skill_id"], ref["revision_id"])
+        if record["tree_hash"] != ref["tree_hash"]:
+            raise RunnerError("skill_ref_hash_mismatch")
+        target = workspace / ".agents" / "skills" / ref["skill_id"]
+        if target.exists():
+            raise RunnerError("skill_path_conflict")
+        target.mkdir(parents=True)
+        for relative, expected in record["file_hashes"].items():
+            item = self.store.read_file(ref["skill_id"], ref["revision_id"], relative)
+            if item["file_hash"] != expected:
+                raise RunnerError("skill_file_hash_mismatch")
+            destination = target / relative
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            destination.write_bytes(item["content"])
+        if tree_hash(inventory(target)) != ref["tree_hash"]:
+            raise RunnerError("materialized_skill_mismatch")
+        try:
+            skill_text = (target / "SKILL.md").read_text(encoding="utf-8")
+        except (OSError, UnicodeError):
+            raise RunnerError("skill_frontmatter_name_required") from None
+        if not skill_text.startswith("---\n") or "\n---\n" not in skill_text[4:]:
+            raise RunnerError("skill_frontmatter_name_required")
+        frontmatter = skill_text[4:].split("\n---\n", 1)[0]
+        names = [
+            line.split(":", 1)[1].strip().strip("\"'")
+            for line in frontmatter.splitlines()
+            if line.startswith("name:")
+        ]
+        if names != [ref["skill_id"]]:
+            raise RunnerError("skill_frontmatter_name_mismatch")
+        return AgentSkillBinding(
+            skill_id=ref["skill_id"],
+            revision_id=ref["revision_id"],
+            tree_hash=ref["tree_hash"],
+            file_hashes=record["file_hashes"],
+            delivery_mode="project_discovery",
+            use_evidence="offered",
+        ).model_dump()
+
+    def _prepare(
+        self,
+        request: dict,
+        *,
+        client_request_id=None,
+        request_hash=None,
+        verified_review: VerifiedReviewProvenance | None = None,
+    ) -> dict:
+        """Validate the request and persist its prepared identity/workspace binding before native dispatch."""
+        if not isinstance(request, dict):
+            raise RunnerError("invalid_request")
+        self._mcp_manifest(request)
+        self._validate_run_timeout(request.get("run_timeout_seconds"))
+        initial_command = (
+            self.prepare_initial_command(request)
+            if request.get("initial_native_command") is not None
+            else None
+        )
+        task = request.get("task")
+        if not isinstance(task, str) or not task.strip() or len(task) > 16000:
+            raise RunnerError("invalid_task")
+        model, effort = request.get("model"), request.get("effort")
+        if not all(isinstance(x, str) and x for x in (model, effort)):
+            raise RunnerError("model_and_effort_required")
+        output_requirements = request.get("output_requirements")
+        if output_requirements is not None:
+            output_requirements = verify_requirements(output_requirements)
+        output_retries = request.get("output_retries", 1)
+        if type(output_retries) is not int or not 0 <= output_retries <= 8:
+            raise RunnerError("invalid_output_retry_count")
+        if "skill_refs" in request and "skill_ref" in request:
+            raise RunnerError("conflicting_skill_inputs")
+        refs = (
+            request["skill_refs"]
+            if "skill_refs" in request
+            else [request["skill_ref"]] if "skill_ref" in request else []
+        )
+        if not isinstance(refs, list) or len(refs) > 16:
+            raise RunnerError("one_to_sixteen_skills_required")
+        seen = set()
+        for ref in refs:
+            if not isinstance(ref, dict) or not isinstance(ref.get("skill_id"), str):
+                raise RunnerError("pinned_skill_ref_required")
+            if ref["skill_id"] in seen:
+                raise RunnerError("duplicate_skill_id")
+            seen.add(ref["skill_id"])
+        binding = self.runtime_binding()
+        source = self.source
+        handoff = self._handoff(request.get("handoff"))
+        if "github_scope" in request:
+            raise RunnerError("github_scope_must_come_from_authority")
+        github_ref = request.get("github_authorization_ref")
+        if github_ref is not None and (
+            self.github_authority is None
+            or not self.supports_mediated_github
+            or self.lease_service is None
+            or self.mediator_state is None
+        ):
+            raise RunnerError("mediated_lease_required")
+        run_id = str(uuid4())
+        run_dir = self._run_dir(run_id)
+        run_dir.mkdir()
+        workspace, canonical, store_mount = (
+            run_dir / x for x in ("workspace", "canonical", "store")
+        )
+        try:
+            try:
+                github_scope = (
+                    self.github_authority.bind_run(
+                        github_ref,
+                        run_id,
+                        allowed_operations=frozenset(
+                            {"actions_read", "pr_create", "pr_update", "pr_read"}
+                            | (
+                                {"git_push", "git_fetch"}
+                                if self.git_workspace
+                                else set()
+                            )
+                        ),
+                    )
+                    if github_ref is not None
+                    else None
+                )
+            except MediationError as error:
+                raise RunnerError(error.code) from None
+            try:
+                prepared = AgentWorkspace(
+                    WorkspacePaths(source=source, directory=workspace)
+                ).prepare(
+                    canonical,
+                    git=self.git_workspace,
+                    guard_directories=self.workspace_guard_directories,
+                )
+            except GitWorkspaceError as error:
+                raise RunnerError(str(error)) from error
+            baseline, source_hash = prepared.baseline, prepared.source_hash
+            store_mount.mkdir()
+            (store_mount / "sentinel.txt").write_text(
+                "STORE-ORIGINAL", encoding="utf-8"
+            )
+            # AgentWorkspace already created an isolated repository
+            # with preserved history; do not replace it with a fresh baseline.
+            if not self.git_workspace:
+                initialize(workspace)
+            elif github_scope is not None:
+                # Install trusted remote/handoff metadata before the immutable
+                # skill exclusion digest. _open_server then verifies this same
+                # remote and leaves the already-present rule unchanged.
+                from laomedo.host.mediation.agent_cli import configure_remote
+
+                configure_remote(workspace, github_scope["repository"])
+            skills = [self._materialize(workspace, ref) for ref in refs]
+            if not skills:
+                try:
+                    (workspace / ".agents" / "skills").mkdir(
+                        parents=True, exist_ok=True
+                    )
+                except OSError:
+                    raise RunnerError("unsafe_materialized_skill_path") from None
+            git_exclusion = install(workspace, skills)
+            if not skills:
+                try:
+                    verify(workspace, skills, git_exclusion)
+                except WorkspaceSkillError as error:
+                    raise RunnerError(str(error)) from None
+            artifacts = import_selected(
+                request.get("artifact_refs", []),
+                workspace,
+                self._artifact_source,
+                _hash_tree,
+            )
+            effective_hash = _hash_tree(workspace, exclude_root_git=self.git_workspace)
+            (run_dir / "raw-events.jsonl").touch()
+            prepared_record = PreparedRunRecord.for_preparation(
+                task=task,
+                run_id=run_id,
+                workspace=PreparedWorkspaceState(
+                    source_hash=source_hash,
+                    effective_hash=effective_hash,
+                    git=self.git_workspace,
+                    baseline=baseline,
+                ),
+                runtime=binding,
+                skills=[AgentSkillBinding(**skill) for skill in skills],
+                skill_git_exclusion=SkillGitExclusion(**git_exclusion),
+                handoff=HandoffProvenance(**handoff) if handoff is not None else None,
+                imported_artifacts=[
+                    ArtifactReference(**artifact) for artifact in artifacts
+                ],
+                requested_model=model,
+                requested_effort=effort,
+                runner_instance_id=self.instance_id,
+                client_request_id=client_request_id,
+                activity_initial_attempt_id=str(uuid4()),
+                output_requirements=output_requirements,
+                output_retries=output_retries,
+                initial_native_command=initial_command,
+                request_hash=request_hash,
+                verified_review=verified_review,
+                github_scope=(
+                    AgentGitHubScope(**github_scope)
+                    if github_scope is not None
+                    else None
+                ),
+            )
+            record = prepared_record.to_record()
+            manifest = self._mcp_manifest(request)
+            if manifest:
+                access = self._admit_mcp(request)
+                access.claim(record["run_id"])
+                self._mcp_access[record["run_id"]] = access
+                record["mcp_manifest"] = manifest.model_dump(mode="json")
+            _json(run_dir / "record.json", record)
+        except Exception:
+            self.release_mcp(run_id)
+            try:
+                remove_owned_tree(run_dir, self.state)
+            except OSError:
+                raise RunnerError("run_preparation_cleanup_unverified") from None
+            raise
+        return record
+
+    def _async_worker(self, run_id, task, gate, dispatch_guard=None):
+        """Execute a reserved request on its owned worker and retain terminal or uncertain outcomes."""
+        gate.wait()
+        try:
+            if dispatch_guard is not None:
+                dispatch_guard()
+            self._prepare_credentials()
+            self._execute(run_id, task, resume=False)
+        except Exception as exc:
+            with self.control_lock:
+                record = self.status(run_id)
+                if record["status"] in {"prepared", "running"}:
+                    # An acknowledged worker failure is not proof that remote
+                    # work stopped. Preserve its identity for reconciliation.
+                    record.update(
+                        status="unknown" if record["status"] == "running" else "failed",
+                        error_category=(
+                            exc.code
+                            if isinstance(exc, RunnerError)
+                            else "runner_runtime_unknown"
+                        ),
+                        attempt_finished=True,
+                        snapshot_ready=False,
+                        post_run_hash=None,
+                        output_ref=None,
+                        answer=None,
+                    )
+                    _json(self._run_dir(run_id) / "record.json", record)
+        finally:
+            self.release_mcp(run_id)
+
+    def _artifact_source(self, provider, run_id):
+        """Resolve only host-configured provider artifact state; graph input cannot choose host paths."""
+        if provider == self.provider:
+            return self._run_dir(run_id) / "post-run", self.status(run_id)
+        state = self.artifact_sources.get(provider)
+        if state is None:
+            raise ArtifactError("foreign_artifact_store_required")
+        run = state / "runs" / _id(run_id)
+        if run.is_symlink() or not run.resolve().is_relative_to(state):
+            raise ArtifactError("foreign_artifact_store_required")
+        record = _read(run / "record.json")
+        if record.get("provider") != provider or record.get("run_id") != run_id:
+            raise ArtifactError("artifact_snapshot_mismatch")
+        return run / "post-run", record
+
+    def _handoff(self, value):
+        """Project the admitted host handoff without broadening the run or publication authority."""
+        if value is None:
+            return None
+        if not isinstance(value, dict) or set(value) != {
+            "execution_id",
+            "step",
+            "source",
+            "workspace_policy",
+        }:
+            raise RunnerError("invalid_handoff_provenance")
+        _id(value["execution_id"])
+        if (
+            type(value["step"]) is not int
+            or value["step"] < 0
+            or value["workspace_policy"] != "independent"
+        ):
+            raise RunnerError("invalid_handoff_provenance")
+        origin = value["source"]
+        if origin is not None:
+            if (
+                not isinstance(origin, dict)
+                or set(origin) != {"provider", "run_id"}
+                or origin["provider"] not in SUPPORTED_PROVIDERS
+            ):
+                raise RunnerError("invalid_handoff_origin")
+            _id(origin["run_id"])
+        return json.loads(json.dumps(value))
+
+    def _freeze_workspace(self, root: Path, record: dict) -> str:
+        """Freeze stable files after the caller confirms descendant cleanup.
+
+        Recheck pinned skills and protected mounts at this boundary. Empty
+        directories count, so delayed native housekeeping cannot invalidate a
+        snapshot taken while its container was still alive.
+        """
+        try:
+            verify(
+                root / "workspace",
+                record["skills"],
+                record.get("skill_git_exclusion", {"enabled": False}),
+            )
+        except ValueError as error:
+            raise RunnerError(str(error)) from None
+        try:
+            self._verify_protected_mounts(root, record)
+            pending = root / ("post-run-pending-" + uuid4().hex)
+            digest = _copy_tree(
+                root / "workspace",
+                pending,
+                exclude_root_git=self.git_workspace,
+            )
+            previous = root / "post-run"
+            if previous.exists():
+                remove_owned_tree(previous, self.state)
+            pending.rename(previous)
+            return digest
+        except RunnerError:
+            raise
+        except Exception:
+            raise RunnerError("workspace_copy_mismatch") from None
+
+    def _verify_protected_mounts(self, root: Path, record: dict) -> None:
+        """Keep one canonical integrity check for live and closed run boundaries."""
+        if (
+            _hash_tree(root / "canonical") != record["source_hash"]
+            or (root / "store/sentinel.txt").read_text(encoding="utf-8")
+            != "STORE-ORIGINAL"
+        ):
+            raise RunnerError("protected_mount_changed")
+
+    def _mediator_route(self) -> tuple[str, str]:
+        # host.docker.internal -> host loopback is checked by the Windows
+        # Docker Desktop probe. Other network layouts need their own check.
+        """Resolve the configured host mediation endpoint/capability for the selected admitted run."""
+        if os.name != "nt" or self.mediator_state is None:
+            raise RunnerError("mediator_container_route_unverified")
+        try:
+            status = json.loads(
+                (self.mediator_state / "mediator.json").read_text(encoding="utf-8")
+            )
+            port = status["port"]
+            instance = status["instance"]
+            if (
+                type(port) is not int
+                or not 1 <= port <= 65535
+                or not re.fullmatch(r"[0-9a-f]{32}", instance)
+            ):
+                raise ValueError("invalid_mediator_status")
+            with build_opener(ProxyHandler({}), NoRedirect()).open(
+                f"http://127.0.0.1:{port}/v1/health", timeout=2
+            ) as response:
+                health = json.load(response)
+            if health != {"status": "ready", "instance": instance}:
+                raise ValueError("mediator_instance_mismatch")
+        except (OSError, ValueError, KeyError, TypeError, TimeoutError) as error:
+            raise RunnerError("mediator_unavailable") from error
+        return f"http://host.docker.internal:{port}/v1/mediate", instance

@@ -16,4 +16,15 @@ class LocalProfileSettings(BaseSettings):
         env_file=None, secrets_dir=None, extra="ignore", frozen=True
     )
 
-    runtime_root: Path = Field(validation_alias="LAOMEDO_LOCAL_PROFILE_RUNTIME")
+    runtime_root: Path = Field(
+        validation_alias="LAOMEDO_LOCAL_PROFILE_RUNTIME",
+        description="Explicit private runtime directory admitted before serving local profiles.",
+    )
+    provider_source: Path | None = Field(
+        default=None,
+        validation_alias="LAOMEDO_PROVIDER_SOURCE_WORKSPACE",
+        description="Operator-selected source workspace for saved-connection execution; never a graph field.",
+    )
+
+
+PROFILE_COOKIE_NAMES = ("access_token_lf", "refresh_token_lf", "apikey_tkn_lflw")

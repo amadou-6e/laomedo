@@ -48,6 +48,17 @@ class BrokerStartupCheck:
             "/api/v1/users/whoami",
             "/api/v1/laomedo/profile-mode",
             "/api/v1/laomedo/profiles",
+            "/api/v1/laomedo/provider-connections",
+            "/api/v1/laomedo/provider-connections/graphs/{flow_id}",
+            "/api/v1/laomedo/provider-connections/attempts",
+            "/api/v1/laomedo/provider-connections/opencode-go",
+            "/api/v1/laomedo/provider-connections/claude/attempts/{attempt_id}",
+            "/api/v1/laomedo/provider-connections/claude/attempts/{attempt_id}/code",
+            "/api/v1/laomedo/provider-connections/{connection_id}/disconnect",
+            "/api/v1/laomedo/provider-connections/{connection_id}/cleanup",
+            "/api/v1/laomedo/provider-connections/attempts/{attempt_id}",
+            "/api/v1/laomedo/provider-connections/attempts/{attempt_id}/cancel",
+            "/auth/callback",
             "/api/v1/laomedo/private-session",
             "/api/v1/laomedo/github-connections-capability",
             "/api/v1/laomedo/github-connections",
@@ -93,5 +104,221 @@ class BrokerStartupCheck:
                 assert response.status_code != 200, "logout retained private admission"
 
 
+class ProviderBrokerStartupCheck(BrokerStartupCheck):
+    """Real profile and data-only Flow HTTP path, without providers or inference."""
+
+    async def run(self):
+        from laomedo.integrations.langflow.authentication.provider import (
+            ProviderBrokerRuntime,
+        )
+        from laomedo.integrations.langflow.execution.providers.settings import (
+            ProviderAppSettings,
+        )
+        from laomedo.integrations.langflow.execution.worker.settings import (
+            GraphWorkerSettings,
+        )
+
+        root = Path(os.environ["LAOMEDO_LOCAL_PROFILE_RUNTIME"])
+        source, frontend = (
+            root.parent / "repository" / "source",
+            root.parent / "frontend",
+        )
+        source.mkdir(parents=True)
+        (source.parent / ".git").mkdir()
+        (frontend / "assets").mkdir(parents=True)
+        (frontend / "index.html").write_text("Provider broker startup fixture")
+        origin = "http://127.0.0.1:27889"
+        app = ProviderBrokerRuntime(
+            LocalProfileRuntime(root, provider_source=source),
+            PrivateBrowserSettings(
+                origin=origin,
+                runtime_root=root / "private-github",
+                public_roots=(frontend, root / "registry"),
+            ),
+            ProviderAppSettings(
+                components=Path(__file__).resolve().parents[2] / "components",
+                frontend=frontend,
+                worker=GraphWorkerSettings(
+                    image_id="sha256:" + "a" * 64, lease_state=root / "leases"
+                ),
+            ),
+        ).create_app()
+        from laomedo.integrations.langflow.local_profiles.cookies import (
+            ProfileCookieBoundary,
+        )
+
+        assert app.user_middleware[0].cls is ProfileCookieBoundary
+        async with app.router.lifespan_context(app):
+            from laomedo.agents.mcp.registry import McpRegistry
+
+            assert (
+                McpRegistry.current() is app.state.laomedo_mcp
+            ), "authoring tool lifetime unavailable"
+            from types import SimpleNamespace
+            from unittest.mock import AsyncMock
+            from laomedo.agents.mcp.client import McpAccess
+            from laomedo.agents.mcp.models import McpTool
+
+            registry = McpRegistry.current()
+            assert (
+                app.state.provider_connections.controllers.mcp_settings
+                is registry.settings
+            )
+            tool = SimpleNamespace(
+                descriptor=McpTool(
+                    server="startup",
+                    upstream_name="echo",
+                    display_name="Echo",
+                    description="Startup admission only.",
+                    input_schema={"type": "object"},
+                ),
+                invoke=AsyncMock(),
+            )
+            registration = await registry.register([tool])
+            access = await asyncio.to_thread(
+                McpAccess,
+                str(registration.registration_id),
+                registration.manifest.model_dump(mode="json"),
+                settings=app.state.provider_connections.controllers.mcp_settings,
+            )
+            await asyncio.to_thread(access.close)
+            registry.release(registration.registration_id)
+            async with AsyncClient(
+                transport=ASGITransport(app=app),
+                base_url=origin,
+                headers={"origin": origin, "sec-fetch-site": "same-origin"},
+            ) as client:
+                response = await client.post(
+                    "/api/v1/laomedo/profiles",
+                    json={
+                        "name": "Provider fixture",
+                        "pin": "123456",
+                        "confirmation": "123456",
+                    },
+                )
+                assert (
+                    response.status_code == 201
+                ), "provider fixture profile creation failed"
+                response = await client.post(
+                    "/api/v1/login",
+                    data={"username": "Provider fixture", "password": "123456"},
+                )
+                assert response.status_code == 200, "provider fixture login failed"
+                response = await client.get("/api/v1/laomedo/private-session")
+                assert (
+                    response.status_code == 200 and response.json().get("ready") is True
+                ), "provider fixture private lease unavailable"
+                response = await client.get("/api/v1/all")
+                assert response.status_code == 200, "curated metadata unavailable"
+                registry = response.json()
+                assert (
+                    "LaomedoCodexAgent" in registry["laomedo"]
+                ), "curated Agent absent"
+                template = registry["input_output"]["TextInput"]
+                graph = {
+                    "nodes": [
+                        {
+                            "id": "text-fixture",
+                            "type": "genericNode",
+                            "data": {
+                                "id": "text-fixture",
+                                "type": "TextInput",
+                                "node": template,
+                            },
+                        }
+                    ],
+                    "edges": [],
+                }
+                response = await client.post(
+                    "/api/v1/flows/",
+                    json={"name": "Provider fixture flow", "data": graph},
+                )
+                assert response.status_code == 200, "data-only flow creation failed"
+                identifier = response.json()["id"]
+                graph["nodes"][0]["data"]["node"]["template"]["input_value"][
+                    "value"
+                ] = "Edited fixture"
+                response = await client.patch(
+                    "/api/v1/flows/" + identifier, json={"data": graph}
+                )
+                assert response.status_code == 200, "data-only flow edit failed"
+                response = await client.get("/api/v1/flows/" + identifier)
+                assert (
+                    response.status_code == 200 and response.json()["data"] == graph
+                ), "saved graph differs"
+                # Exercise real native ownership/policy/dry-plan HTTP admission,
+                # replacing only execution; this does not launch a worker/model.
+                from unittest.mock import AsyncMock, patch
+                from langflow.api.v1.schemas import RunResponse
+
+                executor = app.state.laomedo_assistant.graph_executor
+                with patch.object(
+                    executor,
+                    "execute",
+                    new=AsyncMock(return_value=RunResponse(outputs=[])),
+                ) as execute:
+                    response = await client.post(
+                        "/api/v2/workflows",
+                        json={
+                            "flow_id": identifier,
+                            "mode": "stream",
+                            "stream_protocol": "agui",
+                        },
+                    )
+                    assert response.status_code == 200, "canvas admission failed"
+                    assert (
+                        '"type":"RUN_FINISHED"' in response.text
+                    ), "canvas protocol did not finish"
+                    execute.assert_awaited_once()
+                response = await client.post(
+                    "/api/v1/custom_component/update", json={"code": "not executed"}
+                )
+                assert (
+                    response.status_code == 403
+                ), "native code refresh was not explicitly refused"
+                for path in ("/api/v1/validate/code",):
+                    response = await client.post(path, json={"code": "not executed"})
+                    assert response.status_code in (
+                        404,
+                        405,
+                    ), "untrusted native API entered broker"
+                response = await client.post(
+                    "/api/v2/workflows", json={"code": "not executed"}
+                )
+                assert (
+                    response.status_code == 422
+                ), "canvas adapter accepted an invalid run"
+                response = await client.post("/api/v1/logout")
+                assert response.status_code == 200, "provider fixture logout failed"
+
+
 if __name__ == "__main__":
-    asyncio.run(BrokerStartupCheck().run())
+    import sys
+
+    scenario = (
+        ProviderBrokerStartupCheck()
+        if sys.argv[1:] == ["providers"]
+        else BrokerStartupCheck()
+    )
+    try:
+        asyncio.run(scenario.run())
+    except Exception as error:
+        # Keep native login diagnostics private. Emit only exception type and
+        # stack locations, without messages, values or local variables.
+        import json
+        import traceback
+
+        print(
+            "BROKER_CHECK_FAILURE="
+            + json.dumps(
+                {
+                    "type": type(error).__name__,
+                    "stack": [
+                        [Path(frame.filename).name, frame.name, frame.lineno]
+                        for frame in traceback.extract_tb(error.__traceback__)
+                    ],
+                }
+            ),
+            file=sys.stderr,
+        )
+        sys.exit(1)

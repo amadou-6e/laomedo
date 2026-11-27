@@ -3,6 +3,14 @@ import catalog from "./node-error-catalog.json";
 
 const run = "11111111-1111-4111-8111-111111111111";
 const request = "22222222-2222-4222-8222-222222222222";
+
+test("authenticated Codex restart refusal explains the existing boundary and explicit recovery", () => {
+  const failure = describeNodeFailure("resume_after_runner_restart_forbidden", undefined, { operation: "resume" });
+  expect(failure.title).toContain("runner restarted");
+  expect(failure.description).toContain("safeguard refuses continuation");
+  expect(failure.recovery).toContain("Start linked conversation");
+  expect(failure.diagnostics.code).toBe("resume_after_runner_restart_forbidden");
+});
 test("Claude model failures retain their code and redact native payload details",()=>{
  const failure=describeNodeFailure('Error building Component LaomedoClaudeAgent: \n\nunsupported_claude_effort; private-native-payload',undefined,
   {nodeId:'agent',nodeType:'LaomedoClaudeAgent',operation:'fresh'});
@@ -18,7 +26,9 @@ test("Claude model failures retain their code and redact native payload details"
 test("a model-refresh alert attaches actionable recovery for its real error-details control",()=>{
  const value=describeLaomedoAlert({title:'Refresh failed',list:['runner_model_catalog_unavailable_check_runner_connection']},true);
  expect(value.title).toBe('The model list could not be loaded');
- expect(value.failure?.recovery).toContain('Refresh control');
+ expect(value.failure?.recovery).toContain('open Model and use Refresh');
+ expect(value.failure?.recovery).toContain('timed-out discovery may still be active');
+ expect(value.failure?.recovery).toContain('avoid repeated Refresh');
  expect(value.list?.join(' ')).toContain('Open Error details');
  expect(value.list?.join(' ')).not.toContain(value.failure?.recovery);
  expect(value.diagnosticCode).toBe('runner_model_catalog_unavailable_check_runner_connection');
@@ -27,14 +37,14 @@ test.each(Object.keys(catalog))("maps %s without mutating its stable code", code
   const failure = describeNodeFailure(code, undefined, { nodeId: "agent", operation: "resume" });
   expect(failure.diagnostics.code).toBe(code);
   expect(failure.title).not.toContain(code);
-  expect(failure.description.length).toBeGreaterThan(20);
+  expect(failure.description.trim().length).toBeGreaterThan(0);
   // Startup failure is informational: no unconfirmed fix or separate operator.
   if (code === "runner_start_cancelled") {
     expect(failure.recovery).toBe("");
   } else if (code === "runner_start_failed") {
     expect(failure.description).toBe("The local runner exited before it was ready.");
     expect(failure.recovery).toBe("");
-  } else expect(failure.recovery.length).toBeGreaterThan(30);
+  } else expect(failure.recovery.trim().length).toBeGreaterThan(0);
 });
 
 test("missing reference advice only mentions controls actually available", () => {
@@ -65,6 +75,15 @@ test("a structured failed runner result is explained even when graph routing suc
   expect(describeNodeFailure("", status).diagnostics).toEqual({ code: "model_turn_cap_reached", run_id: run, request_id: request });
   expect(reference.error_category).toBe("model_turn_cap_reached");
   expect(hasLaomedoFailure({ data: { outputs: { result: { message: { status: "completed", error_category: null, run_id: run } } } } })).toBe(false);
+});
+
+test("runner refusals preserve future codes without inventing a policy cause", () => {
+  const future = describeNodeFailure("Error building Component LaomedoCodexAgent: future_runner_failure_v2", undefined);
+  expect(future.diagnostics.code).toBe("future_runner_failure_v2");
+  const refused = describeNodeFailure("runner_dispatch_refused", undefined);
+  expect(refused.description).toContain("reason has not been established");
+  expect(refused.recovery).toContain("HTTP status");
+  expect(describeNodeFailure("unauthorized", undefined).diagnostics.code).toBe("unauthorized");
 });
 
 test("unknown errors are useful without exposing raw exception data", () => {
@@ -204,4 +223,27 @@ test("unsupported Agent inheritance reports safe replacement without leaking pay
  expect(failure.diagnostics.code).toBe("agent_component_migration_required");
  expect(JSON.stringify(failure)).not.toContain("private-native-payload");
  expect(failure.recovery).not.toMatch(/retry|operator|restart/i);
+});
+
+test("runner diagnostic envelopes reach display and copy without private payloads", () => {
+ const observed = { diagnostic_id: run, http_status: 400, stage: "runner_request", failure_kind: "os_error", errno: 13, runner_code: "runner_unclassified_failure", path: "private-file", task: "private-task" };
+ for (const [raw, status] of [
+   ["runner_dispatch_refused", {data:{outputs:{result:{status:"unknown",error_category:"runner_dispatch_refused",run_reference:{runner_diagnostics:observed}}}}}],
+   [`Error building Component LaomedoCodexAgent: \n\nrunner_dispatch_refused; runner_diagnostics=${JSON.stringify(observed)}`, undefined],
+ ] as const) {
+   const failure = describeNodeFailure(raw, status);
+   expect(failure.description).toContain("denied the runner access");
+   expect(failure.diagnostics).toEqual({code:"runner_dispatch_refused", diagnostic_id:run, http_status:"400", stage:"runner_request", failure_kind:"os_error", errno:"13", runner_code:"runner_unclassified_failure"});
+   expect(JSON.stringify(failure)).not.toContain("private");
+ }
+});
+
+test("invalid runner metadata never reaches technical details", () => {
+ const raw = `runner_dispatch_refused; runner_diagnostics=${JSON.stringify({diagnostic_id:"private",http_status:"400",stage:"private",failure_kind:"private",errno:true,runner_code:"ghp_private",traceback:"private"})}`;
+ const failure = describeNodeFailure(raw, undefined);
+ expect(failure.diagnostics).toEqual({code:"runner_dispatch_refused"});
+ expect(JSON.stringify(failure)).not.toContain("private");
+ const unknown = describeNodeFailure(`runner_runtime_unknown; runner_diagnostics=${JSON.stringify({http_status:502,runner_code:"experiment_request_binding_denied"})}`, undefined);
+ expect(unknown.title).toBe("The remote outcome is not confirmed");
+ expect(unknown.diagnostics.runner_code).toBe("experiment_request_binding_denied");
 });

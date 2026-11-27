@@ -12,6 +12,13 @@ domain records or authority. `GitHubIssue` remains canonical under the domain ow
 | `Settings` in `settings.py` | Existing Pydantic constructor and settings_customise_sources | Only explicit arguments and environment, at point of use; same aliases/defaults/missing and empty values; no credential content, dotenv or secret-store discovery |
 | `main` in `cli.py` | Existing flags; explicit trusted startup composition | Starts the listener with host-supplied services/credentials; `--help` must work at the new module command |
 
+`--public-read-only` composes only the anonymous public transport. Requests with
+`public_only: true` are accepted only by that exact service configuration; the
+public service refuses write operations before they reach the gateway. The
+local-profile launcher can point its Issue node at that loopback service using
+`-PublicIssuePort`; the service bearer remains in the runtime's private
+`public-issue/api-token` file, never in a graph.
+
 Request body cap stays 1 MiB; endpoints, response encoding/status, redirect
 refusal and error catalogue/client projection stay exact. A response failure after
 possible dispatch never means a write is safe to resend. Domain manual admission

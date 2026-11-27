@@ -8,6 +8,11 @@ checks the authenticated identity before restoring the cookie session in a fresh
 document. This discards old query/mutation/store callbacks on profile entry. It does
 not store PINs, mint tokens or introduce another authentication protocol.
 
+The pinned upstream auth-guard adapter preserves the full same-site path, query
+and fragment in its encoded login return URL. Revalidating a cookie on reload
+must not drop the assistant conversation identity or other route parameters.
+SessionRedirect tests exercise the actual patched guard, not a separate helper.
+
 Failures use the shared catalogue; profile forms show plain explanations without technical diagnostics. Unknown save outcomes
 require checking the list; they never automatically retry creation. A forgotten
 PIN blocks that profile; the first release has no PIN recovery or deletion.
@@ -38,9 +43,12 @@ the picker preserves the exact stored name. The sign-out notice offers an
 accessible Close control during waiting and failure; closing dismisses the
 notice only and never claims to cancel a request or confirm sign-out.
 
-Picker rows include decorative initials avatars beside left-aligned profile names. ProfileEntry clears local validation feedback when its fields change and clears previous-screen errors on picker navigation. Shared catalogue copy uses plain entry guidance; uncertain save and sign-out outcomes retain their recovery paths.
-
-Picker rows use fixed initials avatars, left-aligned names and chevrons; a divider separates the secondary Create profile action. Field-specific catalogue errors use aria-invalid/aria-describedby. Authentication and uncertain-outcome recovery are unchanged.
+Picker rows use decorative initials avatars, left-aligned names and chevrons;
+a divider separates the secondary Create profile action. Field-specific catalogue
+errors use aria-invalid/aria-describedby. ProfileEntry clears local validation
+feedback when fields change and previous-screen errors on picker navigation.
+Shared catalogue copy uses plain entry guidance; authentication and uncertain
+save/sign-out recovery paths remain unchanged.
 
 The PIN-entry screen uses Log in and a heading-level back arrow labelled Back to profiles; the existing back handler clears PINs and pending requests still disable navigation.
 

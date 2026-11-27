@@ -14,9 +14,12 @@ Langflow 1.12.3, matching `langflow-base`/`lfx` 1.12.3 and the matching built
 Laomedo frontend. Keep the existing Langflow state directory to preserve saved
 graphs and signing keys. Use a registry and runner state outside Git.
 
-Docker must be available, the [Codex image](../../../../docker/codex/README.md)
-must have passed its normal pin/version checks, and the dedicated Codex login
-volume must already be configured. Do not infer a valid login from a volume name.
+Docker must be available and the dedicated Codex login volume must already be
+configured. Do not infer a valid login from a volume name. Normal runner startup
+acquires the [registered Codex ACP image](../../../../docker/codex-acp/README.md):
+when its tag is missing, the shared Docker runtime builds the checked-in recipe,
+verifies it and records its immutable identity before execution. See
+[image acquisition](../../../../docker/README.md) for existing-tag mismatch policy.
 Start the existing independent supervisor in its own terminal:
 
 ```powershell
@@ -41,9 +44,11 @@ Create a private host file `C:/LocalRuntime/laomedo/runner-service.json`:
 }
 ```
 
-If using an explicitly reviewed local rebuild, add `image_id` with its full
-`sha256:` identity. Omitting it retains the normal historical image pin.
-Neither graph fields nor browser requests can choose this identity.
+For an explicitly reviewed local rebuild of the registered ACP recipe, add
+`image_id` with its full `sha256:` identity. The selected local tag must resolve
+to that exact ID; a missing or mismatched explicit pin fails without a build.
+Omitting `image_id` uses normal registered-image acquisition. Neither graph
+fields nor browser requests can choose this identity.
 
 From the prepared app environment, run one command (replace installation paths):
 

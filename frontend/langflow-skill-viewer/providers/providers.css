@@ -1,0 +1,70 @@
+/* Provider-only choices; panels and navigation use the GitHub Settings stylesheet. */
+.pc-list-screen { display: grid; gap: 16px; }
+.pc-sign-in-result { min-height: 220px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; text-align: center; }
+.pc-handoff-surface { min-height: 340px; padding: 48px 32px 32px; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 16px; text-align: center; animation: pc-handoff-appear .2s ease-out; }
+.pc-handoff-surface .pc-sign-in-result { min-height: 0; justify-content: flex-start; }
+.pc-handoff-surface h2, .pc-handoff-surface p { margin: 0; }
+.pc-handoff-surface > button { width: fit-content; }
+@keyframes pc-handoff-appear { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: translateY(0); } }
+.pc-handoff-logo { width: 56px; height: 56px; fill: currentColor; animation: pc-handoff-bob 1.5s ease-in-out infinite; }
+.pc-handoff-logo.pc-handoff-settled { animation: none; }
+.pc-sign-in-result h2, .pc-sign-in-result p { margin: 0; }
+@keyframes pc-handoff-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+@media (prefers-reduced-motion: reduce) { .pc-handoff-logo, .pc-handoff-surface { animation: none; } }
+.pc-types { display: grid; gap: 16px; }
+.pc-choice { display: flex; align-items: center; justify-content: space-between; gap: 16px; border: 1px solid hsl(var(--border)); border-radius: 8px; padding: 16px; text-align: left; }
+.pc-choice[aria-pressed=true] { background: hsl(var(--muted)); border-color: hsl(var(--foreground)); }
+.pc-choice small { font-size: 13px; color: hsl(var(--muted-foreground)); }
+.pc-choice:disabled { opacity: .55; cursor: not-allowed; }
+
+.pc-connection-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.pc-connection-actions > button { flex: none; width: auto; }
+
+.pc-settings-panel { flex: 1; min-height: 0; overflow: auto; padding: 24px 32px; display: flex; flex-direction: column; gap: 32px; }
+.pc-settings-section { width: 100%; max-width: 840px; display: grid; gap: 16px; }
+.pc-section-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding-bottom: 12px; border-bottom: 1px solid hsl(var(--border)); }
+.pc-section-heading h2, .pc-subscription-empty h2 { margin: 0; font-size: 20px; line-height: 1.5; font-weight: 500; }
+.pc-card-description { margin: 0; font-size: 14px; line-height: 1.6; color: hsl(var(--muted-foreground)); }
+.pc-manage-account { display: inline-flex; align-items: center; justify-content: center; min-height: 32px; padding: 0 12px; border: 1px solid hsl(var(--border)); border-radius: 6px; font-size: 13px; white-space: nowrap; width: fit-content; }
+.pc-manage-account:hover { background: hsl(var(--muted)); }
+.pc-manage-account:focus-visible, .pc-account-select:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 2px; }
+.pc-account-field { max-width: 420px; }
+.pc-account-select { width: 100%; min-height: 36px; padding: 6px 12px; border: 1px solid hsl(var(--border)); border-radius: 6px; background: hsl(var(--background)); color: hsl(var(--foreground)); font-size: 14px; }
+.pc-account-select:disabled { opacity: .55; }
+.pc-account-notice { margin: 0; font-size: 13px; line-height: 1.6; color: hsl(var(--muted-foreground)); }
+.pc-save-row { display: flex; }
+.pc-availability { font-size: 12px; color: hsl(var(--muted-foreground)); white-space: nowrap; }
+.pc-subscription-list { margin: 0; padding: 0; list-style: none; border: 1px solid hsl(var(--border)); border-radius: 6px; }
+.pc-subscription-list:empty { display: none; }
+.pc-subscription-list li { padding: 16px; display: grid; gap: 8px; }
+.pc-subscription-list li + li { border-top: 1px solid hsl(var(--border)); }
+.pc-subscription-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.pc-subscription-account { font-size: 14px; font-weight: 600; overflow-wrap: anywhere; }
+.pc-subscription-list p { margin: 0; font-size: 13px; line-height: 1.6; color: hsl(var(--muted-foreground)); }
+.pc-subscription-empty { flex: 1; max-width: none; min-height: 280px; padding: 40px 0; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; gap: 12px; }
+.pc-subscription-empty h2 { margin: 0; font-size: 18px; font-weight: 600; border: 0; padding: 0; }
+.pc-subscription-empty > p { max-width: 400px; }
+@media (max-width: 640px) { .pc-settings-panel { padding: 20px 16px; } }
+
+.pc-empty-art { position: relative; flex: none; display: flex; align-items: center; justify-content: center; width: 120px; height: 120px; margin-bottom: 20px; opacity: .18; filter: grayscale(1); pointer-events: none; }
+.pc-empty-art .pc-empty-logo { width: 80px; height: 80px; }
+.pc-empty-wordmark { font: 600 28px monospace; color: hsl(var(--foreground)); }
+
+.pc-opencode-logo { width: 64px; height: 80px; object-fit: contain; }
+.pc-opencode-dark { display: none; }
+.dark .pc-opencode-light { display: none; }
+.dark .pc-opencode-dark { display: block; }
+.pc-sleep-letters { position: absolute; inset: 0; font-family: ui-monospace, monospace; font-weight: 600; color: hsl(var(--foreground)); }
+.pc-sleep-letters span { position: absolute; }
+.pc-sleep-letters span:nth-child(1) { left: 84px; top: 22px; font-size: 12px; }
+.pc-sleep-letters span:nth-child(2) { left: 100px; top: 5px; font-size: 16px; }
+.pc-sleep-letters span:nth-child(3) { left: 120px; top: -15px; font-size: 20px; }
+
+.pc-account-logo { width: 20px; height: 25px; object-fit: contain; }
+
+.pc-codex-logo { width: 32px; height: 32px; object-fit: contain; filter: invert(1); }
+.dark .pc-codex-logo { filter: none; }
+.pc-choice-logo { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; }
+.pc-choice { display: grid; grid-template-columns: 32px 100px; align-items: center; justify-content: center; gap: 12px; }
+.github-connections .gc-focus > button,
+.github-connections .gc-focus > a:not(.gc-link) { width: fit-content; justify-self: start; }

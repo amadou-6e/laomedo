@@ -49,6 +49,81 @@ class IssueHTTPTests(unittest.TestCase):
         self.assertEqual(len(data["issues"]), 3)
         self.assertNotIn("DUMMY-PROVIDER", json.dumps(data))
 
+    def test_public_only_request_refuses_a_credentialed_service(self):
+        import threading
+        from urllib import request, error
+        from laomedo.github.interface.issues.server import IssueServer
+
+        token = "x" * 40
+        service = IssueServer(self.case.gateway, token, port=0)
+        threading.Thread(target=service.serve_forever, daemon=True).start()
+        self.addCleanup(service.server_close)
+        self.addCleanup(service.shutdown)
+        body = {
+            "repository_url": self.case.url,
+            "labels": [],
+            "state": "open",
+            "public_only": True,
+        }
+        call = request.Request(
+            f"http://127.0.0.1:{service.server_address[1]}/v1/github-issues/discover",
+            data=json.dumps(body).encode(),
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": "Bearer " + token,
+            },
+        )
+        with self.assertRaises(error.HTTPError) as refused:
+            request.urlopen(call)
+        self.assertEqual(refused.exception.code, 400)
+        refused.exception.close()
+        with self.assertRaises(ValueError):
+            IssueServer(self.case.gateway, token, port=0, public_only=True)
+
+    def test_public_service_admits_reads_and_rejects_writes_before_gateway(self):
+        import threading
+        from types import SimpleNamespace
+        from unittest.mock import Mock
+        from urllib import request, error
+        from laomedo.github.interface.issues.server import IssueServer
+        from laomedo.github.transport.rest.public import PublicGitHubIssueTransport
+
+        token = "x" * 40
+        gateway = SimpleNamespace(
+            transports={"owner/repo": PublicGitHubIssueTransport("owner/repo")},
+            discover=Mock(return_value={"issues": [], "labels": []}),
+            execute=Mock(),
+        )
+        service = IssueServer(gateway, token, port=0, public_only=True)
+        threading.Thread(target=service.serve_forever, daemon=True).start()
+        self.addCleanup(service.server_close)
+        self.addCleanup(service.shutdown)
+        base = f"http://127.0.0.1:{service.server_address[1]}/v1/github-issues/"
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + token,
+        }
+        read = {
+            "repository_url": "https://github.com/owner/repo",
+            "labels": [],
+            "state": "open",
+            "public_only": True,
+        }
+        with request.urlopen(
+            request.Request(
+                base + "discover", data=json.dumps(read).encode(), headers=headers
+            )
+        ) as response:
+            self.assertEqual(json.load(response), {"issues": [], "labels": []})
+        write = {**read, "issue_number": 1, "operation": {"action": "close"}}
+        with self.assertRaises(error.HTTPError):
+            request.urlopen(
+                request.Request(
+                    base + "execute", data=json.dumps(write).encode(), headers=headers
+                )
+            )
+        gateway.execute.assert_not_called()
+
     def test_client_uncertain_delivery_and_bad_responses_are_not_rejections(self):
         import io
         from unittest.mock import patch

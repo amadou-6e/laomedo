@@ -1,0 +1,2 @@
+include setup.py
+recursive-include docker Dockerfile *.json *.py *.patch *.ts

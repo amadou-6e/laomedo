@@ -7,13 +7,32 @@ param(
     [Parameter(Mandatory=$true)][string]$FrontendPath,
     [Parameter(Mandatory=$true)][string]$RuntimeRoot,
     [ValidateRange(1024,65535)][int]$Port = 17866,
-    [switch]$PrivateConnections
+    [ValidateRange(0,65535)][int]$PublicIssuePort = 0,
+    [string]$ProviderSourceWorkspace,
+    [string]$LangflowSourceRoot,
+    [switch]$PrivateConnections,
+    [switch]$IsolatedProviderGraphs,
+    [string]$GraphWorkerImage
 )
 $ErrorActionPreference = 'Stop'
 if ([Environment]::OSVersion.Platform -ne 'Win32NT') { throw 'This setup supports native Windows only.' }
 $repoRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $pythonPath = (Resolve-Path -LiteralPath $PythonExe).Path
 $frontend = (Resolve-Path -LiteralPath $FrontendPath).Path
+$providerSource = if ($ProviderSourceWorkspace) { (Resolve-Path -LiteralPath $ProviderSourceWorkspace).Path } else { $null }
+if ($GraphWorkerImage -and -not $IsolatedProviderGraphs) { throw 'GraphWorkerImage requires IsolatedProviderGraphs.' }
+if ($IsolatedProviderGraphs -and $Mode -ne 'Prepare' -and (-not $GraphWorkerImage -or -not $providerSource)) {
+    throw 'Isolated provider graphs require an immutable worker image and an explicitly selected source workspace.'
+}
+$pythonSources = @((Join-Path $repoRoot 'src'))
+if ($LangflowSourceRoot) {
+    $upstreamRoot = (Resolve-Path -LiteralPath $LangflowSourceRoot).Path
+    foreach ($modulePath in @('src/backend/base/langflow/__init__.py', 'src/lfx/src/lfx/__init__.py')) {
+        if (-not (Test-Path -LiteralPath (Join-Path $upstreamRoot $modulePath) -PathType Leaf)) { throw 'Pinned Langflow source checkout is incomplete.' }
+    }
+    $pythonSources += (Join-Path $upstreamRoot 'src/backend/base')
+    $pythonSources += (Join-Path $upstreamRoot 'src/lfx/src')
+}
 if (-not (Test-Path -LiteralPath (Join-Path $frontend 'index.html') -PathType Leaf)) {
     throw 'Frontend build is missing index.html. Build the matching frontend first.'
 }
@@ -90,7 +109,24 @@ $config = @{
     LANGFLOW_CORS_ALLOW_CREDENTIALS='true'
     LAOMEDO_LOCAL_PROFILE_PORT=[string]$Port
     LAOMEDO_LOCAL_PROFILE_RUNTIME=$runtime
-    PYTHONPATH=(Join-Path $repoRoot 'src')
+    LAOMEDO_ASSISTANT_APP_URL=("http://127.0.0.1:" + $Port)
+    LAOMEDO_ASSISTANT_STATE_ROOT=(Join-Path $runtime "assistant")
+    LAOMEDO_PROVIDER_SOURCE_WORKSPACE=$providerSource
+    LAOMEDO_ISOLATED_PROVIDER_GRAPHS=$(if ($IsolatedProviderGraphs) { '1' } else { '0' })
+    LAOMEDO_ISOLATED_GRAPH_WORKER_IMAGE=$GraphWorkerImage
+    PYTHONPATH=($pythonSources -join [IO.Path]::PathSeparator)
+}
+if ($PublicIssuePort -ne 0) {
+    if ($PublicIssuePort -lt 1024 -or $PublicIssuePort -eq $Port) { throw 'Public Issue service port is invalid.' }
+    $issueToken = Join-Path $runtime 'public-issue/api-token'
+    if (-not (Test-Path -LiteralPath $issueToken -PathType Leaf)) { throw 'Public Issue service token file is missing.' }
+    foreach ($path in @((Join-Path $runtime 'public-issue'), $issueToken)) {
+        if ((Get-Item -LiteralPath $path -Force).Attributes -band [IO.FileAttributes]::ReparsePoint) {
+            throw 'Public Issue service state must not be linked.'
+        }
+    }
+    $config['LAOMEDO_GITHUB_ISSUE_URL'] = "http://127.0.0.1:$PublicIssuePort"
+    $config['LAOMEDO_GITHUB_ISSUE_TOKEN_FILE'] = $issueToken
 }
 $originalLocation = Get-Location
 try {
@@ -99,6 +135,33 @@ try {
     }
     # Avoid loading an unrelated checkout's .env through upstream startup.
     Set-Location -LiteralPath $runtime
+    if ($Mode -eq 'Serve') {
+        # The launcher starts an independent sibling supervisor, never a child
+        # of the runner. Restarting the UI cannot remove cleanup supervision.
+        $providerLeaseRoot = Join-Path $runtime 'provider-leases'
+        $providerLeaseInfo = Join-Path $providerLeaseRoot 'service.json'
+        $startProviderLease = $true
+        if (Test-Path -LiteralPath $providerLeaseInfo) {
+            $providerLease = Get-Content -LiteralPath $providerLeaseInfo -Raw | ConvertFrom-Json
+            if ($providerLease.pid -and (Get-Process -Id $providerLease.pid -ErrorAction SilentlyContinue)) {
+                $startProviderLease = $false
+            }
+        }
+        if ($startProviderLease) {
+            $leaseBootstrap = @'
+import os, subprocess, sys
+from pathlib import Path
+from laomedo.host.leases.utils import _detached_process_options
+root = Path(sys.argv[1])
+root.mkdir(parents=True, exist_ok=True)
+allowed = {'PATH', 'SYSTEMROOT', 'WINDIR', 'TEMP', 'TMP', 'USERPROFILE', 'LOCALAPPDATA', 'APPDATA', 'PYTHONPATH', 'DOCKER_HOST', 'DOCKER_CONTEXT', 'DOCKER_CONFIG'}
+environment = {name: value for name, value in os.environ.items() if name.upper() in allowed}
+subprocess.Popen([sys.executable, '-m', 'laomedo.host.leases.service_cli', 'serve', '--state', str(root)], env=environment, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, **_detached_process_options())
+'@
+            $leaseBootstrap | & $pythonPath - $providerLeaseRoot
+            if ($LASTEXITCODE -ne 0) { throw 'Independent provider cleanup service could not start.' }
+        }
+    }
         $bootstrap = @"
 import os
 from langflow.services.deps import get_settings_service
@@ -108,6 +171,10 @@ if settings.AUTO_LOGIN or settings.skip_auth_auto_login or settings.ENABLE_SIGNU
 from laomedo.integrations.langflow.local_profiles.admission import ProfileRuntimeAdmission
 from laomedo.integrations.langflow.local_profiles.settings import LocalProfileSettings
 ProfileRuntimeAdmission(LocalProfileSettings().runtime_root).verify_settings(get_settings_service())
+if os.environ['LAOMEDO_ISOLATED_PROVIDER_GRAPHS'] == '1':
+    from pathlib import Path
+    from laomedo.integrations.langflow.execution.worker.settings import GraphWorkerSettings
+    GraphWorkerSettings(image_id=os.environ['LAOMEDO_ISOLATED_GRAPH_WORKER_IMAGE'], lease_state=Path(os.environ['LAOMEDO_LOCAL_PROFILE_RUNTIME']) / 'provider-leases')
 print('Effective settings: local profiles require PIN login; generic signup disabled.', flush=True)
 "@
         if ($Mode -eq 'Serve') {
@@ -119,8 +186,23 @@ import uvicorn
 laomedo.__path__.append(os.environ['LAOMEDO_COMPONENT_DIR'])
 from laomedo.integrations.langflow.local_profiles.settings import LocalProfileSettings
 from laomedo.integrations.langflow.local_profiles.runtime import LocalProfileRuntime
-from laomedo.integrations.langflow.viewer import create_app
-app = create_app(profile_runtime=LocalProfileRuntime(LocalProfileSettings().runtime_root), private_connections=$privateEnabled)
+profile_settings = LocalProfileSettings()
+profile = LocalProfileRuntime(profile_settings.runtime_root, provider_source=profile_settings.provider_source)
+if os.environ['LAOMEDO_ISOLATED_PROVIDER_GRAPHS'] == '1':
+    from pathlib import Path
+    from laomedo.integrations.langflow.authentication.provider import ProviderBrokerRuntime
+    from laomedo.integrations.langflow.authentication.settings import PrivateBrowserSettings
+    from laomedo.integrations.langflow.execution.providers.settings import ProviderAppSettings
+    from laomedo.integrations.langflow.execution.worker.settings import GraphWorkerSettings
+    origin = 'http://127.0.0.1:' + os.environ['LAOMEDO_LOCAL_PROFILE_PORT']
+    app = ProviderBrokerRuntime(
+        profile,
+        PrivateBrowserSettings(origin=origin, runtime_root=profile_settings.runtime_root / 'private-github', public_roots=(Path(os.environ['LANGFLOW_FRONTEND_PATH']), Path(os.environ['LANGFLOW_COMPONENTS_PATH']), profile_settings.runtime_root / 'registry')),
+        ProviderAppSettings(components=Path(os.environ['LANGFLOW_COMPONENTS_PATH']), frontend=Path(os.environ['LANGFLOW_FRONTEND_PATH']), worker=GraphWorkerSettings(image_id=os.environ['LAOMEDO_ISOLATED_GRAPH_WORKER_IMAGE'], lease_state=profile_settings.runtime_root / 'provider-leases')),
+    ).create_app()
+else:
+    from laomedo.integrations.langflow.viewer import create_app
+    app = create_app(profile_runtime=profile, private_connections=$privateEnabled)
 uvicorn.run(app, host='127.0.0.1', port=int(os.environ['LAOMEDO_LOCAL_PROFILE_PORT']), access_log=False, workers=1)
 "@
         }
