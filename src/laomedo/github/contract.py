@@ -9,6 +9,14 @@ import hashlib
 import json
 import re
 
+# Langflow template field names shared by the Issue and PR nodes. Graph admission
+# reads these fields from the effective graph; the components declare them.
+REPOSITORY_URL_FIELD = "repository_url"
+# Saved-account selector. The components do not declare it yet (#286); until they
+# do, admission refuses Issue/PR nodes without it rather than defaulting to host.
+GITHUB_CONNECTION_FIELD = "github_connection"
+HOST_CONNECTION = "host"
+
 
 def validate_repository(repository: str) -> tuple[str, str]:
     """Admit owner/name without case normalization; retain its argument error."""

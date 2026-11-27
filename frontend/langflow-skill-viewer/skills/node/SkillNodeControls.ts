@@ -12,7 +12,7 @@ export function isSkillNode(data: any): boolean {
 }
 
 export function isSkillControlHidden(data: any, name: string): boolean {
-  return isSkillNode(data) && ["edit_request", "discovery_status"].includes(name);
+  return isSkillNode(data) && ["edit_request", "discovery_status", "github_connection", "private_repository_id"].includes(name);
 }
 
 export const SKILL_SOURCE_ERROR_CODE = "source_discovery_failed";

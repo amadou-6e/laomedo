@@ -22,3 +22,13 @@ the declared dependency inventory and its refusal behavior are not reorganized.
 `assert_secrets_excluded(testcase, model, secrets)` in `model_assertions.py` checks ordinary repr, string, dump and JSON forms. Callers supply only test secrets; expected domain payloads remain independent in their owning tests.
 
 `agent_access_violations(source, roots, members)` in `interface_contracts.py` checks declared Agent receivers and their direct assignment aliases for private or undeclared member access, including literal `getattr`. This bounded AST guard does not infer arbitrary runtime types or dynamic calls. Provider-composition imports are separately checked outside provider owners.
+
+## Native broker startup fixture
+
+`broker_startup.py` owns `BrokerStartupCheck.run`, used by the authentication
+startup regression test in a separate Python process. It exercises the real
+native database/authentication/lease services with one synthetic profile in a
+temporary runtime, without a network listener, GitHub requests, Agent calls or
+reusable credentials. Child state and captured auth diagnostics are never
+published or included in test assertion output. This is not acceptance evidence
+for OS isolation, the browser proxy or saved-account graph execution.

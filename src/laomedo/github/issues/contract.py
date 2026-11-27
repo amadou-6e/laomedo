@@ -3,6 +3,10 @@
 from laomedo.github.contract import labels_value
 from laomedo.github.issues.models import GitHubIssue
 
+# Langflow template field names of the Issue node, read by graph admission.
+ISSUE_CHOICE_FIELD = "issue_choice"
+ISSUE_OPERATION_FIELD = "operation"
+
 
 def issue_value(raw, repository, number):
     if (
@@ -86,6 +90,8 @@ ERROR_CODES = frozenset(
         "issue_reference_mismatch",
         "issue_service_not_configured",
         "github_issue_unavailable",
+        "github_node_authorization_unavailable",
+        "github_graph_runtime_unavailable",
         "issue_write_unknown",
         "invalid_request",
         "unauthorized",
@@ -100,6 +106,7 @@ ERROR_CODES = frozenset(
 # These errors establish refusal before a mutation, not transport delivery failure.
 PRE_DISPATCH_ERRORS = frozenset(
     {
+        "github_node_authorization_unavailable",
         "repository_url_invalid",
         "repository_connection_unavailable",
         "labels_invalid",

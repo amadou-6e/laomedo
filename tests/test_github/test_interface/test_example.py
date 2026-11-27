@@ -22,6 +22,31 @@ class GitHubExampleTests(unittest.TestCase):
             for kind in ("issue", "pr"):
                 with self.subTest(kind=kind):
                     target = Path(directory) / f"{kind}.json"
+                    allowed = {
+                        "PATH",
+                        "SYSTEMROOT",
+                        "WINDIR",
+                        "TEMP",
+                        "TMP",
+                        "USERPROFILE",
+                        "APPDATA",
+                        "LOCALAPPDATA",
+                        "PYTHONPATH",
+                    }
+                    environment = {
+                        key: value
+                        for key, value in os.environ.items()
+                        if key.upper() in allowed
+                    }
+                    environment.update(
+                        {
+                            "LANGFLOW_CONFIG_DIR": directory,
+                            "LFX_CONFIG_DIR": directory,
+                            "LANGFLOW_DATABASE_URL": "sqlite:///"
+                            + (Path(directory) / "fixture.db").as_posix(),
+                            "LANGFLOW_DO_NOT_TRACK": "true",
+                        }
+                    )
                     result = subprocess.run(
                         [
                             sys.executable,
@@ -38,11 +63,7 @@ class GitHubExampleTests(unittest.TestCase):
                             str(target),
                         ],
                         cwd=root,
-                        env={
-                            **os.environ,
-                            "LANGFLOW_CONFIG_DIR": str(Path(directory) / "runtime"),
-                            "LFX_CONFIG_DIR": str(Path(directory) / "runtime"),
-                        },
+                        env=environment,
                         capture_output=True,
                         text=True,
                         timeout=90,

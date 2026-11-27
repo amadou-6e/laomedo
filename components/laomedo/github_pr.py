@@ -21,6 +21,10 @@ from laomedo.integrations.langflow.feedback.pr import exclude_feedback_agent
 from laomedo.github.pull_requests.context import context_value
 from laomedo.github.pull_requests.context import task_text
 from laomedo.github.pull_requests.models import PRContextOperation
+from laomedo.github.contract import REPOSITORY_URL_FIELD
+from laomedo.github.pull_requests.contract import PR_CHOICE_FIELD, PR_CONTEXT_FIELD
+from laomedo.github.node_runs.errors import GitHubNodeAuthorizationError
+from laomedo.integrations.langflow.execution.worker.channel import GraphWorkerChannel
 
 
 class LaomedoGitHubPR(Component):
@@ -30,7 +34,7 @@ class LaomedoGitHubPR(Component):
     name = "LaomedoGitHubPR"
     inputs = [
         StrInput(
-            name="repository_url",
+            name=REPOSITORY_URL_FIELD,
             display_name="Repository URL",
             value="",
             real_time_refresh=True,
@@ -56,7 +60,7 @@ class LaomedoGitHubPR(Component):
             info="Only PRs matching ALL selected labels appear.",
         ),
         DropdownInput(
-            name="pr_choice",
+            name=PR_CHOICE_FIELD,
             display_name="PR",
             value="",
             options=[],
@@ -65,7 +69,7 @@ class LaomedoGitHubPR(Component):
             real_time_refresh=True,
         ),
         DataInput(
-            name="pr_context",
+            name=PR_CONTEXT_FIELD,
             display_name="PR",
             input_types=["Data", "Message"],
             info="Optional PR context: identity and a requested operation. Earlier operation outcomes never replay. With no input, read the picker selection.",
@@ -256,19 +260,27 @@ class LaomedoGitHubPR(Component):
                 number = reference.number
             if number is None:
                 raise ValueError("selected_pr_required")
-            result = pr_request(
-                "execute",
-                repository_url=self.repository_url,
-                labels=self.labels,
-                state=self.state,
-                pr_number=number,
-                operation=operation or None,
-                **(
-                    {"expected": context.content_digest}
-                    if operation and context and context.content_digest is not None
-                    else {}
-                ),
-            )
+            channel = GraphWorkerChannel.for_graph(getattr(self, "graph", None))
+            if channel is not None:
+                if operation or feedback_edge(self) is not None:
+                    raise GitHubNodeAuthorizationError()
+                result = channel.inspect(
+                    self._vertex.id, self.labels, self.state, number
+                )
+            else:
+                result = pr_request(
+                    "execute",
+                    repository_url=self.repository_url,
+                    labels=self.labels,
+                    state=self.state,
+                    pr_number=number,
+                    operation=operation or None,
+                    **(
+                        {"expected": context.content_digest}
+                        if operation and context and context.content_digest is not None
+                        else {}
+                    ),
+                )
         except Exception as error:
             code = str(error) if str(error) in ERROR_CODES else "github_pr_unavailable"
             uncertain = bool(operation) and code not in PRE_DISPATCH_ERRORS

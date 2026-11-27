@@ -199,7 +199,15 @@ def install_routes(app, root: Path, authenticate):
         )
 
 
-def create_app(profile_runtime=None):
+def create_app(profile_runtime=None, private_connections=False):
+    # The native Langflow app can execute graph-supplied Python in this process.
+    # It must not share a process or OS security boundary with the GitHub vault.
+    if private_connections:
+        from laomedo.integrations.langflow.authentication.errors import (
+            PrivateSessionError,
+        )
+
+        raise PrivateSessionError()
     from laomedo.integrations.langflow.local_profiles.routes import profile_mode
     from langflow.main import create_app as upstream_app
     from langflow.main import setup_static_files
