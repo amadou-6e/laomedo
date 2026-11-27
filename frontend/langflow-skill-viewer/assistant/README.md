@@ -355,3 +355,5 @@ Model discovery is a read-only native startup/teardown operation. The HTTP
 boundary allows up to 90 seconds for GET `/models`, including query parameters,
 while other requests retain the 20-second deadline. Caller cancellation still
 aborts immediately; requests and uncertain mutations are never retried.
+
+Composer account, model and Send/Stop controls wrap into separate rows when the chat column is narrow. The account chip stays within its allocated width so it cannot overlap the submit control, including with conversation history open.

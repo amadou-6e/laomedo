@@ -16,12 +16,12 @@ export default function AccountSelection({ accounts, provider, selected, generat
   const current = accounts.find(item => item.connection_id === selected && item.generation === generation);
   const providerName = ({ codex: "Codex", claude: "Claude", opencode: "OpenCode" } as Record<string, string>)[provider] ?? provider;
   const connected = accounts.filter(item => item.lifecycle === "connected");
-  return <div className="relative mr-auto min-w-0 text-xs">
+  return <div className="relative mr-auto min-w-0 max-w-52 text-xs">
     <Popover open={open && !disabled} onOpenChange={setOpen}>
     <PopoverTrigger asChild>
     <button type="button" aria-label="Account" aria-describedby={labelId} aria-expanded={open && !disabled} disabled={disabled}
       title={current?.label ?? `${providerName} account`}
-      className="flex max-w-52 items-center gap-1.5 rounded-md border border-border/50 bg-foreground/5 px-2 py-1 text-muted-foreground hover:bg-foreground/10 focus-visible:outline focus-visible:outline-2 disabled:opacity-70">
+      className="flex max-w-full items-center gap-1.5 rounded-md border border-border/50 bg-foreground/5 px-2 py-1 text-muted-foreground hover:bg-foreground/10 focus-visible:outline focus-visible:outline-2 disabled:opacity-70">
       <ProviderIcon provider={provider} className="h-3.5 w-3.5" />
       <span id={labelId} className="truncate">{current?.label ?? (selected ? "Account unavailable" : loading ? "Loading accounts…" : connected.length ? "Select an account" : "No account available")}</span>
       {!disabled && <ChevronDown size={12} />}
