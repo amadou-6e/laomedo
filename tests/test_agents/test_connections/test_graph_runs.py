@@ -193,6 +193,31 @@ class ProviderGraphRunTests(unittest.TestCase):
                 with self.assertRaises(ProviderConnectionError):
                     self.authority.admit(self.plan.model_copy(update=update))
 
+    def test_expired_started_receipts_do_not_consume_live_capacity_or_disappear(self):
+        with patch(
+            "laomedo.agents.connections.graph_runs.MAX_ACTIVE_PROVIDER_GRAPHS", 1
+        ):
+            capability = self.authority.admit(self.plan)
+            start = self.authority.begin_node(
+                capability, self.plan.graph_digest, "codex"
+            )
+            with patch(
+                "laomedo.agents.connections.graph_runs.time.monotonic",
+                return_value=self.plan.deadline + 1,
+            ):
+                current = self.authority.admit(
+                    self.plan.model_copy(update={"deadline": self.plan.deadline + 60})
+                )
+                self.assertEqual(
+                    self.authority.resolve(current, self.plan.graph_digest, "codex"),
+                    self.plan.nodes[0],
+                )
+            shutdown = self.authority.finish(capability)
+            self.assertEqual(shutdown.starts, (start,))
+            self.assertEqual(self.authority.finish(capability), shutdown)
+            self.authority.settle(capability)
+            self.assertIsNone(self.authority.finish(capability))
+
     def test_concurrent_acknowledgements_cannot_replace_a_source(self):
         capability = self.authority.admit(self.plan)
         start = self.authority.begin_node(capability, self.plan.graph_digest, "codex")

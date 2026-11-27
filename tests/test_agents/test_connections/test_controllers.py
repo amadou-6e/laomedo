@@ -575,6 +575,58 @@ class ProviderControllerTests(unittest.TestCase):
                     )
         self.assertEqual(self.manager.slots, {})
 
+    def test_source_workspace_reservation_does_not_hold_global_account_lock(self):
+        self.records[1] = self.records[1].model_copy(update={"provider": "claude"})
+        self.service._save(self.profile, self.records)
+        capability, digest = self.graph_review_capability()
+        slot = self.manager.graph_native(
+            self.profile, self.manager.graph_runs.resolve(capability, digest, "codex")
+        )
+        reserve = slot.runner.start_async
+        lock_observations = []
+
+        def observe_account_operations():
+            acquired = self.service._lock.acquire(timeout=0.5)
+            lock_observations.append(acquired)
+            if acquired:
+                self.service._lock.release()
+
+        def preparation(body, **kwargs):
+            other = threading.Thread(target=observe_account_operations)
+            other.start()
+            other.join(1)
+            return reserve(body, **kwargs)
+
+        with patch.object(slot.runner, "start_async", side_effect=preparation):
+            self.manager.start_graph_node(
+                capability,
+                digest,
+                "codex",
+                {
+                    "request_id": str(uuid4()),
+                    "task": "fixture",
+                    "model": "m",
+                    "effort": "low",
+                    "skill_refs": [],
+                },
+            )
+        self.assertEqual(lock_observations, [True])
+
+    def test_missing_runner_cleanup_stays_unconfirmed_and_receipt_can_be_retried(self):
+        self.records[1] = self.records[1].model_copy(update={"provider": "claude"})
+        self.service._save(self.profile, self.records)
+        capability, digest = self.graph_review_capability()
+        record = self.graph_source(capability, digest)
+        key = self.profile, self.one, 1, "graph"
+        slot = self.manager.slots.pop(key)
+        with self.assertRaises(ProviderConnectionError) as error:
+            self.manager.finish_graph(capability)
+        self.assertEqual(error.exception.code, "provider_cleanup_unconfirmed")
+        self.manager.slots[key] = slot
+        self.assertEqual(
+            self.manager.finish_graph(capability)[0].run_id, record["run_id"]
+        )
+
     def test_restart_recovers_assistant_scope_without_a_graph_controller(self):
         self.manager.assistant_endpoint(self.profile, self.one, 1)
         self.manager.close()

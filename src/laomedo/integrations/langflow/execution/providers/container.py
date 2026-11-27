@@ -100,6 +100,10 @@ class DockerProviderGraphWorker(DockerGraphWorker):
                     self.dispatcher.controllers.stop_graph, self._shutdown
                 )
             )
+            if all(item.cancel_confirmed for item in self.stops):
+                self.dispatcher.controllers.graph_runs.settle(
+                    self.dispatcher.capability
+                )
 
     async def _request(self, call, cancelled):
         pending = asyncio.create_task(asyncio.to_thread(self.dispatcher.request, call))

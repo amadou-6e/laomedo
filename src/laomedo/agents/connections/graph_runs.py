@@ -28,6 +28,7 @@ class ProviderGraphRuns:
         self._plans = {}
         self._runs = {}
         self._started = {}
+        self._retired = {}
 
     @staticmethod
     def _key(capability):
@@ -43,7 +44,10 @@ class ProviderGraphRuns:
     def _current(self, key, digest):
         """Resolve a live plan while holding the connection lifecycle lock."""
         plan = self._plans.get(key)
-        if plan is None or plan.deadline <= time.monotonic():
+        if plan is not None and plan.deadline <= time.monotonic():
+            self._retire(key)
+            plan = None
+        if plan is None:
             raise ProviderConnectionError("verified_review_unavailable")
         if not isinstance(digest, str) or not secrets.compare_digest(
             plan.graph_digest.encode("utf-8"), digest.encode("utf-8")
@@ -71,10 +75,8 @@ class ProviderGraphRuns:
         with self.service._lock:
             now = time.monotonic()
             for key, previous in tuple(self._plans.items()):
-                if previous.deadline <= now and not self._started[key]:
-                    self._plans.pop(key)
-                    self._runs.pop(key, None)
-                    self._started.pop(key, None)
+                if previous.deadline <= now:
+                    self._retire(key)
             if (
                 not math.isfinite(plan.deadline)
                 or plan.deadline <= now
@@ -227,12 +229,16 @@ class ProviderGraphRuns:
         """Revoke first, returning host receipts for exact native cancellation."""
         with self.service._lock:
             key = self._key(capability)
-            plan = self._plans.pop(key, None)
-            self._runs.pop(key, None)
-            started = self._started.pop(key, {})
-            if plan is None:
-                return None
-            return GraphRunShutdown(
+            self._retire(key)
+            return self._retired.get(key)
+
+    def _retire(self, key):
+        """Separate revoked cleanup receipts from the live admission capacity."""
+        plan = self._plans.pop(key, None)
+        self._runs.pop(key, None)
+        started = self._started.pop(key, {})
+        if plan is not None:
+            self._retired[key] = GraphRunShutdown(
                 profile_id=plan.profile_id,
                 starts=tuple(
                     GraphNodeStart(node=node, request_id=started[node.vertex_id])
@@ -241,9 +247,15 @@ class ProviderGraphRuns:
                 ),
             )
 
+    def settle(self, capability):
+        """Forget only a revoked receipt after its supervisor confirms cleanup."""
+        with self.service._lock:
+            self._retired.pop(self._key(capability), None)
+
     def close(self):
         """Revoke all worker authority during host shutdown, without dispatch."""
         with self.service._lock:
             self._plans.clear()
             self._runs.clear()
             self._started.clear()
+            self._retired.clear()

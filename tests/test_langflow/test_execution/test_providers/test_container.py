@@ -33,6 +33,7 @@ class ProviderSupervisorTests(unittest.IsolatedAsyncioTestCase):
             deadline=time.monotonic() + 60,
         )
         runs = SimpleNamespace(
+            settle=Mock(),
             plan=Mock(return_value=plan),
             finish=Mock(return_value=object()),
             resolve=Mock(),

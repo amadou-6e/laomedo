@@ -696,37 +696,41 @@ class ProviderControllers:
             start = self.graph_runs.begin_node(capability, graph_digest, vertex_id)
             request = node.policy.native_request(body, start.request_id)
             self.admit_operation(slot)
-            gate = threading.Event()
-            record = None
-            try:
-                record = slot.runner.start_async(
-                    request,
-                    response_gate=gate,
-                    dispatch_guard=partial(
-                        self.graph_runs.check_node_dispatch,
-                        capability,
-                        graph_digest,
-                        vertex_id,
-                    ),
-                )
-                self.graph_runs.bind_run(
-                    capability, graph_digest, vertex_id, record["run_id"]
-                )
-                return record
-            except Exception:
-                if record is not None:
-                    slot.runner.cancel(record["run_id"])
-                raise
-            finally:
+        gate = threading.Event()
+        record = None
+        try:
+            record = slot.runner.start_async(
+                request,
+                response_gate=gate,
+                dispatch_guard=partial(
+                    self.graph_runs.check_node_dispatch,
+                    capability,
+                    graph_digest,
+                    vertex_id,
+                ),
+            )
+            self.graph_runs.bind_run(
+                capability, graph_digest, vertex_id, record["run_id"]
+            )
+            return record
+        except Exception:
+            if record is not None:
+                slot.runner.cancel(record["run_id"])
+            raise
+        finally:
+            with self.service._lock:
                 slot.operations -= 1
-                gate.set()
+            gate.set()
 
     def finish_graph(self, capability):
         """Revoke this graph first, then request cancellation of its native work only."""
         shutdown = self.graph_runs.finish(capability)
         if shutdown is None:
             return ()
-        return self.stop_graph(shutdown)
+        observations = self.stop_graph(shutdown)
+        if all(item.cancel_confirmed for item in observations):
+            self.graph_runs.settle(capability)
+        return observations
 
     def stop_graph(self, shutdown):
         """Reconcile retained host receipts after in-flight reservations have drained.
@@ -747,7 +751,7 @@ class ProviderControllers:
                     )
                 )
             if slot is None or slot.runner is None:
-                continue
+                raise ProviderConnectionError("provider_cleanup_unconfirmed")
             try:
                 record = slot.runner.lookup_request(start.request_id)
             except RunnerError as error:
