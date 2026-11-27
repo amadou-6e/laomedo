@@ -28,6 +28,12 @@ class NativeGraphWorker:
         """Optional job-owned progress sink; the shared graph driver stays authoritative."""
         return None
 
+    def _graph_class(self):
+        """Use the installed parser; specializations may observe its existing scheduler."""
+        from lfx.graph import Graph
+
+        return Graph
+
     @staticmethod
     def _check_graph(catalog, job, payload):
         """Normalize the actual native payload and check its approved digest/source."""
@@ -46,11 +52,9 @@ class NativeGraphWorker:
         instantiate using the pinned native warm-graph construction interface.
         No upstream profile identity, broker cookie or credential is installed.
         """
-        from lfx.graph import Graph
-
         catalog = GitHubGraphCatalog(job.catalog)
         effective = self._check_graph(catalog, job, job.graph)
-        graph = Graph.from_payload(
+        graph = self._graph_class().from_payload(
             effective,
             flow_id=str(job.flow_id),
             user_id=str(job.job_id),

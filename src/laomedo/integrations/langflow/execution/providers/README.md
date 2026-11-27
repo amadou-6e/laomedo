@@ -73,6 +73,9 @@ on the existing private job pipe. These events describe the worker's progress;
 they grant no native authority. Host-observed Agent terminal records still decide
 whether a graph completed. The shared native driver owns graph construction and
 accepts an optional event manager, avoiding a second graph execution loop.
+`ProviderProgressGraph` observes the native batch vertex operation because LFX's
+batch runner does not emit the start/end events its sequential runner provides.
+The native scheduler, parser checks and vertex results remain the shared owners.
 
 `container.py` specializes the shared sandbox supervisor hooks and private
 exchange. It validates the actual graph, checks lease/deadline while requests
