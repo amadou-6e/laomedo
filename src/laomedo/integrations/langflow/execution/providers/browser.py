@@ -2,6 +2,7 @@
 
 import asyncio
 from copy import deepcopy
+from functools import partial
 from uuid import UUID, uuid4
 
 from fastapi import Depends, HTTPException, Request
@@ -13,10 +14,14 @@ from lfx.schema.workflow import (
 )
 from lfx.workflow.adapters import StreamAdapterContext, get_stream_adapter
 from starlette.responses import StreamingResponse
+from anyio import CancelScope
 
 from langflow.api.v1.schemas import SimplifiedAPIRequest
 from laomedo.agents.connections.errors import ProviderConnectionError
 from laomedo.integrations.langflow.execution.providers.models import ProviderCanvasJob
+from laomedo.integrations.langflow.execution.providers.settings import (
+    PROVIDER_PROGRESS_QUEUE_SIZE,
+)
 from laomedo.integrations.langflow.execution.worker.errors import GraphWorkerError
 
 
@@ -137,7 +142,7 @@ class ProviderCanvasRoutes:
                 expose_graph_state=payload.expose_graph_state is not False,
             ),
         )
-        return StreamingResponse(
+        return ProviderCanvasResponse(
             self.events(snapshot, action, user, identifier, adapter),
             media_type="text/event-stream",
             headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"},
@@ -152,7 +157,7 @@ class ProviderCanvasRoutes:
 
     async def events(self, snapshot, action, user, identifier, adapter):
         """Stream actual worker observations; a terminal message still needs host completion."""
-        queue = asyncio.Queue(maxsize=64)
+        queue = ProviderCanvasProgress()
         task = asyncio.create_task(
             self.executor.execute(
                 snapshot,
@@ -165,6 +170,7 @@ class ProviderCanvasRoutes:
         self.jobs[identifier] = ProviderCanvasJob(
             owner_id=UUID(str(user.id)), task=task
         )
+        task.add_done_callback(partial(self.settled, identifier))
         try:
             yield self.frames(adapter.initial_events())
             yield self.frames(
@@ -180,6 +186,16 @@ class ProviderCanvasRoutes:
                     yield b": keep-alive\n\n"
                     continue
                 yield self.frames(adapter.translate(event.event, event.data))
+            if queue.dropped:
+                yield self.frames(
+                    adapter.translate(
+                        "warning",
+                        {
+                            "message": "Some progress updates were not captured. Run results are unchanged.",
+                            "dropped_updates": queue.dropped,
+                        },
+                    )
+                )
             if task.cancelled():
                 yield self.frames(adapter.cancel_events("Cancellation requested."))
             elif task.exception() is not None:
@@ -190,8 +206,13 @@ class ProviderCanvasRoutes:
         finally:
             if not task.done():
                 task.cancel()
-            await asyncio.shield(asyncio.gather(task, return_exceptions=True))
-            self.jobs.pop(identifier, None)
+            with CancelScope(shield=True):
+                await asyncio.shield(asyncio.gather(task, return_exceptions=True))
+            self.settled(identifier, task)
+
+    def settled(self, identifier, task):
+        """Remove the receipt independently of response-generator finalization."""
+        self.jobs.pop(identifier, None)
 
     async def stop(self, request: Request, user=Depends(get_current_active_user)):
         """Cancel only this authenticated owner's exact active local canvas task."""
@@ -210,3 +231,28 @@ class ProviderCanvasRoutes:
         """Mount the two explicit trusted adapters before the unknown-API fallback."""
         app.add_api_route("/api/v2/workflows", self.run, methods=["POST"])
         app.add_api_route("/api/v2/workflows/stop", self.stop, methods=["POST"])
+
+
+class ProviderCanvasProgress(asyncio.Queue):
+    """Bounded best-effort observation; client backpressure never stops execution."""
+
+    def __init__(self):
+        super().__init__(maxsize=PROVIDER_PROGRESS_QUEUE_SIZE)
+        self.dropped = 0
+
+    def put_nowait(self, event):
+        try:
+            super().put_nowait(event)
+        except asyncio.QueueFull:
+            self.dropped += 1
+
+
+class ProviderCanvasResponse(StreamingResponse):
+    """Close the execution generator explicitly when the ASGI send disconnects."""
+
+    async def stream_response(self, send):
+        try:
+            await super().stream_response(send)
+        finally:
+            with CancelScope(shield=True):
+                await self.body_iterator.aclose()

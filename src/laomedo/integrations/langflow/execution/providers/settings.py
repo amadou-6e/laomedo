@@ -17,6 +17,8 @@ class ProviderAppSettings(BaseModel):
 
 
 PROVIDER_WORKER_MODULE = "laomedo.integrations.langflow.execution.providers"
+PROVIDER_EVENT_BYTES = 256 * 1024
+PROVIDER_PROGRESS_QUEUE_SIZE = 64
 PROVIDER_STATUS_FIELDS = frozenset(
     {
         "run_id",

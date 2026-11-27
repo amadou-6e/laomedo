@@ -1,6 +1,8 @@
 """Real canvas HTTP/protocol boundary with inert execution; no model acceptance."""
 
 import asyncio
+import socket
+import time
 from types import SimpleNamespace
 import unittest
 from unittest.mock import AsyncMock, Mock
@@ -18,6 +20,9 @@ from laomedo.integrations.langflow.execution.providers.models import (
     ProviderWorkerEvent,
 )
 from lfx.workflow.adapters import StreamAdapterContext, get_stream_adapter
+from laomedo.integrations.langflow.execution.providers.settings import (
+    PROVIDER_PROGRESS_QUEUE_SIZE,
+)
 
 
 class ProviderCanvasTests(unittest.IsolatedAsyncioTestCase):
@@ -152,6 +157,82 @@ class ProviderCanvasTests(unittest.IsolatedAsyncioTestCase):
         await events.aclose()
         self.assertTrue(cleaned.is_set())
         self.assertEqual(self.routes.jobs, {})
+
+    async def test_stalled_observer_drops_progress_without_aborting_execution(self):
+        completed = asyncio.Event()
+
+        async def execute(*args, on_event=None):
+            for _ in range(PROVIDER_PROGRESS_QUEUE_SIZE + 10):
+                on_event(ProviderWorkerEvent(event="build_start", data={"id": "text"}))
+            completed.set()
+            return object()
+
+        self.executor.execute.side_effect = execute
+        identifier = uuid4()
+        adapter = get_stream_adapter(
+            "agui",
+            StreamAdapterContext(run_id=str(identifier), thread_id=str(identifier)),
+        )
+        events = self.routes.events(
+            self.routes.snapshot.return_value, object(), self.owner, identifier, adapter
+        )
+        await anext(events)
+        task = self.routes.jobs[identifier].task
+        await asyncio.wait_for(completed.wait(), 2)
+        await task
+        frames = b"".join([frame async for frame in events]).decode()
+        self.assertIn('"type":"RUN_FINISHED"', frames)
+        self.assertNotIn('"type":"RUN_ERROR"', frames)
+        self.assertIn("dropped_updates", frames)
+        self.assertEqual(self.routes.jobs, {})
+
+    async def test_real_uvicorn_disconnect_releases_task_and_receipt(self):
+        import uvicorn
+
+        entered, cleaned = asyncio.Event(), asyncio.Event()
+
+        async def execute(*args, **kwargs):
+            entered.set()
+            try:
+                await asyncio.Future()
+            finally:
+                await asyncio.sleep(0)
+                cleaned.set()
+
+        self.executor.execute.side_effect = execute
+        listener = socket.socket()
+        listener.bind(("127.0.0.1", 0))
+        listener.listen()
+        self.routes.origin = "http://127.0.0.1:" + str(listener.getsockname()[1])
+        server = uvicorn.Server(
+            uvicorn.Config(self.app, log_config=None, access_log=False, lifespan="off")
+        )
+        serving = asyncio.create_task(server.serve(sockets=[listener]))
+        try:
+            deadline = time.monotonic() + 5
+            while not server.started:
+                self.assertLess(time.monotonic(), deadline)
+                await asyncio.sleep(0.01)
+            async with AsyncClient(
+                base_url=self.routes.origin,
+                trust_env=False,
+                headers={"Origin": self.routes.origin},
+            ) as client:
+                async with client.stream(
+                    "POST", "/api/v2/workflows", json=self.payload()
+                ) as response:
+                    self.assertEqual(response.status_code, 200)
+                    async for line in response.aiter_lines():
+                        if "RUN_STARTED" in line:
+                            break
+                    await asyncio.wait_for(entered.wait(), 2)
+            await asyncio.wait_for(cleaned.wait(), 3)
+            await asyncio.sleep(0)
+            self.assertEqual(self.routes.jobs, {})
+        finally:
+            server.should_exit = True
+            await asyncio.wait_for(serving, 5)
+            listener.close()
 
     def test_component_run_includes_only_the_selected_upstream_subgraph(self):
         graph = {

@@ -2309,6 +2309,11 @@
     "description": "The viewer could not confirm the current pull request content. The cause has not been established.",
     "recovery": "Refresh PR repeats only this read. It does not edit GitHub, run the graph or start an Agent. Check the current selection and local GitHub connection if the read still fails."
   },
+  "profile_cookie_boundary_unavailable": {
+    "title": "The app could not start safely",
+    "description": "Your local sign-in could not be set up. Saved profiles have not been changed.",
+    "recovery": "Restart the app. If the problem continues, ask the operator to check the startup log."
+  },
   "profile_setup_unavailable": {
     "title": "The local profile setup could not be verified",
     "description": "The app refused to start or change profile state because its local configuration or stored identity could not be verified. Your existing data has not been reset.",

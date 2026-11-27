@@ -8,6 +8,9 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from laomedo.integrations.langflow.execution.worker.models import NativeGraphJob
 from laomedo.agents.connections.models import GraphRunPlan
+from laomedo.integrations.langflow.execution.providers.settings import (
+    PROVIDER_EVENT_BYTES,
+)
 
 
 class ProviderNodeRoute(BaseModel):
@@ -53,13 +56,18 @@ class ProviderWorkerEvent(BaseModel):
     """Observational native progress only, never a provider dispatch request."""
 
     model_config = ConfigDict(frozen=True, strict=True, extra="forbid")
-    event: Literal["build_start", "end_vertex"]
-    data: dict = Field(repr=False)
+    event: Literal["build_start", "end_vertex"] = Field(
+        description="Observed native vertex transition."
+    )
+    data: dict = Field(
+        repr=False,
+        description="Bounded worker-reported progress; not native dispatch authority.",
+    )
 
     @model_validator(mode="after")
     def bounded(self):
         """Keep the host's progress queue bounded independently of worker honesty."""
-        if len(self.model_dump_json().encode()) > 256 * 1024:
+        if len(self.model_dump_json().encode()) > PROVIDER_EVENT_BYTES:
             raise ValueError("worker_event_too_large")
         return self
 
@@ -68,8 +76,14 @@ class ProviderCanvasJob(BaseModel):
     """Active HTTP execution receipt; never serialized or reconstructed after restart."""
 
     model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True)
-    owner_id: UUID
-    task: asyncio.Task = Field(exclude=True, repr=False)
+    owner_id: UUID = Field(
+        description="Authenticated owner of this live canvas invocation."
+    )
+    task: asyncio.Task = Field(
+        exclude=True,
+        repr=False,
+        description="Exact local execution task; never transported or replayed.",
+    )
 
 
 class PublicIssueSelection(BaseModel):

@@ -67,6 +67,26 @@ only the same isolated executor. Native AG-UI adapters render job-scoped progres
 native graph builders are never imported as an execution fallback. Disconnect or
 an owner-scoped Stop cancels that exact local task and retains uncertain cleanup.
 Unsupported execution modes and resource overrides refuse before dispatch.
+`ProviderCanvasResponse` explicitly closes its execution iterator when ASGI send
+fails or disconnects. A task completion callback removes the active receipt even
+if the consumer cannot finish. `ProviderCanvasProgress` drops excess observations
+and reports the count; a stalled consumer cannot abort the underlying run.
+
+The canvas API contract is deliberately narrow:
+
+| Route / outcome | Response |
+| --- | --- |
+| `POST /api/v2/workflows` with native `WorkflowRunRequest`, mode `stream`, protocol `agui` | 200 SSE using the installed AG-UI adapter; terminal success requires host execution completion. |
+| `POST /api/v2/workflows/stop` with native `WorkflowStopRequest` | 200 native `WorkflowStopResponse`, cancellation requested; no claim of native settlement. |
+| Missing authentication / wrong origin | Native auth 401/403, or 403 `provider_request_refused`. |
+| Foreign/absent Flow or active Stop receipt | 404 without disclosing the other owner's state. |
+| Body exceeds 16 MiB | 413 `assistant_input_invalid`. |
+| Malformed body / unsupported configuration | 422 `assistant_input_invalid` / `isolated_graph_unsupported`. |
+| Mid-stream execution failure | AG-UI `RUN_ERROR` with fixed public runtime failure; no raw exception text. |
+
+Worker progress and output text are observations, not proof of workspace changes.
+The host's acknowledged native records decide Agent completion; the independently
+verified snapshot-derived patch remains the evidence supplied to the reviewer.
 
 `ProviderWorkerEvents` in `channel.py` forwards only native build-start/end events
 on the existing private job pipe. These events describe the worker's progress;

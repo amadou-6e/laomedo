@@ -145,6 +145,11 @@ class ProviderBrokerStartupCheck(BrokerStartupCheck):
 
         assert app.user_middleware[0].cls is ProfileCookieBoundary
         async with app.router.lifespan_context(app):
+            from laomedo.agents.mcp.registry import McpRegistry
+
+            assert (
+                McpRegistry.current() is app.state.laomedo_mcp
+            ), "authoring tool lifetime unavailable"
             async with AsyncClient(
                 transport=ASGITransport(app=app),
                 base_url=origin,

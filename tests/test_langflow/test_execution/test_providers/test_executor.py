@@ -1,6 +1,7 @@
 """Broker dispatch/replay tests with synthetic worker replies, never model acceptance."""
 
 from contextlib import ExitStack
+from copy import deepcopy
 from types import SimpleNamespace
 import unittest
 from unittest.mock import AsyncMock, Mock, patch
@@ -16,6 +17,9 @@ from laomedo.agents.connections.errors import ProviderConnectionError
 from laomedo.agents.connections.models import BrowserProviderSession
 from laomedo.integrations.langflow.execution.providers.executor import (
     ProviderGraphExecutor,
+)
+from laomedo.integrations.langflow.execution.providers.admission import (
+    ProviderGraphAdmission,
 )
 from laomedo.integrations.langflow.execution.worker.models import GraphWorkerResult
 from laomedo.integrations.langflow.provider_connections.bindings import (
@@ -115,6 +119,40 @@ class ProviderExecutorTests(unittest.IsolatedAsyncioTestCase):
         self.controllers.graph_runs.admit.assert_not_called()
         self.jobs.create_job.assert_not_called()
         self.worker_factory.assert_not_called()
+
+    async def test_approved_text_is_projected_before_admission_without_saved_graph_mutation(
+        self,
+    ):
+        graph = {
+            "nodes": [
+                {
+                    "id": "text",
+                    "data": {
+                        "type": "TextInput",
+                        "node": {"template": {"input_value": {"value": "Saved"}}},
+                    },
+                }
+            ],
+            "edges": [],
+        }
+        original = deepcopy(graph)
+        projection = ProviderGraphAdmission(
+            self.controllers.service,
+            SimpleNamespace(effective_graph=deepcopy, classification=lambda kind: kind),
+        )
+        self.executor.admission.input_graph = projection.input_graph
+        self.snapshot.data = graph
+        self.request.input_value = "Approved text"
+        self.request.input_type = "text"
+        await self.executor.execute(
+            self.snapshot, self.request, self.actor, str(self.job_id)
+        )
+        admitted = self.executor.admission.prepare.call_args.args[-1]
+        self.assertEqual(
+            admitted["nodes"][0]["data"]["node"]["template"]["input_value"]["value"],
+            "Approved text",
+        )
+        self.assertEqual(self.snapshot.data, original)
 
     async def test_existing_job_is_not_replayed_or_admitted_to_provider_authority(self):
         self.jobs.create_job.side_effect = RuntimeError("duplicate job UUID")

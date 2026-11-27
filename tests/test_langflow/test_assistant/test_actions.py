@@ -624,6 +624,11 @@ class GraphActionTests(unittest.IsolatedAsyncioTestCase):
             kind="run",
             workflow_id=self.flow_id,
             expected_revision=self.revision,
+            input_value="Approved text",
+        )
+        self.assertNotEqual(
+            request.digest(),
+            request.model_copy(update={"input_value": "Unapproved text"}).digest(),
         )
         proposal = await self.actions.propose(self.context, request)
         result, snapshot, actor = await self.decide(proposal)
@@ -637,6 +642,7 @@ class GraphActionTests(unittest.IsolatedAsyncioTestCase):
             await self.actions.execute(result, snapshot, actor, AsyncMock())
         unsafe.assert_not_awaited()
         self.assertEqual(backend.execute.call_args.args[0].data, snapshot.data)
+        self.assertEqual(backend.execute.call_args.args[1].input_value, "Approved text")
         self.assertEqual(backend.execute.call_args.args[2].id, self.owner)
         self.assertEqual(backend.execute.call_args.args[3], result["run_id"])
 
