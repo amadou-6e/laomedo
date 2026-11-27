@@ -138,11 +138,16 @@ class ProviderBrokerTests(unittest.IsolatedAsyncioTestCase):
                 "/api/v1/build/flow/flow",
                 "/api/v1/validate/code",
                 "/api/v1/custom_component",
-                "/api/v1/custom_component/update",
                 "/api/v1/run/flow",
             ):
                 response = await client.post(path, json={"code": "never executed"})
                 self.assertIn(response.status_code, (404, 405), path)
+            response = await client.post(
+                "/api/v1/custom_component/update",
+                json={"code": "raise AssertionError('never evaluate')"},
+            )
+            self.assertEqual(response.status_code, 403)
+            self.assertIn("Custom component", response.json()["detail"])
             response = await client.post(
                 "/api/v2/workflows", json={"code": "never executed"}
             )
@@ -157,6 +162,24 @@ class ProviderBrokerTests(unittest.IsolatedAsyncioTestCase):
     @asynccontextmanager
     async def stored_flow(self):
         yield SimpleNamespace(get=AsyncMock(return_value=self.flow))
+
+    async def test_config_reports_fixed_catalog_without_changing_other_native_settings(
+        self,
+    ):
+        native = Mock()
+        native.model_dump.return_value = {
+            "allow_custom_components": True,
+            "auto_saving": True,
+        }
+        with patch(
+            "langflow.api.v1.endpoints.get_config", new=AsyncMock(return_value=native)
+        ):
+            result = await ProviderBrowserRoutes(self.catalog).configuration(
+                user=object()
+            )
+        self.assertEqual(
+            result, {"allow_custom_components": False, "auto_saving": True}
+        )
 
     async def test_existing_filesystem_flow_cannot_trigger_native_storage_write(self):
         from fastapi import HTTPException

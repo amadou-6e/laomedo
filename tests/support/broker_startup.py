@@ -119,8 +119,12 @@ class ProviderBrokerStartupCheck(BrokerStartupCheck):
         )
 
         root = Path(os.environ["LAOMEDO_LOCAL_PROFILE_RUNTIME"])
-        source, frontend = root.parent / "source", root.parent / "frontend"
-        source.mkdir()
+        source, frontend = (
+            root.parent / "repository" / "source",
+            root.parent / "frontend",
+        )
+        source.mkdir(parents=True)
+        (source.parent / ".git").mkdir()
         (frontend / "assets").mkdir(parents=True)
         (frontend / "index.html").write_text("Provider broker startup fixture")
         origin = "http://127.0.0.1:27889"
@@ -266,10 +270,13 @@ class ProviderBrokerStartupCheck(BrokerStartupCheck):
                         '"type":"RUN_FINISHED"' in response.text
                     ), "canvas protocol did not finish"
                     execute.assert_awaited_once()
-                for path in (
-                    "/api/v1/custom_component/update",
-                    "/api/v1/validate/code",
-                ):
+                response = await client.post(
+                    "/api/v1/custom_component/update", json={"code": "not executed"}
+                )
+                assert (
+                    response.status_code == 403
+                ), "native code refresh was not explicitly refused"
+                for path in ("/api/v1/validate/code",):
                     response = await client.post(path, json={"code": "not executed"})
                     assert response.status_code in (
                         404,

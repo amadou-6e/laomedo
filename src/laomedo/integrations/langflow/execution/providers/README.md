@@ -113,6 +113,11 @@ receipts. The shared supervisor remains the single owner of container hardening,
 lease registration, inspection and exact cleanup. Normal native run history
 survives job revocation; unknown cancellation is never claimed as settlement.
 
+The fixed catalog reports `allow_custom_components=false`. Native editor refresh
+POSTs receive an explicit 403 understood by the existing frontend, before any
+body is read; posted component code is never evaluated. Configuration choices
+remain available through the audited authoring MCP tools.
+
 The selected source must be a clean subdirectory inside a Git tree, matching
 the native runner's source contract. Keep repository metadata outside that
 subdirectory; startup rejects a detached export before any model submission.

@@ -6,7 +6,7 @@ import stat
 
 from fastapi import Depends, HTTPException, Request
 from laomedo.agents.agents.base.utils import _git_tree
-from langflow.services.auth.utils import get_current_active_user
+from langflow.services.auth.utils import get_current_active_user, get_optional_user
 
 from laomedo.integrations.langflow.authentication.broker import PrivateBrokerRuntime
 from laomedo.integrations.langflow.assistant.runtime import AssistantRuntime
@@ -35,6 +35,19 @@ class ProviderBrowserRoutes:
     async def examples(self):
         """No uncurated native starter graphs are installed in this deployment."""
         return []
+
+    async def configuration(self, user=Depends(get_optional_user)):
+        """Report the fixed catalog's real editing policy using native config fields."""
+        from langflow.api.v1.endpoints import get_config
+
+        response = await get_config(user=user)
+        return response.model_dump(mode="json") | {"allow_custom_components": False}
+
+    async def disabled_component_refresh(self, user=Depends(get_current_active_user)):
+        """Reject native code-refresh hooks before reading or evaluating posted code."""
+        raise HTTPException(
+            403, detail="Custom component refresh is disabled in this catalog-only app."
+        )
 
     async def disabled_auto_login(self):
         """Tell the existing UI to use explicit profile login without minting tokens."""
@@ -118,7 +131,7 @@ class ProviderBrowserRoutes:
 
     def install(self, app):
         """Mount explicit safe handlers, never the native router or graph application."""
-        from langflow.api.v1.endpoints import get_config, get_version
+        from langflow.api.v1.endpoints import get_version
         from langflow.api.v1.flows import (
             read_flows,
             read_flow,
@@ -128,7 +141,12 @@ class ProviderBrowserRoutes:
         from langflow.api.v1.folders import router as folders
 
         app.add_api_route("/api/v1/all", self.components, methods=["GET"])
-        app.add_api_route("/api/v1/config", get_config, methods=["GET"])
+        app.add_api_route("/api/v1/config", self.configuration, methods=["GET"])
+        app.add_api_route(
+            "/api/v1/custom_component/update",
+            self.disabled_component_refresh,
+            methods=["POST"],
+        )
         app.add_api_route("/api/v1/version", get_version, methods=["GET"])
         app.add_api_route("/health", self.health, methods=["GET"])
         app.add_api_route(
