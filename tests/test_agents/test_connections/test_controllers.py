@@ -830,7 +830,7 @@ class ProviderControllerTests(unittest.TestCase):
             self.assertEqual(failure.exception.code, 409)
             self.assertEqual(
                 json.load(failure.exception)["error_category"],
-                "provider_runner_unavailable",
+                "runner_unclassified_failure",
             )
             self.assertEqual(slot.operations, 0)
         finally:
@@ -838,13 +838,15 @@ class ProviderControllerTests(unittest.TestCase):
 
     def test_gateway_preserves_safe_underlying_failure_diagnostics(self):
         endpoint, _token = self.manager.endpoint(self.profile, self.one)
-        for error, expected in (
+        for error, category, expected in (
             (
                 PermissionError(13, "private path"),
+                "runner_unclassified_failure",
                 {"failure_kind": "os_error", "errno": 13},
             ),
             (
                 RunnerError("resume_journal_unavailable"),
+                "resume_journal_unavailable",
                 {
                     "failure_kind": "domain_error",
                     "runner_code": "resume_journal_unavailable",
@@ -861,7 +863,7 @@ class ProviderControllerTests(unittest.TestCase):
                     self.post(endpoint, "/v1/runs/async", {})
                 with failure.exception as response:
                     value = json.load(response)
-                self.assertEqual(value["error_category"], "provider_runner_unavailable")
+                self.assertEqual(value["error_category"], category)
                 for key, wanted in expected.items():
                     self.assertEqual(value["runner_diagnostics"][key], wanted)
                 self.assertNotIn("private", json.dumps(value))
