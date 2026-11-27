@@ -728,7 +728,7 @@ class ProviderControllers:
         if shutdown is None:
             return ()
         observations = self.stop_graph(shutdown)
-        if all(item.cancel_confirmed for item in observations):
+        if all(item.settled for item in observations):
             self.graph_runs.settle(capability)
         return observations
 
@@ -765,6 +765,23 @@ class ProviderControllers:
             try:
                 run_id = str(UUID(record["run_id"]))
                 result = slot.runner.cancel(run_id)
+                if result.get("run_id") != run_id:
+                    raise ValueError("native_stop_identity_mismatch")
+                settled = (
+                    (
+                        result.get("status") in {"completed", "failed"}
+                        or (
+                            result.get("status") == "cancelled"
+                            and result.get("cancel_confirmed") is True
+                        )
+                    )
+                    and not slot.runner.lock.locked()
+                    and slot.runner.mcp_access(run_id) is None
+                    and not any(
+                        item.get("run_id") == run_id
+                        for item in slot.runner.pending_resumes()
+                    )
+                )
             except (RunnerError, OSError, ValueError, KeyError):
                 raise ProviderConnectionError("provider_cleanup_unconfirmed") from None
             observations.append(
@@ -774,6 +791,7 @@ class ProviderControllers:
                     run_id=run_id,
                     status=result.get("status", "unknown"),
                     cancel_confirmed=result.get("cancel_confirmed") is True,
+                    settled=settled,
                 )
             )
         return tuple(observations)

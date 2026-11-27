@@ -139,8 +139,7 @@ class ProviderGraphExecutor:
                     asyncio.to_thread(self.controllers.finish_graph, capability)
                 )
             elif worker is not None and (
-                worker.stops is None
-                or any(not item.cancel_confirmed for item in worker.stops)
+                worker.stops is None or any(not item.settled for item in worker.stops)
             ):
                 self.uncertain[job_id] = worker
             if created:
@@ -173,9 +172,7 @@ class ProviderGraphExecutor:
                 await worker._finish_job(job_id)
             except Exception:
                 continue
-            if worker.stops is not None and all(
-                item.cancel_confirmed for item in worker.stops
-            ):
+            if worker.stops is not None and all(item.settled for item in worker.stops):
                 from langflow.services.deps import get_job_service
 
                 try:

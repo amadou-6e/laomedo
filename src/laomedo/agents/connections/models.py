@@ -133,7 +133,7 @@ class GraphRunShutdown(BaseModel):
 
 
 class GraphNodeStop(BaseModel):
-    """Native cancellation observation; a request alone never proves settlement."""
+    """Native cancellation and task settlement are distinct host observations."""
 
     model_config = ConfigDict(strict=True, frozen=True, extra="forbid")
     connection_id: UUID
@@ -141,6 +141,7 @@ class GraphNodeStop(BaseModel):
     run_id: str
     status: str
     cancel_confirmed: bool
+    settled: bool
 
 
 class StagedGraphReview(BaseModel):

@@ -51,9 +51,7 @@ class SyntheticCompletedNative(FakeNativeAgent):
         return record
 
     def cancel(self, run_id):
-        record = self.status(run_id)
-        record["cancel_confirmed"] = True
-        return record
+        return self.status(run_id)
 
 
 class SyntheticWorkerTrace:
@@ -210,7 +208,8 @@ class ProviderNativeContainerTests(unittest.IsolatedAsyncioTestCase):
                     dispatcher.node_outcomes["codex-fixture"]["state"], "succeeded"
                 )
                 self.assertEqual(worker._jobs, {})
-                self.assertTrue(all(stop.cancel_confirmed for stop in worker.stops))
+                self.assertTrue(all(stop.settled for stop in worker.stops))
+                self.assertFalse(any(stop.cancel_confirmed for stop in worker.stops))
                 self.assertIsNone(controllers.graph_runs.finish(capability))
             finally:
                 if lease.poll() is None:

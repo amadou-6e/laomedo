@@ -63,7 +63,7 @@ class ProviderExecutorTests(unittest.IsolatedAsyncioTestCase):
             )
         )
         self.worker = SimpleNamespace(
-            stops=(),
+            stops=(SimpleNamespace(settled=True, cancel_confirmed=False),),
             run=AsyncMock(
                 return_value=GraphWorkerResult(
                     event="completed",
@@ -107,6 +107,7 @@ class ProviderExecutorTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertTrue(metadata["native_cleanup_confirmed"])
         self.assertEqual(self.executor.workers, {})
+        self.assertEqual(self.executor.uncertain, {})
 
     async def test_existing_job_is_not_replayed_or_admitted_to_provider_authority(self):
         self.jobs.create_job.side_effect = RuntimeError("duplicate job UUID")

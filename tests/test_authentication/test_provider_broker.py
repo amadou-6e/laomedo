@@ -6,6 +6,7 @@ import tempfile
 import unittest
 from unittest.mock import AsyncMock, Mock, patch
 from types import SimpleNamespace
+from contextlib import asynccontextmanager
 
 from httpx import ASGITransport, AsyncClient
 from starlette.requests import Request
@@ -29,9 +30,12 @@ class ProviderBrokerTests(unittest.IsolatedAsyncioTestCase):
         directory = tempfile.TemporaryDirectory()
         self.addCleanup(directory.cleanup)
         root = Path(directory.name)
+        self.root = root
         (root / "assets").mkdir()
         (root / "index.html").write_text("<html>Curated provider app</html>")
         profile = Mock()
+        profile.provider_source = None
+        profile.admission.root = root / "profile-state"
         profile.configure.side_effect = lambda app: setattr(
             app.state, "provider_connections", SimpleNamespace(controllers=Mock())
         )
@@ -64,6 +68,26 @@ class ProviderBrokerTests(unittest.IsolatedAsyncioTestCase):
             ),
         ).create_app()
 
+    def test_source_workspace_cannot_include_private_runtime_or_account_state(self):
+        profile = Mock()
+        profile.admission.root = self.root / "profile-state"
+        private = self.stack[0].return_value.settings
+        settings = ProviderAppSettings(
+            components=private.runtime_root.parent,
+            frontend=private.runtime_root.parent,
+            worker=GraphWorkerSettings(
+                image_id="sha256:" + "a" * 64, lease_state=private.runtime_root.parent
+            ),
+        )
+        for source in (
+            profile.admission.root,
+            profile.admission.root / "provider-runs",
+            profile.admission.root.parent,
+        ):
+            profile.provider_source = source
+            with self.subTest(source=source), self.assertRaises(ValueError):
+                ProviderBrokerRuntime(profile, private, settings).create_app()
+
     async def test_python_and_native_execution_apis_are_absent_in_credential_process(
         self,
     ):
@@ -86,6 +110,27 @@ class ProviderBrokerTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(
             self.app.state.laomedo_assistant.catalog_loader, self.catalog.for_owner
         )
+
+    @asynccontextmanager
+    async def stored_flow(self):
+        yield SimpleNamespace(get=AsyncMock(return_value=self.flow))
+
+    async def test_existing_filesystem_flow_cannot_trigger_native_storage_write(self):
+        from fastapi import HTTPException
+        from uuid import uuid4
+        from langflow.services.database.models.flow.model import Flow
+
+        owner, identifier = uuid4(), uuid4()
+        self.flow = Flow(
+            id=identifier, user_id=owner, name="Managed flow", fs_path="managed.json"
+        )
+        request = await self.request({"name": "Edited name"})
+        request.scope["path_params"] = {"flow_id": str(identifier)}
+        with patch("langflow.services.deps.session_scope", new=self.stored_flow):
+            with self.assertRaises(HTTPException):
+                await ProviderBrowserRoutes(self.catalog).admit_flow_write(
+                    request, SimpleNamespace(id=owner)
+                )
 
     async def request(self, payload):
         body = json.dumps(payload).encode()
@@ -122,6 +167,15 @@ class ProviderBrokerTests(unittest.IsolatedAsyncioTestCase):
             "edges": [],
         }
         await boundary.admit_flow_write(await self.request({"data": graph}))
+        graph["nodes"][0]["data"]["node"]["template"]["mcp_server"] = {
+            "value": {
+                "name": "fixture-server",
+                "config": {"headers": {"Authorization": "fixture-only"}},
+            }
+        }
+        with self.assertRaises(HTTPException):
+            await boundary.admit_flow_write(await self.request({"data": graph}))
+        graph["nodes"][0]["data"]["node"]["template"].pop("mcp_server")
         graph["nodes"][0]["data"]["node"]["template"]["code"]["value"] += "\n# forged"
         with self.assertRaises(HTTPException):
             await boundary.admit_flow_write(await self.request({"data": graph}))

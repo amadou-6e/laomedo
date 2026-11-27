@@ -45,6 +45,9 @@ class FakeNativeAgent:
     def has_live_session(self, run_id):
         return False
 
+    def mcp_access(self, run_id):
+        return None
+
     def close(self):
         return None
 
@@ -611,6 +614,56 @@ class ProviderControllerTests(unittest.TestCase):
                 },
             )
         self.assertEqual(lock_observations, [True])
+
+    def test_completed_graph_settles_without_inventing_a_cancel_acknowledgement(self):
+        self.records[1] = self.records[1].model_copy(update={"provider": "claude"})
+        self.service._save(self.profile, self.records)
+        capability, digest = self.graph_review_capability()
+        record = self.graph_source(capability, digest)
+        slot = self.manager.slots[(self.profile, self.one, 1, "graph")]
+        record.update(status="completed", attempt_finished=True)
+        with patch.object(slot.runner, "cancel", return_value=record):
+            stop = self.manager.finish_graph(capability)[0]
+        self.assertTrue(stop.settled)
+        self.assertFalse(stop.cancel_confirmed)
+        self.assertIsNone(self.manager.graph_runs.finish(capability))
+
+    def test_terminal_record_waits_for_native_lock_tools_and_pending_resume_cleanup(
+        self,
+    ):
+        self.records[1] = self.records[1].model_copy(update={"provider": "claude"})
+        self.service._save(self.profile, self.records)
+        for blocked in ("lock", "tools", "resume"):
+            with self.subTest(blocked=blocked):
+                capability, digest = self.graph_review_capability()
+                record = self.graph_source(capability, digest)
+                record.update(status="completed", attempt_finished=True)
+                slot = self.manager.slots[(self.profile, self.one, 1, "graph")]
+                if blocked == "lock":
+                    slot.runner.lock.acquire()
+                if blocked == "resume":
+                    slot.runner.pending.append(
+                        {"run_id": record["run_id"], "status": "unknown"}
+                    )
+                try:
+                    with (
+                        patch.object(slot.runner, "cancel", return_value=record),
+                        patch.object(
+                            slot.runner,
+                            "mcp_access",
+                            return_value=object() if blocked == "tools" else None,
+                        ),
+                    ):
+                        self.assertFalse(
+                            self.manager.finish_graph(capability)[0].settled
+                        )
+                        self.assertIsNotNone(self.manager.graph_runs.finish(capability))
+                finally:
+                    if blocked == "lock":
+                        slot.runner.lock.release()
+                    slot.runner.pending.clear()
+                with patch.object(slot.runner, "cancel", return_value=record):
+                    self.assertTrue(self.manager.finish_graph(capability)[0].settled)
 
     def test_missing_runner_cleanup_stays_unconfirmed_and_receipt_can_be_retried(self):
         self.records[1] = self.records[1].model_copy(update={"provider": "claude"})

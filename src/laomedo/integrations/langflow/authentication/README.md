@@ -37,7 +37,11 @@ installed frontend, a fixed operator-installed component catalog, data-only Flow
 listing/reading/writing and the existing assistant. `ProviderBrowserRoutes`
 rejects custom component sources and filesystem/publication bindings before
 Flow persistence. It mounts individual native data handlers, never a native
-router that can grow execution endpoints. Python component editing/validation,
+router that can grow execution endpoints. Native persistence also has filesystem
+and MCP credential side effects: this mode refuses existing filesystem/published
+flow bindings and any MCP server/credential payload before those handlers run.
+It reuses the native pure secret extractor without invoking its writer. Python
+component editing/validation,
 native run/build APIs, native MCP lifecycle and upload APIs remain absent from
 the credential process. The assistant receives only the isolated worker backend
 from `execution/providers`; failures cannot fall back to in-process execution.

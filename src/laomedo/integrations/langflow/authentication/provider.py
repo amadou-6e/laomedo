@@ -1,6 +1,7 @@
 """Curated provider application built on the API-only credential broker."""
 
 from uuid import UUID
+from copy import deepcopy
 
 from fastapi import Depends, HTTPException, Request
 from langflow.services.auth.utils import get_current_active_user
@@ -29,7 +30,9 @@ class ProviderBrowserRoutes:
         """Return only fixed installed, owner-policy-filtered component metadata."""
         return (await self.catalog.for_owner(UUID(str(user.id)))).snapshot
 
-    async def admit_flow_write(self, request: Request):
+    async def admit_flow_write(
+        self, request: Request, user=Depends(get_current_active_user)
+    ):
         """Refuse publication, filesystem bindings and untrusted code before persistence."""
         try:
             body = bytearray()
@@ -52,8 +55,42 @@ class ProviderBrowserRoutes:
                 )
             ):
                 raise ValueError
+            if payload.get("access_type") not in (None, "PRIVATE"):
+                raise ValueError
             if payload.get("data") is not None:
                 self.catalog.admission.effective_graph(payload["data"])
+                # Native Flow persistence can also stage MCP credentials. Use
+                # its pure extractor to refuse that effect before its writer.
+                from langflow.api.utils.mcp.flow_secrets import (
+                    extract_and_strip_mcp_secrets,
+                    mcp_server_names,
+                )
+
+                carried, variables = extract_and_strip_mcp_secrets(
+                    deepcopy(payload["data"])
+                )
+                if carried or variables or mcp_server_names(payload["data"]):
+                    raise ValueError
+            selected = request.path_params.get("flow_id")
+            if selected is not None:
+                from langflow.services.database.models.flow.model import Flow
+                from langflow.services.deps import session_scope
+
+                async with session_scope() as session:
+                    existing = await session.get(Flow, UUID(str(selected)))
+                    if existing is None or existing.user_id != UUID(str(user.id)):
+                        raise ValueError
+                    if any(
+                        getattr(existing, field)
+                        for field in (
+                            "fs_path",
+                            "mcp_enabled",
+                            "a2a_enabled",
+                            "webhook",
+                            "is_component",
+                        )
+                    ):
+                        raise ValueError
         except Exception:
             raise HTTPException(
                 422, detail={"code": "assistant_input_invalid"}
@@ -113,6 +150,18 @@ class ProviderBrokerRuntime(PrivateBrokerRuntime):
         self.settings = settings
 
     def create_app(self):
+        source = self.profile_runtime.provider_source
+        if source is not None:
+            source = source.resolve()
+            for private in (
+                self.profile_runtime.admission.root,
+                self.private_runtime.settings.runtime_root,
+            ):
+                private = private.resolve()
+                if source.is_relative_to(private) or private.is_relative_to(source):
+                    raise ValueError(
+                        "Provider source must be separate from private runtime state."
+                    )
         catalog = ProviderComponentCatalog(self.settings.components)
         app = super().create_app()
         executor = ProviderGraphExecutor(

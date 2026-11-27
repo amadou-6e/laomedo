@@ -100,7 +100,7 @@ class DockerProviderGraphWorker(DockerGraphWorker):
                     self.dispatcher.controllers.stop_graph, self._shutdown
                 )
             )
-            if all(item.cancel_confirmed for item in self.stops):
+            if all(item.settled for item in self.stops):
                 self.dispatcher.controllers.graph_runs.settle(
                     self.dispatcher.capability
                 )
