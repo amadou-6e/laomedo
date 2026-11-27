@@ -27,14 +27,16 @@ class ProviderCatalogTests(unittest.TestCase):
         classified = {
             entry.classification for entry in catalog.admission.snapshot.entries
         }
-        self.assertTrue(
+        self.assertEqual(
             {
                 "LaomedoCodexAgent",
                 "LaomedoClaudeAgent",
+                "LaomedoOpenCodeAgent",
                 "LaomedoGitHubIssue",
                 "TextInput",
                 "TextOutput",
-            }
-            <= classified
+                "Prompt Template",
+                "CombineText",
+            },
+            classified,
         )
-        self.assertEqual(len(classified), 7)
