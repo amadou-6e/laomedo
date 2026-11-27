@@ -53,7 +53,11 @@ class FakeNativeAgent:
         return {"provider": "codex", "models": []}
 
     def start_async(self, body, **kwargs):
-        record = {"run_id": str(uuid4()), "status": "prepared"}
+        record = {
+            "run_id": str(uuid4()),
+            "status": "prepared",
+            "client_request_id": body.get("request_id"),
+        }
         root = self.state / "runs" / record["run_id"]
         root.mkdir()
         (root / "record.json").write_text(json.dumps(record), encoding="utf-8")
@@ -118,7 +122,7 @@ class ProviderControllerTests(unittest.TestCase):
         with urlopen(request, timeout=3) as response:
             return json.load(response)
 
-    def graph_review_capability(self, source_run):
+    def graph_review_capability(self):
         """Admit this fixture's exact graph and bind its host acknowledgement."""
         digest = "sha256:" + "c" * 64
         capability = self.manager.graph_runs.admit(
@@ -140,9 +144,19 @@ class ProviderControllerTests(unittest.TestCase):
                 deadline=time.monotonic() + 60,
             )
         )
-        self.manager.graph_runs.begin_node(capability, digest, "codex")
-        self.manager.graph_runs.bind_run(capability, digest, "codex", source_run)
         return capability, digest
+
+    def graph_source(self, capability, digest):
+        """Create and acknowledge an actual fake-runner record under host identity."""
+        start = self.manager.graph_runs.begin_node(capability, digest, "codex")
+        endpoint = self.manager.endpoint(self.profile, self.one)
+        record = self.post(
+            endpoint[0],
+            "/v1/runs/async",
+            {"task": "fixture", "request_id": start.request_id},
+        )
+        self.manager.graph_runs.bind_run(capability, digest, "codex", record["run_id"])
+        return record
 
     def test_assistant_has_distinct_source_and_graph_cannot_resolve_its_run(self):
         graph = self.manager.endpoint(self.profile, self.one)
@@ -201,123 +215,64 @@ class ProviderControllerTests(unittest.TestCase):
             self.manager.workspace_changes(self.profile, record["run_id"])
         self.assertEqual(slot.operations, 0)
 
-    def test_verified_review_grant_is_bound_single_use_and_rechecked(self):
-        endpoint = self.manager.endpoint(self.profile, self.one)
-        record = self.post(endpoint[0], "/v1/runs/async", {"task": "fixture"})
-        slot = self.manager.slots[(self.profile, self.one, 1, "graph")]
-        source = WorkspaceChanges(
-            run_id=record["run_id"],
-            source_hash="source",
-            post_run_hash="after",
-            patch_hash="patch",
-            patch="actual change",
-        )
-        slot.runner.workspace_changes = Mock(return_value=source)
+    def test_verified_review_grant_rechecks_body_snapshot_and_session(self):
+        target_endpoint = self.manager.endpoint(self.profile, self.two)
         self.records[1] = self.records[1].model_copy(update={"provider": "claude"})
         self.service._save(self.profile, self.records)
-        target = ControllerSlot(
-            scope="graph",
-            profile_id=self.profile,
-            connection_id=self.two,
-            generation=1,
-            state=slot.state,
-            runner=Mock(),
-            creating=False,
-        )
-        request_id = str(uuid4())
-        body = {
-            "request_id": request_id,
-            "task": "Review this",
-            "model": "m",
-            "effort": "low",
-            "skill_refs": [],
-        }
-        token = self.manager.stage_verified_review(
-            self.profile,
-            "lease",
-            record["run_id"],
-            self.two,
-            1,
-            request_id,
-            body["task"],
-        )
-        with self.manager.admit_verified_review(token, target, body) as (
-            admitted,
-            provenance,
-        ):
-            self.assertIn("actual change", admitted["task"])
-            self.assertEqual(provenance["source_run"], record["run_id"])
-        with self.assertRaises(ProviderConnectionError):
-            with self.manager.admit_verified_review(token, target, body):
-                pass
-
-        token = self.manager.stage_verified_review(
-            self.profile,
-            "lease",
-            record["run_id"],
-            self.two,
-            1,
-            request_id,
-            body["task"],
-            request_body=body,
-        )
-        with self.assertRaises(ProviderConnectionError):
-            with self.manager.admit_verified_review(
-                token, target, {**body, "model": "other"}
-            ):
-                pass
-        for altered in (
-            {**body, "task": "Different instruction"},
-            {**body, "skill_refs": ["unapproved"]},
-            {**body, "github_authorization_ref": "unapproved"},
-        ):
-            token = self.manager.stage_verified_review(
-                self.profile,
-                "lease",
-                record["run_id"],
-                self.two,
-                1,
-                request_id,
-                body["task"],
-            )
-            with self.assertRaises(ProviderConnectionError):
-                with self.manager.admit_verified_review(token, target, altered):
-                    pass
-        token = self.manager.stage_verified_review(
-            self.profile,
-            "lease",
-            record["run_id"],
-            self.two,
-            1,
-            request_id,
-            body["task"],
-        )
-        slot.runner.workspace_changes.return_value = source.model_copy(
-            update={"patch_hash": "changed"}
-        )
-        with self.assertRaises(ProviderConnectionError):
-            with self.manager.admit_verified_review(token, target, body):
-                pass
-        slot.runner.workspace_changes.return_value = source
-        token = self.manager.stage_verified_review(
-            self.profile,
-            "lease",
-            record["run_id"],
-            self.two,
-            1,
-            request_id,
-            body["task"],
-        )
-        self.service.cancel_lease("lease")
-        with self.assertRaises(ProviderConnectionError):
-            with self.manager.admit_verified_review(token, target, body):
-                pass
+        self.assertTrue(target_endpoint)
+        target = self.manager.slots[(self.profile, self.two, 1, "graph")]
+        for change in ("model", "task", "skills", "authority", "snapshot", "logout"):
+            with self.subTest(change=change):
+                capability, digest = self.graph_review_capability()
+                record = self.graph_source(capability, digest)
+                slot = self.manager.slots[(self.profile, self.one, 1, "graph")]
+                source = WorkspaceChanges(
+                    run_id=record["run_id"],
+                    source_hash="source",
+                    post_run_hash="post",
+                    patch_hash="patch",
+                    patch="actual change",
+                )
+                slot.runner.workspace_changes = Mock(return_value=source)
+                staged = self.manager.stage_review_request(
+                    capability,
+                    digest,
+                    "claude",
+                    {
+                        "request_id": str(uuid4()),
+                        "task": "Review this",
+                        "model": "m",
+                        "effort": "low",
+                        "skill_refs": [],
+                    },
+                )
+                altered = dict(staged.body)
+                if change == "model":
+                    altered["model"] = "other"
+                elif change == "task":
+                    altered["task"] = "Other instruction"
+                elif change == "skills":
+                    altered["skill_refs"] = ["unapproved"]
+                elif change == "authority":
+                    altered["github_authorization_ref"] = "unapproved"
+                elif change == "snapshot":
+                    slot.runner.workspace_changes.return_value = source.model_copy(
+                        update={"patch_hash": "changed"}
+                    )
+                else:
+                    self.service.cancel_lease("lease")
+                with self.assertRaises(ProviderConnectionError):
+                    with self.manager.admit_verified_review(
+                        staged.grant, target, altered
+                    ):
+                        pass
 
     def test_verified_review_dispatch_consumes_grant_and_reserves_host_patch(self):
-        source_endpoint = self.manager.endpoint(self.profile, self.one)
-        source_run = self.post(
-            source_endpoint[0], "/v1/runs/async", {"task": "fixture"}
-        )
+        target_endpoint = self.manager.endpoint(self.profile, self.two)
+        self.records[1] = self.records[1].model_copy(update={"provider": "claude"})
+        self.service._save(self.profile, self.records)
+        capability, digest = self.graph_review_capability()
+        source_run = self.graph_source(capability, digest)
         source_slot = self.manager.slots[(self.profile, self.one, 1, "graph")]
         source_slot.runner.workspace_changes = Mock(
             return_value=WorkspaceChanges(
@@ -328,10 +283,7 @@ class ProviderControllerTests(unittest.TestCase):
                 patch="host patch",
             )
         )
-        target_endpoint = self.manager.endpoint(self.profile, self.two)
         target = self.manager.slots[(self.profile, self.two, 1, "graph")]
-        self.records[1] = self.records[1].model_copy(update={"provider": "claude"})
-        self.service._save(self.profile, self.records)
         target.runner.start_async = Mock(wraps=target.runner.start_async)
         body = {
             "request_id": str(uuid4()),
@@ -340,12 +292,9 @@ class ProviderControllerTests(unittest.TestCase):
             "effort": "low",
             "skill_refs": [],
         }
-        from laomedo.agents.mcp.client import McpAccess
-
-        capability, digest = self.graph_review_capability(source_run["run_id"])
-        grant, expected_hash = self.manager.stage_review_request(
-            capability, digest, "claude", body
-        )
+        staged = self.manager.stage_review_request(capability, digest, "claude", body)
+        self.assertNotEqual(staged.body["request_id"], body["request_id"])
+        body, grant = staged.body, staged.grant
 
         def dispatch():
             request = Request(
@@ -365,11 +314,12 @@ class ProviderControllerTests(unittest.TestCase):
         args, kwargs = target.runner.start_async.call_args
         self.assertIn("host patch", args[0]["task"])
         self.assertEqual(kwargs["verified_review"].patch_hash, "patch")
-        admitted_body = {
-            key: value for key, value in args[0].items() if key != "request_id"
-        }
+        from laomedo.agents.mcp.client import McpAccess
+
         semantic = {
-            "request": McpAccess.semantic_request(admitted_body),
+            "request": McpAccess.semantic_request(
+                {key: value for key, value in args[0].items() if key != "request_id"}
+            ),
             "verified_review": kwargs["verified_review"].to_record(),
         }
         actual_hash = (
@@ -380,13 +330,20 @@ class ProviderControllerTests(unittest.TestCase):
                 ).encode("utf-8")
             ).hexdigest()
         )
-        self.assertEqual(expected_hash, actual_hash)
+        self.assertEqual(staged.expected_request_hash, actual_hash)
         with self.assertRaises(HTTPError):
             dispatch()
         self.assertEqual(target.runner.start_async.call_count, 1)
-        capability, digest = self.graph_review_capability(source_run["run_id"])
-        body = {**body, "request_id": str(uuid4())}
-        grant, _ = self.manager.stage_review_request(capability, digest, "claude", body)
+
+        capability, digest = self.graph_review_capability()
+        source_run = self.graph_source(capability, digest)
+        source_slot.runner.workspace_changes.return_value = (
+            source_slot.runner.workspace_changes.return_value.model_copy(
+                update={"run_id": source_run["run_id"]}
+            )
+        )
+        staged = self.manager.stage_review_request(capability, digest, "claude", body)
+        body, grant = staged.body, staged.grant
         self.manager.graph_runs.finish(capability)
         with self.assertRaises(HTTPError):
             dispatch()
@@ -405,18 +362,11 @@ class ProviderControllerTests(unittest.TestCase):
             urlopen(wrong_route, timeout=3)
 
     def test_review_staging_refuses_a_changed_snapshot_between_observations(self):
-        source_endpoint = self.manager.endpoint(self.profile, self.one)
-        run = self.post(source_endpoint[0], "/v1/runs/async", {"task": "fixture"})
-        source = self.manager.slots[(self.profile, self.one, 1, "graph")]
-        target_endpoint = self.manager.endpoint(self.profile, self.two)
-        self.assertTrue(target_endpoint)
-        target = self.manager.slots[(self.profile, self.two, 1, "graph")]
-        with self.assertRaisesRegex(
-            ProviderConnectionError, "verified_review_unavailable"
-        ):
-            self.manager.stage_review_request("invalid", "invalid", "claude", {})
         self.records[1] = self.records[1].model_copy(update={"provider": "claude"})
         self.service._save(self.profile, self.records)
+        capability, digest = self.graph_review_capability()
+        run = self.graph_source(capability, digest)
+        source = self.manager.slots[(self.profile, self.one, 1, "graph")]
         changes = WorkspaceChanges(
             run_id=run["run_id"],
             source_hash="source",
@@ -442,7 +392,6 @@ class ProviderControllerTests(unittest.TestCase):
         with self.assertRaisesRegex(
             ProviderConnectionError, "workspace_snapshot_mismatch"
         ):
-            capability, digest = self.graph_review_capability(run["run_id"])
             self.manager.stage_review_request(capability, digest, "claude", body)
         self.assertEqual(self.manager._review_grants, {})
 

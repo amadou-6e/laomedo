@@ -4,8 +4,9 @@ from pathlib import Path
 from typing import Any, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, SecretStr
+from pydantic import BaseModel, ConfigDict, Field, SecretStr, JsonValue
 from laomedo.agents.workspaces.models import WorkspaceChanges
+from laomedo.agents.agents.base.models import VerifiedReviewProvenance
 
 
 class OwnedWorkspaceChanges(BaseModel):
@@ -35,7 +36,7 @@ class VerifiedReviewGrant(BaseModel):
     instruction_hash: str
     request_body_hash: str | None = None
     expires_at: float
-    graph_review: "GraphRunReview | None" = Field(default=None, repr=False)
+    graph_review: "GraphRunReview" = Field(repr=False)
 
 
 class GraphRunNode(BaseModel):
@@ -72,6 +73,32 @@ class GraphRunReview(BaseModel):
     source: GraphRunNode
     target: GraphRunNode
     source_run: str
+
+
+class GraphNodeStart(BaseModel):
+    """Host-generated request identity reserved before native model dispatch."""
+
+    model_config = ConfigDict(strict=True, frozen=True, extra="forbid")
+    node: GraphRunNode
+    request_id: str
+
+
+class StagedGraphReview(BaseModel):
+    """Host-only native request and grant; workers receive only its expected hash."""
+
+    model_config = ConfigDict(strict=True, frozen=True, extra="forbid")
+    body: dict[str, JsonValue] = Field(repr=False, exclude=True)
+    grant: str = Field(repr=False, exclude=True)
+    expected_request_hash: str
+
+
+class GraphReviewDispatch(BaseModel):
+    """A fenced host request, provenance and graph binding for native reservation."""
+
+    model_config = ConfigDict(strict=True, frozen=True, extra="forbid")
+    body: dict[str, JsonValue] = Field(repr=False, exclude=True)
+    provenance: VerifiedReviewProvenance
+    graph_review: GraphRunReview = Field(repr=False, exclude=True)
 
 
 class ConnectionRecord(BaseModel):

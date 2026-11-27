@@ -37,7 +37,8 @@ class ProviderGraphRunTests(unittest.TestCase):
             for provider in ("codex", "claude")
         )
         self.service._save(self.owner, list(self.records))
-        self.authority = ProviderGraphRuns(self.service)
+        self.native_records = {}
+        self.authority = ProviderGraphRuns(self.service, read_run=self.read_run)
         self.plan = GraphRunPlan(
             profile_id=self.owner,
             lease_hash="fixture-browser-lease",
@@ -56,13 +57,27 @@ class ProviderGraphRunTests(unittest.TestCase):
             deadline=time.monotonic() + 60,
         )
 
+    def read_run(self, profile_id, node, run_id):
+        """Represent only records read under this test's exact native slot."""
+        return self.native_records.get(
+            (profile_id, node.connection_id, node.generation, run_id)
+        )
+
+    def native_record(self, run_id, request_id):
+        """Retain the fake native record independently of the graph receipt map."""
+        self.native_records[(self.owner, self.records[0].connection_id, 1, run_id)] = {
+            "run_id": run_id,
+            "client_request_id": request_id,
+        }
+
     def test_review_source_comes_from_this_invocations_host_receipt(self):
         first = self.authority.admit(self.plan)
         second = self.authority.admit(self.plan)
         with self.assertRaises(ProviderConnectionError):
             self.authority.review(first, self.plan.graph_digest, "claude")
         run_id = str(uuid4())
-        self.authority.begin_node(first, self.plan.graph_digest, "codex")
+        start = self.authority.begin_node(first, self.plan.graph_digest, "codex")
+        self.native_record(run_id, start.request_id)
         self.authority.bind_run(first, self.plan.graph_digest, "codex", run_id)
         self.assertEqual(
             self.authority.review(first, self.plan.graph_digest, "claude").source_run,
@@ -111,10 +126,10 @@ class ProviderGraphRunTests(unittest.TestCase):
 
     def test_finished_worker_cannot_replay_or_rebind(self):
         capability = self.authority.admit(self.plan)
-        self.authority.begin_node(capability, self.plan.graph_digest, "codex")
-        self.authority.bind_run(
-            capability, self.plan.graph_digest, "codex", str(uuid4())
-        )
+        start = self.authority.begin_node(capability, self.plan.graph_digest, "codex")
+        run_id = str(uuid4())
+        self.native_record(run_id, start.request_id)
+        self.authority.bind_run(capability, self.plan.graph_digest, "codex", run_id)
         self.authority.finish(capability)
         with self.assertRaises(ProviderConnectionError):
             self.authority.review(capability, self.plan.graph_digest, "claude")
@@ -135,6 +150,24 @@ class ProviderGraphRunTests(unittest.TestCase):
         with self.assertRaises(ProviderConnectionError):
             self.authority.begin_node(capability, self.plan.graph_digest, "codex")
 
+    def test_old_run_cannot_be_rebound_under_a_new_graph_request(self):
+        first = self.authority.admit(self.plan)
+        second = self.authority.admit(self.plan)
+        first_start = self.authority.begin_node(first, self.plan.graph_digest, "codex")
+        second_start = self.authority.begin_node(
+            second, self.plan.graph_digest, "codex"
+        )
+        self.assertNotEqual(first_start.request_id, second_start.request_id)
+        old_run = str(uuid4())
+        self.native_record(old_run, first_start.request_id)
+        self.authority.bind_run(first, self.plan.graph_digest, "codex", old_run)
+        with self.assertRaises(ProviderConnectionError):
+            self.authority.bind_run(second, self.plan.graph_digest, "codex", old_run)
+        with self.assertRaises(ProviderConnectionError):
+            self.authority.bind_run(
+                second, self.plan.graph_digest, "codex", str(uuid4())
+            )
+
     def test_expired_or_ambiguous_plans_never_admit(self):
         for update in (
             {"deadline": time.monotonic() - 1},
@@ -148,8 +181,10 @@ class ProviderGraphRunTests(unittest.TestCase):
 
     def test_concurrent_acknowledgements_cannot_replace_a_source(self):
         capability = self.authority.admit(self.plan)
-        self.authority.begin_node(capability, self.plan.graph_digest, "codex")
+        start = self.authority.begin_node(capability, self.plan.graph_digest, "codex")
         candidates = (str(uuid4()), str(uuid4()))
+        for run_id in candidates:
+            self.native_record(run_id, start.request_id)
         with ThreadPoolExecutor(max_workers=2) as executor:
             futures = [
                 executor.submit(

@@ -20,6 +20,8 @@ from laomedo.agents.connections.graph_runs import ProviderGraphRuns
 from laomedo.agents.connections.models import ControllerSlot
 from laomedo.agents.connections.models import OwnedWorkspaceChanges
 from laomedo.agents.connections.models import VerifiedReviewGrant
+from laomedo.agents.connections.models import StagedGraphReview
+from laomedo.agents.connections.models import GraphReviewDispatch
 from laomedo.agents.agents.base.models import VerifiedReviewProvenance
 from laomedo.agents.connections.settings import MAX_PENDING_VERIFIED_REVIEWS
 from laomedo.agents.connections.settings import VERIFIED_REVIEW_GRANT_SECONDS
@@ -53,12 +55,16 @@ class SavedRunnerRequestHandler(RunnerRequestHandler):
             raise ProviderConnectionError("verified_review_unavailable")
         with self.server.manager.admit_verified_review(
             tokens[0], self.server.slot, body
-        ) as (admitted, provenance):
-            return self.server.runner.start_async(
-                admitted,
+        ) as admitted:
+            record = self.server.runner.start_async(
+                admitted.body,
                 response_gate=response_gate,
-                verified_review=VerifiedReviewProvenance(**provenance),
+                verified_review=admitted.provenance,
             )
+            self.server.manager.graph_runs.bind_review_run(
+                admitted.graph_review, record["run_id"]
+            )
+            return record
 
     def _serve(self, method):
         """Track native-starting requests before crossing the lifecycle fence."""
@@ -157,7 +163,7 @@ class ProviderControllers:
         self.factory = factory
         self.slots = {}
         self._review_grants = {}
-        self.graph_runs = ProviderGraphRuns(service)
+        self.graph_runs = ProviderGraphRuns(service, read_run=self._graph_run_record)
         self.root.mkdir(parents=True, exist_ok=True, mode=0o700)
         self.closed = False
         self._stopping = threading.Event()
@@ -358,7 +364,19 @@ class ProviderControllers:
             with self.service._lock:
                 slot.operations -= 1
 
-    def stage_verified_review(
+    def _graph_run_record(self, profile_id, node, run_id):
+        """Read an acknowledgement only from the exact admitted native slot."""
+        slot = self.slots.get(
+            (profile_id, node.connection_id, node.generation, "graph")
+        )
+        if slot is None or slot.runner is None or slot.creating:
+            raise ProviderConnectionError("verified_review_unavailable")
+        try:
+            return slot.runner.status(run_id)
+        except (OSError, RunnerError, ValueError):
+            raise ProviderConnectionError("verified_review_unavailable") from None
+
+    def _stage_verified_review(
         self,
         profile_id,
         lease_hash,
@@ -369,7 +387,7 @@ class ProviderControllers:
         instruction,
         *,
         request_body=None,
-        graph_review=None,
+        graph_review,
     ):
         """Stage one opaque, non-content grant after checking both owned sources."""
         try:
@@ -385,16 +403,15 @@ class ProviderControllers:
             raise ProviderConnectionError("verified_review_unavailable")
         with self.service._lock:
             self.service.check_lease(lease_hash)
-            if graph_review is not None:
-                self.graph_runs.check_review(graph_review)
-                if (
-                    graph_review.profile_id != profile_id
-                    or graph_review.lease_hash != lease_hash
-                    or graph_review.source_run != source_run
-                    or graph_review.target.connection_id != target_connection
-                    or graph_review.target.generation != target_generation
-                ):
-                    raise ProviderConnectionError("verified_review_unavailable")
+            self.graph_runs.check_review(graph_review)
+            if (
+                graph_review.profile_id != profile_id
+                or graph_review.lease_hash != lease_hash
+                or graph_review.source_run != source_run
+                or graph_review.target.connection_id != target_connection
+                or graph_review.target.generation != target_generation
+            ):
+                raise ProviderConnectionError("verified_review_unavailable")
         source = self.workspace_changes(profile_id, source_run)
         with self.service._lock:
             self.service.check_lease(lease_hash)
@@ -472,7 +489,8 @@ class ProviderControllers:
         ):
             raise ProviderConnectionError("verified_review_unavailable")
         review = self.graph_runs.review(capability, graph_digest, vertex_id)
-        self.graph_runs.begin_node(capability, graph_digest, vertex_id)
+        start = self.graph_runs.begin_node(capability, graph_digest, vertex_id)
+        body = {**body, "request_id": start.request_id}
         profile_id = review.profile_id
         source_run = review.source_run
         source = self.workspace_changes(profile_id, source_run)
@@ -481,7 +499,7 @@ class ProviderControllers:
             or source.generation != review.source.generation
         ):
             raise ProviderConnectionError("verified_review_unavailable")
-        token = self.stage_verified_review(
+        token = self._stage_verified_review(
             profile_id,
             review.lease_hash,
             source_run,
@@ -526,7 +544,7 @@ class ProviderControllers:
                 ).encode("utf-8")
             ).hexdigest()
         )
-        return token, digest
+        return StagedGraphReview(body=body, grant=token, expected_request_hash=digest)
 
     @contextmanager
     def admit_verified_review(self, token, slot, body):
@@ -537,8 +555,7 @@ class ProviderControllers:
             )
             if grant is None or grant.expires_at <= time.monotonic():
                 raise ProviderConnectionError("verified_review_unavailable")
-            if grant.graph_review is not None:
-                self.graph_runs.check_review(grant.graph_review)
+            self.graph_runs.check_review(grant.graph_review)
             self.service.check_lease(grant.lease_hash)
             self.service.admitted(
                 grant.profile_id, grant.source_connection, grant.source_generation
@@ -601,7 +618,11 @@ class ProviderControllers:
                 "post_run_hash": grant.post_run_hash,
                 "patch_hash": grant.patch_hash,
             }
-            yield admitted, provenance
+            yield GraphReviewDispatch(
+                body=admitted,
+                provenance=VerifiedReviewProvenance(**provenance),
+                graph_review=grant.graph_review,
+            )
 
     def endpoint(self, profile_id, connection_id, *, run_id=None):
         """Return a host-only URL/token path; retained runs resolve their original epoch."""

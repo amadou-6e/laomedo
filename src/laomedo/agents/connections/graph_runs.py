@@ -4,11 +4,12 @@ import hashlib
 import math
 import secrets
 import time
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from laomedo.agents.connections.errors import ProviderConnectionError
 from laomedo.agents.connections.models import GraphRunPlan
 from laomedo.agents.connections.models import GraphRunReview
+from laomedo.agents.connections.models import GraphNodeStart
 from laomedo.agents.connections.settings import MAX_ACTIVE_PROVIDER_GRAPHS
 
 
@@ -19,9 +20,10 @@ class ProviderGraphRuns:
     flow, vertex, profile or native run ID never authenticates a worker.
     """
 
-    def __init__(self, service):
+    def __init__(self, service, *, read_run):
         """Use the connection owner's lifecycle lock for all admission changes."""
         self.service = service
+        self.read_run = read_run
         self._plans = {}
         self._runs = {}
         self._started = {}
@@ -97,7 +99,7 @@ class ProviderGraphRuns:
             key = self._key(capability)
             self._plans[key] = plan
             self._runs[key] = {}
-            self._started[key] = set()
+            self._started[key] = {}
             return capability
 
     def resolve(self, capability, graph_digest, vertex_id):
@@ -108,13 +110,17 @@ class ProviderGraphRuns:
 
     def bind_run(self, capability, graph_digest, vertex_id, run_id):
         """Record a host-observed acknowledgement once; never accept worker output."""
+        with self.service._lock:
+            self._bind_run(self._key(capability), graph_digest, vertex_id, run_id)
+
+    def _bind_run(self, key, graph_digest, vertex_id, run_id):
+        """Bind only the runner record with this vertex's host-issued request ID."""
         try:
             if not isinstance(run_id, str) or str(UUID(run_id)) != run_id:
                 raise ValueError
         except (ValueError, TypeError, AttributeError):
             raise ProviderConnectionError("verified_review_unavailable") from None
         with self.service._lock:
-            key = self._key(capability)
             plan = self._current(key, graph_digest)
             self._node(plan, vertex_id)
             runs = self._runs[key]
@@ -124,7 +130,22 @@ class ProviderGraphRuns:
                 or run_id in runs.values()
             ):
                 raise ProviderConnectionError("verified_review_unavailable")
+            record = self.read_run(plan.profile_id, self._node(plan, vertex_id), run_id)
+            if (
+                not isinstance(record, dict)
+                or record.get("run_id") != run_id
+                or record.get("client_request_id") != self._started[key][vertex_id]
+            ):
+                raise ProviderConnectionError("verified_review_unavailable")
             runs[vertex_id] = run_id
+
+    def bind_review_run(self, review: GraphRunReview, run_id):
+        """Bind a review's native acknowledgement before releasing its start gate."""
+        with self.service._lock:
+            self.check_review(review)
+            self._bind_run(
+                review.worker_key, review.graph_digest, review.target.vertex_id, run_id
+            )
 
     def begin_node(self, capability, graph_digest, vertex_id):
         """Reserve one native start per approved vertex before crossing dispatch."""
@@ -136,8 +157,9 @@ class ProviderGraphRuns:
                 raise ProviderConnectionError("verified_review_unavailable")
             if node.review_source is not None:
                 self._review(key, graph_digest, vertex_id)
-            self._started[key].add(vertex_id)
-            return node
+            request_id = str(uuid4())
+            self._started[key][vertex_id] = request_id
+            return GraphNodeStart(node=node, request_id=request_id)
 
     def _review(self, key, graph_digest, vertex_id):
         """Project an exact review while the caller holds the lifecycle lock."""

@@ -257,9 +257,11 @@ source. These are host-internal records, not browser or worker request schemas.
 `admit` verifies the current lease and account generations and issues a separate
 worker capability; only its hash remains in host memory. `resolve` checks that
 capability, the exact graph digest, deadline and current account generation.
-`begin_node` reserves a vertex once before native dispatch; uncertain starts
-remain reserved rather than being replayed. `bind_run` records a runner
-acknowledgement under its actual admitted vertex and cannot replace it. `review`
+`begin_node` reserves a vertex and a host-generated native request UUID once before
+dispatch; uncertain starts remain reserved rather than being replayed. `bind_run`
+reads the actual native record through the controller's exact-slot callback and
+requires that request UUID before retaining an acknowledgement. It cannot bind an
+old run or replace a receipt. `review`
 resolves only the acknowledged run belonging
 to the review vertex's approved upstream node in this same graph invocation.
 The worker cannot select a source run or another profile. `finish` revokes the
@@ -267,6 +269,12 @@ capability; expiration and revoked sessions refuse subsequent operations.
 `ProviderControllers.stage_review_request` derives the profile, lease, source run
 and target account from this admission. Grant consumption checks the live graph
 again, so finishing a graph also fences a previously staged review grant.
+`StagedGraphReview` keeps the rewritten native request and opaque grant host-only;
+the worker receives only the expected semantic hash. `GraphReviewDispatch`
+couples the fenced native body, provenance and graph binding. The handler binds
+the actual target acknowledgement before releasing its native start gate. The
+grant issuer is private and requires graph admission; there is no unscoped
+profile/source staging route.
 
 This is authority groundwork for the isolated worker, not an OS boundary. It is
 not exposed to the current in-process Langflow runtime. The verified-review
