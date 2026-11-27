@@ -1,11 +1,15 @@
 """Current registration fences with SQLite custody and synthetic GitHub transport."""
 
 import asyncio
+from importlib.util import find_spec
 from pathlib import Path
 import tempfile
 from urllib.parse import parse_qs, urlencode, urlsplit
 import unittest
 from uuid import uuid4
+
+if find_spec("httpx2") is None:
+    raise unittest.SkipTest("Optional private-source HTTP transport is not installed")
 
 from httpx2 import MockTransport, Response
 from pydantic import SecretStr

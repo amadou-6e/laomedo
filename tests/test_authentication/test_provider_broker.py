@@ -1,12 +1,16 @@
 """Curated provider app wiring; this is not live container/model acceptance."""
 
 import json
+from importlib.util import find_spec
 from pathlib import Path
 import tempfile
 import unittest
 from unittest.mock import AsyncMock, Mock, patch
 from types import SimpleNamespace
 from contextlib import asynccontextmanager
+
+if find_spec("langflow") is None or find_spec("httpx") is None:
+    raise unittest.SkipTest("Optional native Langflow HTTP runtime is not installed")
 
 from httpx import ASGITransport, AsyncClient
 from starlette.requests import Request
