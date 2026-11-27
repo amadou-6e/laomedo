@@ -30,6 +30,29 @@ operation guard as proof that the upstream node was never built.
 
 ## Local host configuration
 
+### Isolated saved-account graphs
+
+The catalog-only saved-account app uses registered servers belonging to the
+current local profile. Ask the internal assistant to resolve that server, connect
+its Toolset to a fresh Agent, and request a run. The run approval covers the exact
+saved graph and registered configuration version. Skills can connect alongside it.
+Changing or removing the registration requires resolving it again.
+
+The host opens the registered native connection and forwards only its approved
+tool manifest to the Agent runner. The isolated graph worker receives neither the
+server connection settings nor native clients. Embedded commands, URLs, headers
+and per-node connection overrides are refused. Claude verified-patch review nodes
+keep external tools disabled. Existing native STDIO administrator restrictions
+and HTTP target policies still apply.
+
+Registration is an existing operator-owned prerequisite; this app does not expose
+native MCP installation/discovery APIs or let the assistant register servers.
+Name-only pinned references can be saved on the canvas without copying credentials
+into the flow. A saved, unconnected MCP selection is a draft and cannot run until
+it connects to an admitted Agent.
+
+### Shared native bridge
+
 The default private rendezvous directory is `~/.laomedo/mcp`. The existing
 private-state mechanism verifies current-user-only permissions. An existing
 directory with unverified permissions is refused rather than silently repaired.

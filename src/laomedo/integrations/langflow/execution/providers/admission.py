@@ -15,7 +15,7 @@ from laomedo.agents.connections.models import (
 from laomedo.github.contract import repository_from_url, labels_value
 from laomedo.github.node_runs.authority import GitHubRunAuthority
 from laomedo.integrations.langflow.assistant.models import NodeResourceBindings
-from laomedo.integrations.langflow.assistant.models import ResourceBinding
+from laomedo.integrations.langflow.graph_admission.models import ResourceBinding
 from laomedo.skills.registry.errors import SkillStoreError
 from laomedo.skills.registry.models import SkillReference
 from laomedo.skills.registry.store import SkillStore
@@ -197,12 +197,14 @@ class ProviderGraphAdmission:
             if self.catalog.classification(node["data"]["type"]) == "LaomedoSkill":
                 self._skill(node, {})
 
-    def _mcp(self, node, connected, targets):
+    @classmethod
+    def mcp_selection(cls, node, connected, targets, *, require_target=True):
         """Admit a name-only, version-pinned registered Toolset selection."""
         template = node["data"]["node"]["template"]
-        value = self._value
+        value = cls._value
         if (
             connected
+            or (require_target and not targets)
             or set(template)
             - {
                 "_type",
@@ -350,7 +352,7 @@ class ProviderGraphAdmission:
             if kinds[key] == "LaomedoSkill"
         }
         mcps = tuple(
-            self._mcp(
+            self.mcp_selection(
                 nodes[key],
                 connected[key],
                 [

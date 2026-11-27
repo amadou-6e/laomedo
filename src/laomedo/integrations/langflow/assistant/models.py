@@ -19,6 +19,7 @@ from sqlmodel import SQLModel, Field
 from laomedo.agents.agents.base.models import ModelCatalog, NativeCommandInvocation
 from laomedo.agents.connections.models import BrowserProviderSession
 from langflow.services.auth.context import AuthCredentialContext, AUTH_METHOD_JWT
+from laomedo.integrations.langflow.graph_admission.models import ResourceBinding
 
 
 class FlowDiagnostic(BaseModel):
@@ -64,23 +65,6 @@ class ConfigurationRequest(BaseModel):
     )
     connection_generation: int | None = ModelField(
         default=None, ge=1, description="Exact observed account epoch."
-    )
-
-
-class ResourceBinding(BaseModel):
-    """Safe resource identity and version; never an endpoint, config or credential."""
-
-    model_config = ConfigDict(extra="forbid", frozen=True)
-    kind: Literal["skill", "mcp"] = ModelField(
-        description="Concern owning the resource reference."
-    )
-    id: str = ModelField(
-        min_length=1, max_length=200, description="Owner-validated opaque identity."
-    )
-    version: str = ModelField(
-        min_length=1,
-        max_length=200,
-        description="Immutable Skill revision or MCP configuration epoch.",
     )
 
 

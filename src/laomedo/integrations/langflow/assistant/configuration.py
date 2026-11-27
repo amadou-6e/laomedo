@@ -12,7 +12,7 @@ from laomedo.integrations.langflow.assistant.errors import AssistantError
 from laomedo.integrations.langflow.assistant.models import ConfigurationRequest
 from laomedo.integrations.langflow.assistant.models import FlowDiagnostic
 from laomedo.integrations.langflow.assistant.models import ResolvedConfiguration
-from laomedo.integrations.langflow.assistant.models import ResourceBinding
+from laomedo.integrations.langflow.graph_admission.models import ResourceBinding
 from laomedo.integrations.langflow.assistant.models import NodeResourceBindings
 from laomedo.integrations.langflow.assistant.models import RunResourceBinding
 from laomedo.integrations.langflow.assistant.models import ConfigurationResult

@@ -57,6 +57,10 @@ opens its native transport. Native STDIO/SSRF policies remain mandatory.
 `check` fences discovery, each tool call and output release; `close` revokes its
 registrations before closing only its owned clients/session managers. Tool
 arguments and results are not copied into new activity records.
+`check_saved_graph` permits data-only autosave of name-only owner/version-pinned
+references, including unconnected draft nodes. It rejects embedded configuration
+before native Flow persistence can stage credentials. Execution additionally
+requires every selected MCP node to have an admitted Agent target.
 
 The execution projection removes registered MCP selection nodes and their tool
 edges from the worker graph: their host owner resolves them, without evaluating

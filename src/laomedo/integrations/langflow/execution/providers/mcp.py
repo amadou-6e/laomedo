@@ -49,10 +49,67 @@ class RegisteredMcpTools:
             future.cancel()
             raise
 
-    async def _row(self, selection, *, configuration=False):
-        """Load an exact enabled owner/version, decrypting only for approved discovery."""
+    @staticmethod
+    async def registered_row(session, profile_id, selection):
+        """Resolve native rows by exact active owner and pin, never decrypt configuration."""
         from sqlmodel import select
         from langflow.services.database.models import MCPServer, User
+
+        user = await session.get(User, profile_id)
+        row = (
+            await session.exec(
+                select(MCPServer).where(
+                    MCPServer.id == UUID(selection.binding.id),
+                    MCPServer.user_id == profile_id,
+                    MCPServer.name == selection.name,
+                    MCPServer.enabled == True,
+                    MCPServer.version == int(selection.binding.version),
+                )
+            )
+        ).first()
+        if user is None or not user.is_active or row is None:
+            raise McpError("mcp_registration_unavailable")
+        return row, user
+
+    @classmethod
+    async def check_saved_graph(cls, profile_id, graph, catalog):
+        """Admit only name-only registered references before native Flow persistence."""
+        from langflow.services.deps import session_scope
+        from laomedo.integrations.langflow.execution.providers.admission import (
+            ProviderGraphAdmission,
+        )
+
+        pending = list(graph.get("nodes", []))
+        selections = []
+        while pending:
+            node = pending.pop()
+            data = node["data"]
+            component = data["node"]
+            nested = component.get("flow")
+            if nested:
+                pending.extend(nested["data"]["nodes"])
+            field = (component.get("template") or {}).get("mcp_server")
+            if field is None:
+                continue
+            if not isinstance(field, dict) or field.get("load_from_db"):
+                raise McpError("mcp_registration_unavailable")
+            value = field.get("value")
+            if value in (None, "", {}):
+                continue
+            if catalog.classification(data["type"]) != "MCPTools":
+                raise McpError("mcp_registration_unavailable")
+            selections.append(
+                ProviderGraphAdmission.mcp_selection(node, {}, (), require_target=False)
+            )
+        if not selections:
+            return
+        async with session_scope() as session:
+            for selection in selections:
+                profile_id = UUID(str(profile_id))
+                await cls.registered_row(session, profile_id, selection)
+
+    async def _row(self, selection, *, configuration=False):
+        """Load an exact enabled owner/version, decrypting only for approved discovery."""
         from langflow.services.deps import session_scope
 
         self.connections.check_lease(self.plan.lease_hash)
@@ -65,20 +122,9 @@ class RegisteredMcpTools:
         if self.closed or time.monotonic() >= self.plan.deadline:
             raise McpError("mcp_registration_unavailable")
         async with session_scope() as session:
-            user = await session.get(User, self.plan.profile_id)
-            row = (
-                await session.exec(
-                    select(MCPServer).where(
-                        MCPServer.id == UUID(selection.binding.id),
-                        MCPServer.user_id == self.plan.profile_id,
-                        MCPServer.name == selection.name,
-                        MCPServer.enabled == True,
-                        MCPServer.version == int(selection.binding.version),
-                    )
-                )
-            ).first()
-            if user is None or not user.is_active or row is None:
-                raise McpError("mcp_registration_unavailable")
+            row, user = await self.registered_row(
+                session, self.plan.profile_id, selection
+            )
             if not configuration:
                 return None
             from langflow.api.v2.mcp import ensure_mcp_stdio_access

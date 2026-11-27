@@ -11,6 +11,7 @@ from types import SimpleNamespace
 import tempfile
 import time
 import threading
+import sys
 import unittest
 from unittest.mock import AsyncMock, Mock, patch
 from uuid import uuid4
@@ -32,13 +33,14 @@ from laomedo.integrations.langflow.assistant.catalog import ComponentCatalog
 from laomedo.integrations.langflow.assistant.models import (
     DraftGraph,
     ResolvedConfiguration,
-    ResourceBinding,
 )
+from laomedo.integrations.langflow.graph_admission.models import ResourceBinding
 from laomedo.integrations.langflow.execution.providers.admission import (
     ProviderGraphAdmission,
 )
 from laomedo.integrations.langflow.execution.providers.catalog import (
     ProviderComponentCatalog,
+    ProviderGraphCatalog,
 )
 from laomedo.integrations.langflow.execution.providers.mcp import (
     RegisteredMcpTools,
@@ -288,6 +290,98 @@ class RegisteredMcpOwnershipTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaisesRegex(McpError, "mcp_registration_unavailable"):
             await self.resources.check()
 
+    async def test_canvas_autosave_accepts_only_owned_name_only_resource_pins(self):
+        import json
+        from fastapi import HTTPException
+        from starlette.requests import Request
+        from laomedo.integrations.langflow.authentication.provider import (
+            ProviderBrowserRoutes,
+        )
+
+        source = "raise AssertionError('saving must not execute code')"
+        catalog = ProviderGraphCatalog.capture(
+            {"fixture": {"MCPTools": {"template": {"code": {"value": source}}}}}
+        )
+        boundary = ProviderBrowserRoutes(SimpleNamespace(admission=catalog))
+        graph = {
+            "nodes": [
+                {
+                    "id": "tools",
+                    "data": {
+                        "id": "tools",
+                        "type": "MCPTools",
+                        "node": {
+                            "tool_mode": True,
+                            "template": {
+                                "code": {"value": source},
+                                "mcp_server": {"value": {"name": "fixture"}},
+                            },
+                        },
+                        "laomedo_authoring_bindings": {
+                            "resources": [
+                                self.selection.binding.model_dump(mode="json")
+                            ]
+                        },
+                    },
+                }
+            ],
+            "edges": [],
+        }
+
+        async def save(value, owner=None):
+            async def receive():
+                return {
+                    "type": "http.request",
+                    "body": json.dumps({"data": value}).encode(),
+                }
+
+            request = Request(
+                {"type": "http", "method": "POST", "path": "/api/v1/flows"},
+                receive=receive,
+            )
+            return await boundary.admit_flow_write(
+                request, SimpleNamespace(id=owner or self.profile)
+            )
+
+        with (
+            patch(
+                "langflow.services.auth.mcp_encryption.decrypt_mcp_config",
+                side_effect=AssertionError("save cannot decrypt"),
+            ),
+            patch(
+                "lfx.base.mcp.util.update_tools",
+                new=AsyncMock(side_effect=AssertionError("save cannot connect")),
+            ),
+        ):
+            await save(graph)
+            with self.assertRaises(HTTPException):
+                await save(graph, uuid4())
+            for value in (
+                {"name": "fixture", "config": {"url": "https://other.invalid"}},
+                {"config": {"command": "python"}},
+                {
+                    "name": "fixture",
+                    "config": {"headers": {"Authorization": "private-fixture"}},
+                },
+                {"name": "other"},
+            ):
+                changed = deepcopy(graph)
+                changed["nodes"][0]["data"]["node"]["template"]["mcp_server"][
+                    "value"
+                ] = value
+                with self.subTest(value=value), self.assertRaises(HTTPException):
+                    await save(changed)
+            async with self.session() as session:
+                row = await session.get(MCPServer, self.identifier)
+                self.assertEqual(row.version, 1)
+                self.assertEqual(
+                    row.config["headers"]["Authorization"], "PRIVATE_CONFIG_CANARY"
+                )
+                row.version = 2
+                await session.commit()
+            with self.assertRaises(HTTPException):
+                await save(graph)
+
     async def test_foreign_disabled_deleted_or_renamed_registration_refuses(self):
         for attribute, value in (
             ("user_id", uuid4()),
@@ -453,3 +547,79 @@ class RegisteredMcpOwnershipTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(events, ["revoked", "closed"])
         self.assertEqual(self.resources.clients, [])
         self.resources.registry.release.assert_called_once_with(identifier)
+
+    async def test_registered_owner_service_calls_and_closes_real_stdio_server(self):
+        """Real native subprocess/SDK lifecycle; no model or saved credential access."""
+        server = (
+            Path(__file__).resolve().parents[3]
+            / "test_agents/test_mcp/resources/server.py"
+        )
+        async with self.session() as session:
+            row = await session.get(MCPServer, self.identifier)
+            row.config = {
+                "mode": "Stdio",
+                "command": sys.executable,
+                "args": [str(server)],
+            }
+            user = await session.get(User, self.profile)
+            user.is_superuser = True
+            await session.commit()
+        registry = SimpleNamespace(
+            register=AsyncMock(
+                side_effect=lambda tools: McpRegistration(
+                    registration_id=uuid4(),
+                    manifest=McpManifest(
+                        tools=tuple(tool.descriptor for tool in tools)
+                    ),
+                )
+            ),
+            release=Mock(),
+        )
+        settings = SimpleNamespace(mcp_server_timeout=15, allow_custom_components=False)
+        with (
+            patch(
+                "laomedo.integrations.langflow.execution.providers.mcp.McpRegistry.current",
+                return_value=registry,
+            ),
+            patch(
+                "langflow.services.deps.get_settings_service",
+                return_value=SimpleNamespace(settings=settings),
+            ),
+            patch(
+                "lfx.base.mcp.util.get_settings_service",
+                return_value=SimpleNamespace(settings=settings),
+            ),
+            patch(
+                "lfx.base.mcp.util._get_mcp_setting",
+                side_effect=lambda key, default=None: {
+                    "mcp_server_timeout": 15,
+                    "mcp_max_sessions_per_server": 4,
+                    "mcp_session_idle_timeout": 300,
+                    "mcp_session_cleanup_interval": 60,
+                }.get(key, default),
+            ),
+        ):
+            try:
+                plan = await self.resources.prepare()
+                tools = registry.register.call_args.args[0]
+                self.assertEqual(len(tools), 1)
+                response = await tools[0].invoke(
+                    {"message": "registered-owner-live-transport"}
+                )
+                self.assertEqual(
+                    response["content"][0]["text"], "registered-owner-live-transport"
+                )
+                managers = [
+                    getattr(client, "_session_manager", None)
+                    for client in self.resources.clients
+                ]
+            finally:
+                await self.resources.close()
+        registry.release.assert_called_once_with(
+            plan.nodes[0].policy.mcp_registration.registration_id
+        )
+        self.assertEqual(self.resources.clients, [])
+        for manager in managers:
+            if manager is not None:
+                self.assertEqual(manager.sessions_by_server, {})
+                self.assertFalse(manager._background_tasks)

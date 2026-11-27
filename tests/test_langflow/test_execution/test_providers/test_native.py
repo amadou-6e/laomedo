@@ -244,7 +244,10 @@ class ProviderNativeContainerTests(unittest.IsolatedAsyncioTestCase):
                 events = []
                 worker.on_event = events.append
                 with patch("asyncio.create_subprocess_exec", new=trace.start):
-                    result = await asyncio.wait_for(worker.run(prepared.job), 65)
+                    try:
+                        result = await asyncio.wait_for(worker.run(prepared.job), 65)
+                    except Exception:
+                        self.fail(await trace.diagnostics())
                 diagnostics = await trace.diagnostics()
                 self.assertEqual(result.event, "completed", diagnostics)
                 self.assertIn(

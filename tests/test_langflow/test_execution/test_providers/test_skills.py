@@ -17,8 +17,8 @@ from laomedo.integrations.langflow.assistant.catalog import ComponentCatalog
 from laomedo.integrations.langflow.assistant.models import (
     DraftGraph,
     ResolvedConfiguration,
-    ResourceBinding,
 )
+from laomedo.integrations.langflow.graph_admission.models import ResourceBinding
 from laomedo.integrations.langflow.execution.providers.admission import (
     ProviderGraphAdmission,
 )

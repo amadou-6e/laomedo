@@ -13,7 +13,7 @@ authentication; the browser run scope comes from `../authentication/`.
 ```text
 graph_admission/
   settings.py   GITHUB_GRAPH_COMPONENT_TYPES (host-owned execution classification)
-  models.py     GitHubCatalogEntry, GitHubCatalogSnapshot
+  models.py     GitHubCatalogEntry, GitHubCatalogSnapshot, ResourceBinding
   catalog.py    GitHubGraphCatalog
   node_runs.py  GitHubNodeRunAdmission
 ```
@@ -21,6 +21,10 @@ graph_admission/
 The isolated worker (`../execution/worker/`) imports `GitHubCatalogSnapshot` for
 its bootstrap and re-runs `GitHubGraphCatalog` and
 `GitHubNodeRunAdmission.executable_graph` on the actual parsed graph.
+`ResourceBinding` is the canonical data-only Skill revision or registered-MCP
+configuration epoch. It carries no endpoint or credential and imports no server
+authentication or database models. Host authoring resolves its ownership;
+transporting the reference grants no authority by itself.
 
 ## Catalog
 

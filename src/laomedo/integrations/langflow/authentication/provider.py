@@ -96,14 +96,20 @@ class ProviderBrowserRoutes:
                 # its pure extractor to refuse that effect before its writer.
                 from langflow.api.utils.mcp.flow_secrets import (
                     extract_and_strip_mcp_secrets,
-                    mcp_server_names,
                 )
 
                 carried, variables = extract_and_strip_mcp_secrets(
                     deepcopy(payload["data"])
                 )
-                if carried or variables or mcp_server_names(payload["data"]):
+                if carried or variables:
                     raise ValueError
+                from laomedo.integrations.langflow.execution.providers.mcp import (
+                    RegisteredMcpTools,
+                )
+
+                await RegisteredMcpTools.check_saved_graph(
+                    getattr(user, "id", None), payload["data"], self.catalog.admission
+                )
             selected = request.path_params.get("flow_id")
             if selected is not None:
                 from langflow.services.database.models.flow.model import Flow

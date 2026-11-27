@@ -8,7 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from laomedo.integrations.langflow.execution.worker.models import NativeGraphJob
 from laomedo.agents.connections.models import GraphRunPlan
-from laomedo.integrations.langflow.assistant.models import ResourceBinding
+from laomedo.integrations.langflow.graph_admission.models import ResourceBinding
 from laomedo.integrations.langflow.execution.providers.settings import (
     PROVIDER_EVENT_BYTES,
 )
@@ -110,7 +110,9 @@ class GraphMcpSelection(BaseModel):
         description="Canonical owner-validated resource pin."
     )
     targets: tuple[str, ...] = Field(
-        min_length=1, max_length=40, description="Exact connected Agent vertices."
+        default=(),
+        max_length=40,
+        description="Exact Agent vertices; empty only for saved drafts.",
     )
 
     @model_validator(mode="after")
