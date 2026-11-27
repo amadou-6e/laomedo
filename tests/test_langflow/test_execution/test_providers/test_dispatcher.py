@@ -206,6 +206,11 @@ class ProviderDispatcherTests(unittest.TestCase):
             ).hexdigest()
         )
         self.assertEqual(reply.payload["request_hash"], expected)
+        native_record = slot.runner.status(reply.payload["run_id"])
+        native_record["request_hash"] = "host-native-manifest-hash"
+        projected = self.dispatcher._status("codex", native_record)
+        self.assertEqual(projected["request_hash"], expected)
+        self.assertEqual(native_record["request_hash"], "host-native-manifest-hash")
         self.assertNotIn(str(registration.registration_id), json.dumps(reply.payload))
         fence.check_dispatch.side_effect = ProviderConnectionError(
             "provider_connection_unavailable"

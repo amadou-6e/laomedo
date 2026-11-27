@@ -290,6 +290,39 @@ class RegisteredMcpOwnershipTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaisesRegex(McpError, "mcp_registration_unavailable"):
             await self.resources.check()
 
+    async def test_dispatch_refuses_its_host_loop_without_scheduling_or_blocking(self):
+        with patch(
+            "asyncio.run_coroutine_threadsafe",
+            side_effect=AssertionError("must not block its own loop"),
+        ):
+            with self.assertRaisesRegex(McpError, "mcp_registration_unavailable"):
+                self.resources.check_dispatch()
+
+    async def test_queued_registration_maintenance_fences_before_renewing(self):
+        events = []
+        identifier = uuid4()
+        self.resources.registrations = [identifier]
+        self.resources.registry = SimpleNamespace(
+            settings=SimpleNamespace(lease_seconds=120),
+            renew_unclaimed=Mock(side_effect=lambda _: events.append("renew")),
+            release=Mock(),
+        )
+        self.resources.check = AsyncMock(side_effect=lambda: events.append("check"))
+        with patch(
+            "asyncio.sleep", new=AsyncMock(side_effect=[None, asyncio.CancelledError])
+        ):
+            with self.assertRaises(asyncio.CancelledError):
+                await self.resources._maintain_registrations()
+        self.assertEqual(events, ["check", "renew"])
+        self.resources.check.side_effect = McpError("mcp_registration_unavailable")
+        self.resources.registry.renew_unclaimed.reset_mock()
+        with patch("asyncio.sleep", new=AsyncMock()):
+            await self.resources._maintain_registrations()
+        self.assertTrue(self.resources.closed)
+        self.resources.registry.renew_unclaimed.assert_not_called()
+        self.resources.registry.release.assert_called_once_with(identifier)
+        self.assertEqual(self.resources.registrations, [])
+
     async def test_canvas_autosave_accepts_only_owned_name_only_resource_pins(self):
         import json
         from fastapi import HTTPException
@@ -354,6 +387,29 @@ class RegisteredMcpOwnershipTests(unittest.IsolatedAsyncioTestCase):
             ),
         ):
             await save(graph)
+            for empty in (None, "", {}):
+                unselected = deepcopy(graph)
+                component = unselected["nodes"][0]["data"]["node"]
+                component["tool_mode"] = False
+                component["template"]["mcp_server"]["value"] = empty
+                unselected["nodes"][0]["data"].pop("laomedo_authoring_bindings")
+                await save(unselected)
+                for field, value in (
+                    ("headers", {"Authorization": "PRIVATE_UNSELECTED_CANARY"}),
+                    ("verify_ssl", False),
+                    ("use_cache", True),
+                ):
+                    changed = deepcopy(unselected)
+                    changed["nodes"][0]["data"]["node"]["template"][field] = {
+                        "value": value
+                    }
+                    with self.subTest(empty=empty, field=field):
+                        with self.assertRaises(HTTPException) as error:
+                            await save(changed)
+                        self.assertEqual(error.exception.status_code, 422)
+                        self.assertEqual(
+                            error.exception.detail, {"code": "assistant_input_invalid"}
+                        )
             with self.assertRaises(HTTPException):
                 await save(graph, uuid4())
             for value in (
@@ -458,7 +514,10 @@ class RegisteredMcpOwnershipTests(unittest.IsolatedAsyncioTestCase):
             ),
         )
         registry = SimpleNamespace(
-            register=AsyncMock(return_value=registration), release=Mock()
+            register=AsyncMock(return_value=registration),
+            release=Mock(),
+            settings=SimpleNamespace(lease_seconds=120),
+            renew_unclaimed=Mock(),
         )
         session = SimpleNamespace(
             list_tools=AsyncMock(return_value=ListToolsResult(tools=[advertised])),
@@ -574,6 +633,8 @@ class RegisteredMcpOwnershipTests(unittest.IsolatedAsyncioTestCase):
                 )
             ),
             release=Mock(),
+            settings=SimpleNamespace(lease_seconds=120),
+            renew_unclaimed=Mock(),
         )
         settings = SimpleNamespace(mcp_server_timeout=15, allow_custom_components=False)
         with (

@@ -107,6 +107,20 @@ class McpRegistry:
         if lease is not None and lease.run_id is None:
             self.release(identifier)
 
+    def renew_unclaimed(self, registration_id):
+        """Keep a queued grant live without resurrecting it or supervising a claim."""
+        if self.current() is not self:
+            raise McpError("mcp_app_lifetime_required")
+        identifier = str(UUID(str(registration_id)))
+        lease = self.leases.get(identifier)
+        if lease is None:
+            return
+        now = time.monotonic()
+        if lease.expires <= now:
+            self.release(identifier)
+        elif lease.run_id is None:
+            lease.expires = now + self.settings.lease_seconds
+
     async def request(self, identifier, token, method, body=None):
         """Authorize one request before discovery or invocation; never widen a grant."""
         lease = self.leases.get(identifier)

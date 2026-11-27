@@ -32,6 +32,12 @@ perform blocking supervision I/O. Directory custody uses the existing strict
 `host/private_state` owner, not a new permission implementation. Full editor and
 provider acceptance remain separate and unverified.
 
+`McpRegistry.renew_unclaimed` lets the owning app keep an already approved queued
+registration alive until its Agent starts. It never recreates expired/released
+grants or renews claimed runs; those retain their native heartbeat. The registered
+graph resource owner supervises queued grants, checks its live pins/lease before
+renewing and cancels supervision before ordinary grant/client cleanup.
+
 Graph and durable task identity contain only the frozen manifest. An opaque local
 registration reference is transient admission, verified against that manifest and
 excluded from semantic request hashes. Native bearer capabilities remain in

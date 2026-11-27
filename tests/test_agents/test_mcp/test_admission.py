@@ -1,6 +1,8 @@
 """Current request identity and frozen external-grant admission contracts."""
 
 from pathlib import Path
+import asyncio
+from types import SimpleNamespace
 from importlib.util import find_spec
 import json
 import unittest
@@ -21,6 +23,38 @@ from laomedo.agents.errors import RunnerError
 from test_agents.test_runtime.models import RunnerCase
 from support.paths import repository_root
 from laomedo.agents.mcp.settings import MCP_ERROR_CODES
+from laomedo.agents.mcp.registry import McpRegistry
+
+
+class McpQueuedRegistrationTests(unittest.IsolatedAsyncioTestCase):
+    """Queued grants remain live without replacing claimed-run or revocation rules."""
+
+    async def test_only_live_unclaimed_grants_can_be_renewed(self):
+        registry = McpRegistry(McpSettings())
+        registry.loop = asyncio.get_running_loop()
+        identifier = str(uuid4())
+        lease = SimpleNamespace(expires=100, run_id=None, tasks={})
+        registry.leases[identifier] = lease
+        with (
+            patch.object(McpRegistry, "_active", registry),
+            patch(
+                "laomedo.agents.mcp.registry.time",
+                SimpleNamespace(monotonic=lambda: 90),
+            ),
+        ):
+            registry.renew_unclaimed(identifier)
+            self.assertEqual(lease.expires, 210)
+            lease.run_id = uuid4()
+            registry.renew_unclaimed(identifier)
+            self.assertEqual(lease.expires, 210)
+            registry.release(identifier)
+            registry.renew_unclaimed(identifier)
+            self.assertNotIn(identifier, registry.leases)
+            lease.run_id = None
+            lease.expires = 89
+            registry.leases[identifier] = lease
+            registry.renew_unclaimed(identifier)
+            self.assertNotIn(identifier, registry.leases)
 
 
 class McpAdmissionTests(unittest.TestCase):

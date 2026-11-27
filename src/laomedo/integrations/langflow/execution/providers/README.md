@@ -74,6 +74,14 @@ native history retains the separate semantic hash including the approved tool
 manifest. Host review provenance is recomputed from native workspace snapshots,
 never inferred from the projected hash. `check_dispatch` repeats metadata and
 account-generation checks on the app loop before a worker-thread start.
+It refuses calls from that loop itself rather than blocking it. The admission
+owner's `check_mcp_parameters` rejects connection overrides before persistence,
+including drafts that have not selected a server; empty selection is not a way
+to retain headers or other connection settings in flow data.
+The resource owner keeps queued, unclaimed registrations alive while earlier
+nodes run. `_maintain_registrations` rechecks live authority before calling the
+registry's unclaimed-only renewal; native claimed-run heartbeats stay independent.
+`close` cancels that supervisor before revoking grants and closing clients.
 Verified-review Claude targets cannot acquire external tools. No endpoint,
 command, header, credential or native client crosses into the graph worker.
 

@@ -37,11 +37,18 @@ class RegisteredMcpTools:
         self.registry = None
         self.clients = []
         self.registrations = []
+        self.maintenance = None
         self.closed = False
         self.loop = asyncio.get_running_loop()
 
     def check_dispatch(self):
         """Fence a worker-thread start on the original host loop, without discovery."""
+        try:
+            current = asyncio.get_running_loop()
+        except RuntimeError:
+            current = None
+        if current is self.loop:
+            raise McpError("mcp_registration_unavailable")
         future = asyncio.run_coroutine_threadsafe(self.check(), self.loop)
         try:
             future.result(timeout=CALL_TIMEOUT_SECONDS)
@@ -95,6 +102,8 @@ class RegisteredMcpTools:
                 raise McpError("mcp_registration_unavailable")
             value = field.get("value")
             if value in (None, "", {}):
+                if catalog.classification(data["type"]) == "MCPTools":
+                    ProviderGraphAdmission.check_mcp_parameters(node)
                 continue
             if catalog.classification(data["type"]) != "MCPTools":
                 raise McpError("mcp_registration_unavailable")
@@ -103,9 +112,9 @@ class RegisteredMcpTools:
             )
         if not selections:
             return
+        profile_id = UUID(str(profile_id))
         async with session_scope() as session:
             for selection in selections:
-                profile_id = UUID(str(profile_id))
                 await cls.registered_row(session, profile_id, selection)
 
     async def _row(self, selection, *, configuration=False):
@@ -207,6 +216,10 @@ class RegisteredMcpTools:
                     raise McpError("mcp_tool_approval_unsupported")
                 registration = await self.registry.register(selected)
                 self.registrations.append(registration.registration_id)
+                if self.maintenance is None:
+                    self.maintenance = asyncio.create_task(
+                        self._maintain_registrations()
+                    )
                 node = node.model_copy(
                     update={
                         "policy": node.policy.model_copy(
@@ -218,10 +231,38 @@ class RegisteredMcpTools:
         await self.check()
         return self.plan.model_copy(update={"nodes": tuple(nodes)})
 
+    async def _maintain_registrations(self):
+        """Fence and renew only queued grants while native claims own their heartbeat."""
+        try:
+            while not self.closed:
+                await asyncio.sleep(self.registry.settings.lease_seconds / 3)
+                await self.check()
+                for identifier in tuple(self.registrations):
+                    self.registry.renew_unclaimed(identifier)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            # Withhold calls/results immediately; retain any failed revocation
+            # receipts for the ordinary job owner's cleanup/reconciliation.
+            self.closed = True
+            for identifier in tuple(self.registrations):
+                try:
+                    self.registry.release(identifier)
+                    self.registrations.remove(identifier)
+                except Exception:
+                    continue
+
     async def close(self):
         """Revoke grants first; retain failed owned-client cleanup for reconciliation."""
         self.closed = True
         failed = False
+        if self.maintenance is not None:
+            self.maintenance.cancel()
+            try:
+                await self.maintenance
+            except asyncio.CancelledError:
+                pass
+            self.maintenance = None
         if self.registry is not None:
             for identifier in tuple(self.registrations):
                 try:

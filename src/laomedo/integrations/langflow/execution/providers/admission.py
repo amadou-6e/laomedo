@@ -198,14 +198,12 @@ class ProviderGraphAdmission:
                 self._skill(node, {})
 
     @classmethod
-    def mcp_selection(cls, node, connected, targets, *, require_target=True):
-        """Admit a name-only, version-pinned registered Toolset selection."""
+    def check_mcp_parameters(cls, node):
+        """Refuse connection overrides even in a draft without a selected server."""
         template = node["data"]["node"]["template"]
         value = cls._value
         if (
-            connected
-            or (require_target and not targets)
-            or set(template)
+            set(template)
             - {
                 "_type",
                 "code",
@@ -217,7 +215,6 @@ class ProviderGraphAdmission:
                 "tool",
                 "tool_placeholder",
             }
-            or node["data"]["node"].get("tool_mode") is not True
             or value(template, "verify_ssl", True) is not True
             or value(template, "use_cache", False) is not False
             or value(template, "tool_execution_timeout", 0) not in (None, 0)
@@ -225,6 +222,19 @@ class ProviderGraphAdmission:
                 value(template, field) not in (None, "", [], {})
                 for field in ("headers", "tool", "tool_placeholder")
             )
+        ):
+            raise ProviderConnectionError("verified_review_unavailable")
+
+    @classmethod
+    def mcp_selection(cls, node, connected, targets, *, require_target=True):
+        """Admit a name-only, version-pinned registered Toolset selection."""
+        cls.check_mcp_parameters(node)
+        template = node["data"]["node"]["template"]
+        value = cls._value
+        if (
+            connected
+            or (require_target and not targets)
+            or node["data"]["node"].get("tool_mode") is not True
         ):
             raise ProviderConnectionError("verified_review_unavailable")
         try:
