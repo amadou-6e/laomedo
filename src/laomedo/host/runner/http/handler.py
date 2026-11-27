@@ -239,7 +239,12 @@ class RunnerRequestHandler(BaseHTTPRequestHandler):
         if code >= 400:
             category = (
                 RunnerDiagnostics.safe_code(
-                    value.get("error_category"), RunnerDiagnostics.known_codes
+                    (
+                        getattr(failure, "code", None)
+                        if failure is not None
+                        else value.get("error_category")
+                    ),
+                    RunnerDiagnostics.known_codes,
                 )
                 or "runner_unclassified_failure"
             )
@@ -296,7 +301,11 @@ class RunnerRequestHandler(BaseHTTPRequestHandler):
                 else logger.warning
             )
             emit("Runner failure: %s", json.dumps(diagnostics, sort_keys=True))
-            value = {**value, "runner_diagnostics": diagnostics}
+            value = {
+                **value,
+                "error_category": category,
+                "runner_diagnostics": diagnostics,
+            }
         data = json.dumps(value).encode("utf-8")
         self.send_response(code)
         self.send_header("Content-Type", "application/json")

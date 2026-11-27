@@ -36,6 +36,10 @@ class RunnerHTTPErrorTests(unittest.TestCase):
                     "runner_unclassified_failure",
                 ),
                 (KeyError("private-key"), "runner_unclassified_failure"),
+                (
+                    ValueError("private_account_identifier"),
+                    "runner_unclassified_failure",
+                ),
             ):
                 runner.start.side_effect = failure
                 request = Request(
@@ -57,6 +61,7 @@ class RunnerHTTPErrorTests(unittest.TestCase):
                     with response.exception as error_response:
                         payload = json.load(error_response)
                     diagnostics = payload["runner_diagnostics"]
+                    self.assertEqual(payload["error_category"], expected)
                 text = " ".join(captured.output)
                 self.assertIn('"http_status": 400', text)
                 self.assertEqual(diagnostics["http_status"], 400)
@@ -72,11 +77,41 @@ class RunnerHTTPErrorTests(unittest.TestCase):
                     "x" * 32,
                 ):
                     self.assertNotIn(private, text)
+                    self.assertNotIn(private, json.dumps(payload))
                 if isinstance(failure, PermissionError):
                     self.assertEqual(diagnostics["failure_kind"], "os_error")
                     self.assertEqual(diagnostics["errno"], 13)
                 elif isinstance(failure, RunnerError):
                     self.assertEqual(diagnostics["failure_kind"], "domain_error")
+
+    def test_read_errors_and_invalid_query_do_not_echo_paths_or_values(self):
+        runner = Mock(api_token="x" * 32)
+        runner.status.side_effect = OSError(
+            13, "private access", "/private/workspace/file"
+        )
+        with patch(
+            "laomedo.host.runner.http.server.Settings",
+            return_value=SimpleNamespace(startup_gate=""),
+        ):
+            server = RunnerServer(runner, port=0)
+        with RunningHTTPServer(server) as running:
+            for path in (
+                "/v1/runs/owned",
+                "/v1/runs/owned/events?after=private_query_value",
+            ):
+                with self.subTest(path=path):
+                    request = Request(
+                        f"http://127.0.0.1:{running.server_port}" + path,
+                        headers={"Authorization": "Bearer " + "x" * 32},
+                    )
+                    with self.assertRaises(HTTPError) as response:
+                        urlopen(request, timeout=5)
+                    with response.exception as failure:
+                        payload = json.load(failure)
+                    self.assertEqual(
+                        payload["error_category"], "runner_unclassified_failure"
+                    )
+                    self.assertNotIn("private", json.dumps(payload))
 
     def test_refused_resume_does_not_release_another_attempts_mcp_grant(self):
         """A failed binding owns no capability and must not revoke an active run."""

@@ -21,14 +21,16 @@ resume, status, cancel and request-lookup meanings. Extraction is not a protocol
 Readiness, execution outcome and cleanup are distinct. Async acknowledgement is
 not completion; uncertain transport must be reconciled by existing identity.
 
-Failed responses add an optional `runner_diagnostics` envelope, without changing
-status or existing response fields. It contains HTTP status, a safe category,
+Failed responses retain their status and response field names, but
+`error_category` is always a safe domain machine code or the fixed
+`runner_unclassified_failure` fallback. Generic exception messages are not codes,
+even if their text resembles one. The optional `runner_diagnostics` envelope
+contains HTTP status, a safe category,
 fixed stage/failure kind and numeric OS errno when available. A fresh diagnostic
 UUID correlates the response with its structured host log, even before a run
 exists. Expected GET lookup 404s log at debug; other failures log warnings.
 Paths, request bodies, credentials, raw exception text and tracebacks are excluded
-from diagnostics. Existing raw wire exception fields are not newly copied into
-graph diagnostics. Log records say failure, not refusal, because an execution
+from the response and diagnostics. Log records say failure, not refusal, because an execution
 failure need not imply that nothing ran.
 
 Wrappers pass the exception as private context to `_reply()`. A safe original

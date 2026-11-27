@@ -128,6 +128,7 @@ class EarlyRunnerTests(unittest.TestCase):
 
     def test_preworker_cancel_and_same_request_retry_never_dispatch(self):
         gate = threading.Event()
+        self.addCleanup(gate.set)
         first = self.runner.start_async(self.body, response_gate=gate)
         self.assertEqual(first["status"], "prepared")
         self.assertEqual(self.runner.status(first["run_id"])["run_id"], first["run_id"])
@@ -143,6 +144,28 @@ class EarlyRunnerTests(unittest.TestCase):
         self.assertEqual(self.runner.status(first["run_id"])["status"], "cancelled")
         self.assertEqual(BlockingServer.turn_starts, 0)
         self.assertFalse((self.state / "turn-ledger.json").exists())
+
+    def test_cold_preparation_refusal_leaves_same_request_retry_unreserved(self):
+        with patch.object(
+            self.runner,
+            "_prepare",
+            side_effect=RunnerError(
+                "runner_model_catalog_unavailable_check_runner_connection"
+            ),
+        ):
+            with self.assertRaisesRegex(
+                RunnerError, "runner_model_catalog_unavailable"
+            ):
+                self.runner.start_async(self.body)
+        self.assertEqual(list((self.state / "runs").iterdir()), [])
+        gate = threading.Event()
+        self.addCleanup(gate.set)
+        first = self.runner.start_async(self.body, response_gate=gate)
+        self.assertEqual(self.runner.start_async(self.body)["run_id"], first["run_id"])
+        self.assertEqual(len(list((self.state / "runs").iterdir())), 1)
+        self.assertEqual(BlockingServer.turn_starts, 0)
+        self.runner.cancel(first["run_id"])
+        gate.set()
 
     def test_verified_review_provenance_is_retained_and_binds_request_identity(self):
         self.runner.provider = "claude"
