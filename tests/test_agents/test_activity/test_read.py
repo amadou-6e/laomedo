@@ -264,17 +264,22 @@ class ActivityReadTests(unittest.TestCase):
                     "alice", "flow", "node", provider="codex-cli"
                 )
             )
-            capture = ActivityCapture.__new__(ActivityCapture)
-            capture.capture = ActivityInvocation(store=store, invocation_id=invocation)
+            from types import SimpleNamespace
+
+            token_file = self.agent.state / "capture-api-token"
+            token_file.write_text(self.agent.api_token)
+            component = SimpleNamespace(
+                runner_url="http://127.0.0.1:" + str(server.server_port),
+                timeout_seconds=3,
+                _runner_token_file_path=lambda: token_file,
+            )
+            with patch(
+                "laomedo.agents.activity.capture.capture_for",
+                return_value=ActivityInvocation(store=store, invocation_id=invocation),
+            ):
+                capture = ActivityCapture(component)
             capture.timeout = 3
             capture.attempt_id = self.attempt
-            capture.accepted = False
-            capture.refused = threading.Event()
-            capture.done = threading.Event()
-            capture.outcome = None
-            capture.base = "http://127.0.0.1:" + str(server.server_port)
-            capture.token = self.agent.api_token
-            capture.opener = build_opener(ProxyHandler({}))
             capture.observe(self.run)
             saved = store.read("alice", "flow", "node", invocation)
             self.assertEqual(saved["run"]["stream_state"], "complete")

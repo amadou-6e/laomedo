@@ -77,6 +77,12 @@ accepts an optional event manager, avoiding a second graph execution loop.
 batch runner does not emit the start/end events its sequential runner provides.
 The native scheduler, parser checks and vertex results remain the shared owners.
 
+`activity.py` owns `ProviderGraphActivity`, the host-only bridge to the existing
+Activity store/capture. It reserves exact profile/flow/job/vertex identity before
+dispatch and binds only host-acknowledged native run/attempt IDs. It reads the
+existing exact native controller, never a worker URL or worker-provided identity.
+The same normalized attempt projection powers the existing read-only Activity UI.
+
 `container.py` specializes the shared sandbox supervisor hooks and private
 exchange. It validates the actual graph, checks lease/deadline while requests
 are active, revokes before cleanup, and cancels only this job's native request

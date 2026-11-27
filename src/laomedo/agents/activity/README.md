@@ -12,6 +12,10 @@ are listed below; record schemas and provider IDs do not change during renaming.
 `projection.py` reads the highest retained common display snapshot.
 New capture uses `BaseAgent.read_activity` and stores normalized records plus display revisions;
 provider native interpretation remains inside that read implementation.
+An isolated host may construct `ActivityCapture` with an explicit
+`ActivityInvocation`, a native page reader and timeout instead of a component.
+This reuses the same attempt observer without exposing a runner token or URL to
+graph code. `feed` validates the same exact run/attempt identity on both paths.
 `timeline.py` assembles normalized thread/turn/item observations using explicit
 provider callbacks; it imports no provider implementation or pricing catalogue.
 The pinned OpenAI API-equivalent catalogue belongs to Codex. Claude and OpenCode

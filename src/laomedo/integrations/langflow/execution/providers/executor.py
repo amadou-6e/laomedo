@@ -122,12 +122,24 @@ class ProviderGraphExecutor:
             await jobs.update_job_status(job_id, JobStatus.IN_PROGRESS)
             capability = self.controllers.graph_runs.admit(prepared.plan)
             gateway = await asyncio.to_thread(self._public_gateway, prepared)
+            from laomedo.agents.activity.settings import Settings as ActivitySettings
+            from laomedo.integrations.langflow.execution.providers.activity import (
+                ProviderGraphActivity,
+            )
+
+            database = ActivitySettings().database
+            activity = (
+                ProviderGraphActivity(database, self.controllers, prepared.plan, job_id)
+                if database
+                else None
+            )
             dispatcher = ProviderGraphDispatcher(
                 self.controllers,
                 capability,
                 prepared.plan.graph_digest,
                 prepared.issues,
                 gateway=gateway,
+                activity=activity,
             )
             worker = DockerProviderGraphWorker(self.settings, job, dispatcher)
             worker.on_event = on_event

@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from laomedo.agents.activity.models import ActivityPage
+from collections.abc import Callable
+from laomedo.agents.activity.models import ActivityPage, ActivityInvocation
 from pathlib import Path
 from urllib.request import ProxyHandler
 from urllib.request import Request
@@ -16,8 +17,21 @@ import time
 
 
 class ActivityCapture:
-    def __init__(self, component):
-        self.capture = capture_for(component)
+    def __init__(
+        self,
+        component=None,
+        *,
+        invocation: ActivityInvocation | None = None,
+        native_feed: Callable[..., ActivityPage] | None = None,
+        timeout: int | None = None,
+    ):
+        if component is None:
+            if invocation is None or native_feed is None or timeout is None:
+                raise ValueError("activity_native_capture_required")
+        elif invocation is not None or native_feed is not None or timeout is not None:
+            raise ValueError("activity_capture_boundary_ambiguous")
+        self.capture = invocation if component is None else capture_for(component)
+        self.native_feed = native_feed
         self.done = threading.Event()
         self.refused = threading.Event()
         self.started = False
@@ -25,6 +39,9 @@ class ActivityCapture:
         self.attempt_id = None
         self.outcome = None
         self.component = component
+        if component is None:
+            self.timeout = max(30, int(timeout) + 30)
+            return
         self.base = str(component.runner_url).rstrip("/")
         self.timeout = max(30, int(component.timeout_seconds) + 30)
         self.opener = build_opener(ProxyHandler({}), NoRedirect())
@@ -44,11 +61,16 @@ class ActivityCapture:
 
     def feed(self, run_id, after):
         """Read the provider's common Activity page, not its private source feeds."""
-        url = f"{self.base}/v1/runs/{run_id}/activity?attempt={self.attempt_id}&after={after}&limit=200"
-        with self.opener.open(
-            Request(url, headers={"Authorization": "Bearer " + self.token}), timeout=10
-        ) as response:
-            page = ActivityPage.model_validate_json(response.read())
+        if self.native_feed is not None:
+            page = self.native_feed(run_id, self.attempt_id, after=after, limit=200)
+            page = ActivityPage.model_validate(page)
+        else:
+            url = f"{self.base}/v1/runs/{run_id}/activity?attempt={self.attempt_id}&after={after}&limit=200"
+            with self.opener.open(
+                Request(url, headers={"Authorization": "Bearer " + self.token}),
+                timeout=10,
+            ) as response:
+                page = ActivityPage.model_validate_json(response.read())
         if page.run_id != run_id:
             raise ValueError("activity_runner_identity_mismatch")
         if page.attempt_id != self.attempt_id:

@@ -17,7 +17,14 @@ class ProviderGraphDispatcher:
     """Derive authority from host admission, never pipe-supplied account selectors."""
 
     def __init__(
-        self, controllers, capability, graph_digest, issues=(), *, gateway=None
+        self,
+        controllers,
+        capability,
+        graph_digest,
+        issues=(),
+        *,
+        gateway=None,
+        activity=None,
     ):
         self.controllers = controllers
         self.capability = capability
@@ -33,6 +40,7 @@ class ProviderGraphDispatcher:
         ):
             raise ProviderConnectionError("verified_review_unavailable")
         self.gateway = gateway
+        self.activity = activity
         self.aliases = {}
         self.staged = {}
         self.node_outcomes = {}
@@ -48,6 +56,8 @@ class ProviderGraphDispatcher:
     def _status(self, vertex_id, record):
         """Release graph evidence only, without native tasks, paths or host request IDs."""
         self.observe_node(vertex_id, record)
+        if self.activity is not None:
+            self.activity.observe(vertex_id, record)
         result = {
             key: value for key, value in record.items() if key in PROVIDER_STATUS_FIELDS
         }
@@ -118,7 +128,14 @@ class ProviderGraphDispatcher:
             self.capability, self.graph_digest, call.vertex_id
         )
         if call.path == "/v1/runs/async" and call.method == "POST":
-            return 202, self._start(call, node)
+            if self.activity is not None:
+                self.activity.reserve(node)
+            try:
+                return 202, self._start(call, node)
+            except Exception:
+                if self.activity is not None:
+                    self.activity.interrupted(call.vertex_id)
+                raise
         run_id = self.controllers.graph_runs.run_for_vertex(
             self.capability, self.graph_digest, call.vertex_id
         )

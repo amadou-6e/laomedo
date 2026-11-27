@@ -371,6 +371,26 @@ class ProviderControllers:
         except (OSError, RunnerError, ValueError):
             raise ProviderConnectionError("verified_review_unavailable") from None
 
+    def read_graph_activity(
+        self, profile_id, node, run_id, attempt_id, *, after=0, limit=200
+    ):
+        """Read an existing exact native slot only; observation never starts a runner."""
+        with self.service._lock:
+            self.service.admitted(profile_id, node.connection_id, node.generation)
+            slot = self.slots.get(
+                (profile_id, node.connection_id, node.generation, "graph")
+            )
+            if slot is None or slot.creating or slot.runner is None:
+                raise ProviderConnectionError("provider_runner_unavailable")
+            self.admit_operation(slot)
+        try:
+            return slot.runner.read_activity(
+                run_id, attempt_id, after=after, limit=limit
+            )
+        finally:
+            with self.service._lock:
+                slot.operations -= 1
+
     def _stage_verified_review(
         self,
         profile_id,

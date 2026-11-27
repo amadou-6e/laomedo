@@ -256,6 +256,9 @@ class ProviderBrokerRuntime(PrivateBrokerRuntime):
         ProviderCanvasRoutes(self.private_runtime.settings.origin, executor).install(
             app
         )
+        from laomedo.agents.activity.routes import install_activity_routes
+
+        install_activity_routes(app, get_current_active_user)
         routes.install_fallback(app)
         from langflow.main import setup_static_files
 
