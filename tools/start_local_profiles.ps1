@@ -10,7 +10,9 @@ param(
     [ValidateRange(0,65535)][int]$PublicIssuePort = 0,
     [string]$ProviderSourceWorkspace,
     [string]$LangflowSourceRoot,
-    [switch]$PrivateConnections
+    [switch]$PrivateConnections,
+    [switch]$IsolatedProviderGraphs,
+    [string]$GraphWorkerImage
 )
 $ErrorActionPreference = 'Stop'
 if ([Environment]::OSVersion.Platform -ne 'Win32NT') { throw 'This setup supports native Windows only.' }
@@ -18,6 +20,10 @@ $repoRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $pythonPath = (Resolve-Path -LiteralPath $PythonExe).Path
 $frontend = (Resolve-Path -LiteralPath $FrontendPath).Path
 $providerSource = if ($ProviderSourceWorkspace) { (Resolve-Path -LiteralPath $ProviderSourceWorkspace).Path } else { $null }
+if ($GraphWorkerImage -and -not $IsolatedProviderGraphs) { throw 'GraphWorkerImage requires IsolatedProviderGraphs.' }
+if ($IsolatedProviderGraphs -and $Mode -ne 'Prepare' -and (-not $GraphWorkerImage -or -not $providerSource)) {
+    throw 'Isolated provider graphs require an immutable worker image and an explicitly selected source workspace.'
+}
 $pythonSources = @((Join-Path $repoRoot 'src'))
 if ($LangflowSourceRoot) {
     $upstreamRoot = (Resolve-Path -LiteralPath $LangflowSourceRoot).Path
@@ -106,6 +112,8 @@ $config = @{
     LAOMEDO_ASSISTANT_APP_URL=("http://127.0.0.1:" + $Port)
     LAOMEDO_ASSISTANT_STATE_ROOT=(Join-Path $runtime "assistant")
     LAOMEDO_PROVIDER_SOURCE_WORKSPACE=$providerSource
+    LAOMEDO_ISOLATED_PROVIDER_GRAPHS=$(if ($IsolatedProviderGraphs) { '1' } else { '0' })
+    LAOMEDO_ISOLATED_GRAPH_WORKER_IMAGE=$GraphWorkerImage
     PYTHONPATH=($pythonSources -join [IO.Path]::PathSeparator)
 }
 if ($PublicIssuePort -ne 0) {
@@ -163,6 +171,10 @@ if settings.AUTO_LOGIN or settings.skip_auth_auto_login or settings.ENABLE_SIGNU
 from laomedo.integrations.langflow.local_profiles.admission import ProfileRuntimeAdmission
 from laomedo.integrations.langflow.local_profiles.settings import LocalProfileSettings
 ProfileRuntimeAdmission(LocalProfileSettings().runtime_root).verify_settings(get_settings_service())
+if os.environ['LAOMEDO_ISOLATED_PROVIDER_GRAPHS'] == '1':
+    from pathlib import Path
+    from laomedo.integrations.langflow.execution.worker.settings import GraphWorkerSettings
+    GraphWorkerSettings(image_id=os.environ['LAOMEDO_ISOLATED_GRAPH_WORKER_IMAGE'], lease_state=Path(os.environ['LAOMEDO_LOCAL_PROFILE_RUNTIME']) / 'provider-leases')
 print('Effective settings: local profiles require PIN login; generic signup disabled.', flush=True)
 "@
         if ($Mode -eq 'Serve') {
@@ -174,9 +186,23 @@ import uvicorn
 laomedo.__path__.append(os.environ['LAOMEDO_COMPONENT_DIR'])
 from laomedo.integrations.langflow.local_profiles.settings import LocalProfileSettings
 from laomedo.integrations.langflow.local_profiles.runtime import LocalProfileRuntime
-from laomedo.integrations.langflow.viewer import create_app
 profile_settings = LocalProfileSettings()
-app = create_app(profile_runtime=LocalProfileRuntime(profile_settings.runtime_root, provider_source=profile_settings.provider_source), private_connections=$privateEnabled)
+profile = LocalProfileRuntime(profile_settings.runtime_root, provider_source=profile_settings.provider_source)
+if os.environ['LAOMEDO_ISOLATED_PROVIDER_GRAPHS'] == '1':
+    from pathlib import Path
+    from laomedo.integrations.langflow.authentication.provider import ProviderBrokerRuntime
+    from laomedo.integrations.langflow.authentication.settings import PrivateBrowserSettings
+    from laomedo.integrations.langflow.execution.providers.settings import ProviderAppSettings
+    from laomedo.integrations.langflow.execution.worker.settings import GraphWorkerSettings
+    origin = 'http://127.0.0.1:' + os.environ['LAOMEDO_LOCAL_PROFILE_PORT']
+    app = ProviderBrokerRuntime(
+        profile,
+        PrivateBrowserSettings(origin=origin, runtime_root=profile_settings.runtime_root / 'private-github', public_roots=(Path(os.environ['LANGFLOW_FRONTEND_PATH']), Path(os.environ['LANGFLOW_COMPONENTS_PATH']), profile_settings.runtime_root / 'registry')),
+        ProviderAppSettings(components=Path(os.environ['LANGFLOW_COMPONENTS_PATH']), frontend=Path(os.environ['LANGFLOW_FRONTEND_PATH']), worker=GraphWorkerSettings(image_id=os.environ['LAOMEDO_ISOLATED_GRAPH_WORKER_IMAGE'], lease_state=profile_settings.runtime_root / 'provider-leases')),
+    ).create_app()
+else:
+    from laomedo.integrations.langflow.viewer import create_app
+    app = create_app(profile_runtime=profile, private_connections=$privateEnabled)
 uvicorn.run(app, host='127.0.0.1', port=int(os.environ['LAOMEDO_LOCAL_PROFILE_PORT']), access_log=False, workers=1)
 "@
         }
