@@ -21,7 +21,11 @@ redaction, cleanup uncertainty and stale-snapshot assertions across the ACP move
 Run `python -m unittest discover -s tests/test_agents -t tests -v` with the declared
 runner dependencies. No campaign, model turn or experiment checkout is required.
 
-Preparation/status compatibility uses data/prepared-records.json and the existing owned RunnerCase; only a random private Git hooksPath hash is recomputed. These are internal compatibility fixtures, not real provider acceptance.
+Current preparation/status wire records use data/prepared-records.json and the
+owned RunnerCase. Their source hash includes Codex's empty sandbox guards; only
+the machine-specific private Git hooksPath hash is recomputed. These protect the
+current emitted record and reader shape, not a retired preparation layout, and
+do not establish real provider acceptance.
 
 ## Real Docker acceptance without model execution
 
