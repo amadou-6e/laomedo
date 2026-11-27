@@ -91,6 +91,21 @@ class ProviderBrokerTests(unittest.IsolatedAsyncioTestCase):
             with self.subTest(source=source), self.assertRaises(ValueError):
                 ProviderBrokerRuntime(profile, private, settings).create_app()
 
+    def test_source_export_refuses_environment_files_and_repository_metadata(self):
+        source = self.root / "clean-export"
+        source.mkdir()
+        (source / "module.py").write_text("# tracked source")
+        ProviderBrokerRuntime.admit_source(source)
+        for name in (".env", ".env.local", ".git"):
+            with self.subTest(name=name):
+                forbidden = source / name
+                forbidden.write_text("fixture only")
+                try:
+                    with self.assertRaises(ValueError):
+                        ProviderBrokerRuntime.admit_source(source)
+                finally:
+                    forbidden.unlink()
+
     async def test_python_and_native_execution_apis_are_absent_in_credential_process(
         self,
     ):

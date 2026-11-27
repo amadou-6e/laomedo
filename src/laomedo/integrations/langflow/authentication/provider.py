@@ -2,6 +2,7 @@
 
 from uuid import UUID
 from copy import deepcopy
+import stat
 
 from fastapi import Depends, HTTPException, Request
 from langflow.services.auth.utils import get_current_active_user
@@ -182,6 +183,40 @@ class ProviderBrokerRuntime(PrivateBrokerRuntime):
         super().__init__(profile_runtime, private_settings)
         self.settings = settings
 
+    @staticmethod
+    def admit_source(source):
+        """Refuse repository metadata, environment files and linked source trees.
+
+        Models receive copies of this explicit source. Do not copy a checkout's
+        ignored credentials or follow links outside the selected clean export.
+        """
+        try:
+            if not source.is_dir():
+                raise ValueError
+            for path in (source, *source.parents):
+                if path.is_symlink() or (
+                    getattr(path.stat(), "st_file_attributes", 0)
+                    & stat.FILE_ATTRIBUTE_REPARSE_POINT
+                ):
+                    raise ValueError
+            pending = [source]
+            while pending:
+                for path in pending.pop().iterdir():
+                    if (
+                        path.name.casefold() == ".git"
+                        or path.name.casefold().startswith(".env")
+                        or path.is_symlink()
+                        or getattr(path.stat(), "st_file_attributes", 0)
+                        & stat.FILE_ATTRIBUTE_REPARSE_POINT
+                    ):
+                        raise ValueError
+                    if path.is_dir():
+                        pending.append(path)
+        except (OSError, ValueError):
+            raise ValueError(
+                "Provider source must be a clean, unlinked export."
+            ) from None
+
     def create_app(self):
         source = self.profile_runtime.provider_source
         if source is not None:
@@ -195,6 +230,7 @@ class ProviderBrokerRuntime(PrivateBrokerRuntime):
                     raise ValueError(
                         "Provider source must be separate from private runtime state."
                     )
+            self.admit_source(self.profile_runtime.provider_source)
         catalog = ProviderComponentCatalog(self.settings.components)
         app = super().create_app()
         executor = ProviderGraphExecutor(
