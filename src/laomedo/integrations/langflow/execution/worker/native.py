@@ -21,6 +21,9 @@ from laomedo.integrations.langflow.execution.worker.models import (
 class NativeGraphWorker:
     """Validate one approved graph before native component constructors execute."""
 
+    job_model = GraphWorkerJob
+    channel_type = GraphWorkerChannel
+
     @staticmethod
     def _check_graph(catalog, job, payload):
         """Normalize the actual native payload and check its approved digest/source."""
@@ -93,10 +96,10 @@ class NativeGraphWorker:
         incoming = sys.stdin.buffer if incoming is None else incoming
         outgoing = sys.stdout.buffer if outgoing is None else outgoing
         try:
-            job = GraphWorkerJob.model_validate_json(
+            job = self.job_model.model_validate_json(
                 json.dumps(GraphWorkerChannel.read_message(incoming), allow_nan=False)
             )
-            GraphWorkerChannel.install(job, incoming, outgoing)
+            self.channel_type.install(job, incoming, outgoing)
         except Exception:
             return 1
         try:

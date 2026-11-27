@@ -426,6 +426,29 @@ class AgentComponent(Component):
         ),
     ]
 
+    @classmethod
+    def install_worker_transport(cls, opener):
+        """Install the private-pipe adapter only in an isolated native job process."""
+        from laomedo.integrations.langflow.execution.providers.channel import (
+            ProviderWorkerHttp,
+        )
+
+        if (
+            os.name != "posix"
+            or os.getuid() != 65532
+            or type(opener) is not ProviderWorkerHttp
+        ):
+            raise ValueError("isolated_graph_worker_required")
+        global _HTTP
+        _HTTP = opener
+
+    def _isolated_channel(self):
+        from laomedo.integrations.langflow.execution.providers.channel import (
+            ProviderWorkerChannel,
+        )
+
+        return ProviderWorkerChannel.for_graph(getattr(self, "graph", None))
+
     async def update_build_config(self, build_config, field_value, field_name=None):
         from laomedo.integrations.langflow.provider_connections.bindings import (
             ProviderGraphBindings,
@@ -853,7 +876,10 @@ class AgentComponent(Component):
             ProviderGraphBindings,
         )
 
-        if ProviderGraphBindings.service is not None:
+        channel = self._isolated_channel()
+        if channel is not None:
+            self.runner_url = channel.endpoint(self._vertex.id)
+        elif ProviderGraphBindings.service is not None:
             prior = getattr(self.run_reference, "data", self.run_reference)
             if prior in (None, "", []) and getattr(self, "run_reference_json", None):
                 try:
@@ -1018,7 +1044,10 @@ class AgentComponent(Component):
             ProviderGraphBindings,
         )
 
-        if ProviderGraphBindings.service is not None:
+        if (
+            self._isolated_channel() is not None
+            or ProviderGraphBindings.service is not None
+        ):
             return ""
         self._validate_adapter()
         # Provider configuration must not redirect unrelated lifecycle
@@ -1101,6 +1130,8 @@ class AgentComponent(Component):
         return os.environ.get(self.runner_token_env, self.runner_token_default)
 
     def _token(self):
+        if self._isolated_channel() is not None:
+            return "isolated-graph-pipe"
         try:
             token = Path(self._token_file_path()).read_text(encoding="utf-8").strip()
         except OSError:

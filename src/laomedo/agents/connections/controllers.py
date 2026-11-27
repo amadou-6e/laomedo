@@ -57,26 +57,9 @@ class SavedRunnerRequestHandler(RunnerRequestHandler):
         with self.server.manager.admit_verified_review(
             tokens[0], self.server.slot, body
         ) as admitted:
-            record = self.server.runner.start_async(
-                admitted.body,
-                response_gate=response_gate,
-                verified_review=admitted.provenance,
-                dispatch_guard=partial(
-                    self.server.manager.graph_runs.check_review_dispatch,
-                    admitted.graph_review,
-                ),
+            return self.server.manager.reserve_graph_review(
+                self.server.slot, admitted, response_gate
             )
-            try:
-                self.server.manager.graph_runs.bind_review_run(
-                    admitted.graph_review, record["run_id"]
-                )
-            except Exception:
-                # Cancellation happens before the HTTP gate opens. If custody
-                # prevents cancellation, the native dispatch guard still refuses
-                # before credentials or model work, and retains a failed record.
-                self.server.runner.cancel(record["run_id"])
-                raise
-            return record
 
     def _serve(self, method):
         """Track native-starting requests before crossing the lifecycle fence."""
@@ -683,6 +666,23 @@ class ProviderControllers:
                 raise ProviderConnectionError("provider_runner_unavailable")
             return slot
 
+    def reserve_graph_review(self, slot, admitted, response_gate):
+        """Bind a fenced review reservation before its caller opens the start gate."""
+        record = slot.runner.start_async(
+            admitted.body,
+            response_gate=response_gate,
+            verified_review=admitted.provenance,
+            dispatch_guard=partial(
+                self.graph_runs.check_review_dispatch, admitted.graph_review
+            ),
+        )
+        try:
+            self.graph_runs.bind_review_run(admitted.graph_review, record["run_id"])
+        except Exception:
+            slot.runner.cancel(record["run_id"])
+            raise
+        return record
+
     def start_graph_node(self, capability, graph_digest, vertex_id, body):
         """Reserve an approved source node and bind it before native admission."""
         plan = self.graph_runs.plan(capability, graph_digest)
@@ -726,6 +726,15 @@ class ProviderControllers:
         shutdown = self.graph_runs.finish(capability)
         if shutdown is None:
             return ()
+        return self.stop_graph(shutdown)
+
+    def stop_graph(self, shutdown):
+        """Reconcile retained host receipts after in-flight reservations have drained.
+
+        A supervisor revokes before waiting for an already admitted start. Its
+        receipt must survive that wait, including an uncertain acknowledgement.
+        This host-only method can retry cleanup without restoring admission.
+        """
         observations = []
         for start in shutdown.starts:
             with self.service._lock:

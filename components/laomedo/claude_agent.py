@@ -113,9 +113,17 @@ class LaomedoClaudeAgent(Component):
                 "run_timeout_seconds",
             }:
                 raise ValueError("verified_review_unavailable")
-            self._verified_review_grant, self._verified_expected_request_hash = (
-                ProviderGraphBindings.stage_review(self, verified["run_id"], payload)
-            )
+            channel = self._isolated_channel()
+            if channel is not None:
+                self._verified_expected_request_hash = channel.review(
+                    self._vertex.id, payload
+                )
+            else:
+                self._verified_review_grant, self._verified_expected_request_hash = (
+                    ProviderGraphBindings.stage_review(
+                        self, verified["run_id"], payload
+                    )
+                )
         return endpoint, payload, method
 
     def _request_headers(self, endpoint, method):

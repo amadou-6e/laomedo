@@ -19,6 +19,9 @@ from laomedo.github.issues.contract import ISSUE_CHOICE_FIELD, ISSUE_OPERATION_F
 from laomedo.github.issues.contract import PRE_DISPATCH_ERRORS
 from laomedo.github.node_runs.errors import GitHubNodeAuthorizationError
 from laomedo.integrations.langflow.execution.worker.channel import GraphWorkerChannel
+from laomedo.integrations.langflow.execution.providers.channel import (
+    ProviderWorkerChannel,
+)
 
 
 class LaomedoGitHubIssue(Component):
@@ -140,7 +143,16 @@ class LaomedoGitHubIssue(Component):
             if number is None:
                 raise ValueError("selected_issue_required")
             channel = GraphWorkerChannel.for_graph(getattr(self, "graph", None))
-            if channel is not None:
+            provider_channel = ProviderWorkerChannel.for_graph(
+                getattr(self, "graph", None)
+            )
+            if provider_channel is not None:
+                if operation or not self._public_service_only():
+                    raise GitHubNodeAuthorizationError()
+                result = provider_channel.issue(
+                    self._vertex.id, self.labels, self.state, number
+                )
+            elif channel is not None:
                 if operation or self._public_service_only():
                     raise GitHubNodeAuthorizationError()
                 result = channel.inspect(
