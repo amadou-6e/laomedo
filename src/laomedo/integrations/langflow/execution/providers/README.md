@@ -61,6 +61,19 @@ existing bounded assistant evidence owner. Revoked cleanup receipts are currentl
 memory-only; host restart relies on the native controllers' durable recovery and
 does not replay a graph or restore its admission.
 
+`browser.py` owns the curated canvas run adapter. It authenticates the current
+browser, authorizes the owned Flow, validates the exact canvas snapshot and runs
+only the same isolated executor. Native AG-UI adapters render job-scoped progress;
+native graph builders are never imported as an execution fallback. Disconnect or
+an owner-scoped Stop cancels that exact local task and retains uncertain cleanup.
+Unsupported execution modes and resource overrides refuse before dispatch.
+
+`ProviderWorkerEvents` in `channel.py` forwards only native build-start/end events
+on the existing private job pipe. These events describe the worker's progress;
+they grant no native authority. Host-observed Agent terminal records still decide
+whether a graph completed. The shared native driver owns graph construction and
+accepts an optional event manager, avoiding a second graph execution loop.
+
 `container.py` specializes the shared sandbox supervisor hooks and private
 exchange. It validates the actual graph, checks lease/deadline while requests
 are active, revokes before cleanup, and cancels only this job's native request

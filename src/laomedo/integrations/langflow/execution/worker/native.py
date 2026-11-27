@@ -24,6 +24,10 @@ class NativeGraphWorker:
     job_model = GraphWorkerJob
     channel_type = GraphWorkerChannel
 
+    def _event_manager(self, job):
+        """Optional job-owned progress sink; the shared graph driver stays authoritative."""
+        return None
+
     @staticmethod
     def _check_graph(catalog, job, payload):
         """Normalize the actual native payload and check its approved digest/source."""
@@ -83,6 +87,7 @@ class NativeGraphWorker:
             outputs=job.outputs if job.outputs is not None else terminals,
             session_id=str(job.job_id),
             fallback_to_env_vars=False,
+            event_manager=self._event_manager(job),
         )
         return [result.model_dump(mode="json") for result in results]
 

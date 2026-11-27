@@ -1,8 +1,10 @@
 """Credential-free worker routing and strict private-pipe envelopes."""
 
 from typing import Literal
+import asyncio
+from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from laomedo.integrations.langflow.execution.worker.models import NativeGraphJob
 from laomedo.agents.connections.models import GraphRunPlan
@@ -30,7 +32,7 @@ class ProviderWorkerCall(BaseModel):
     model_config = ConfigDict(frozen=True, strict=True, extra="forbid")
     version: Literal[2] = 2
     request_id: int = Field(gt=0)
-    action: Literal["http", "review", "issue"]
+    action: Literal["http", "review", "issue", "event"]
     vertex_id: str = Field(min_length=1, max_length=512)
     method: Literal["GET", "POST"] = "POST"
     path: str = Field(default="", max_length=256)
@@ -45,6 +47,29 @@ class ProviderWorkerReply(BaseModel):
     request_id: int = Field(gt=0)
     status: int = Field(ge=200, le=599)
     payload: dict = Field(repr=False)
+
+
+class ProviderWorkerEvent(BaseModel):
+    """Observational native progress only, never a provider dispatch request."""
+
+    model_config = ConfigDict(frozen=True, strict=True, extra="forbid")
+    event: Literal["build_start", "end_vertex"]
+    data: dict = Field(repr=False)
+
+    @model_validator(mode="after")
+    def bounded(self):
+        """Keep the host's progress queue bounded independently of worker honesty."""
+        if len(self.model_dump_json().encode()) > 256 * 1024:
+            raise ValueError("worker_event_too_large")
+        return self
+
+
+class ProviderCanvasJob(BaseModel):
+    """Active HTTP execution receipt; never serialized or reconstructed after restart."""
+
+    model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True)
+    owner_id: UUID
+    task: asyncio.Task = Field(exclude=True, repr=False)
 
 
 class PublicIssueSelection(BaseModel):

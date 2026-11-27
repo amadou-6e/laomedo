@@ -10,6 +10,7 @@ from contextlib import asynccontextmanager
 
 from httpx import ASGITransport, AsyncClient
 from starlette.requests import Request
+from langflow.services.auth.utils import get_current_active_user
 
 from laomedo.integrations.langflow.authentication.provider import (
     ProviderBrokerRuntime,
@@ -66,6 +67,12 @@ class ProviderBrokerTests(unittest.IsolatedAsyncioTestCase):
                 ),
             ),
         ).create_app()
+        self.app.dependency_overrides[get_current_active_user] = self.authenticated
+
+    async def authenticated(self):
+        from uuid import uuid4
+
+        return SimpleNamespace(id=uuid4())
 
     def configure_profile(self, app):
         app.state.provider_connections = SimpleNamespace(controllers=Mock())
@@ -126,10 +133,13 @@ class ProviderBrokerTests(unittest.IsolatedAsyncioTestCase):
                 "/api/v1/custom_component",
                 "/api/v1/custom_component/update",
                 "/api/v1/run/flow",
-                "/api/v2/workflows",
             ):
                 response = await client.post(path, json={"code": "never executed"})
                 self.assertIn(response.status_code, (404, 405), path)
+            response = await client.post(
+                "/api/v2/workflows", json={"code": "never executed"}
+            )
+            self.assertIn(response.status_code, (401, 403, 422))
         self.assertIs(
             self.app.state.laomedo_assistant.graph_executor, self.stack[3].return_value
         )

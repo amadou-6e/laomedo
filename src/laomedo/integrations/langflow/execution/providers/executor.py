@@ -75,7 +75,7 @@ class ProviderGraphExecutor:
             owner, browser.lease_hash, flow_id or uuid4(), uuid4(), graph
         )
 
-    async def execute(self, snapshot, request, actor, run_id):
+    async def execute(self, snapshot, request, actor, run_id, *, on_event=None):
         """Project the actual isolated result into the existing assistant evidence owner."""
         from lfx.graph.schema import RunOutputs
         from langflow.api.v1.schemas import RunResponse
@@ -90,13 +90,14 @@ class ProviderGraphExecutor:
             or job_id in self.uncertain
         ):
             raise ProviderConnectionError("verified_review_unavailable")
-        prepared = self.admission.prepare(
-            owner, browser.lease_hash, UUID(str(snapshot.id)), job_id, snapshot.data
-        )
-        # API runtime inputs were applied to the approved snapshot by actions.
-        # A separate top-level input would bypass that snapshot's task policy.
+        graph = snapshot.data
         if request.input_value:
-            raise ProviderConnectionError("verified_review_unavailable")
+            graph = self.admission.input_graph(
+                graph, request.input_value, request.input_type
+            )
+        prepared = self.admission.prepare(
+            owner, browser.lease_hash, UUID(str(snapshot.id)), job_id, graph
+        )
         job = prepared.job.model_copy(
             update={
                 "outputs": (
@@ -129,6 +130,7 @@ class ProviderGraphExecutor:
                 gateway=gateway,
             )
             worker = DockerProviderGraphWorker(self.settings, job, dispatcher)
+            worker.on_event = on_event
             self.workers[job_id] = worker
             result = await worker.run(job)
             self.browser(owner)

@@ -238,3 +238,18 @@ class ProviderGraphAdmission:
                 public_issues=tuple(issue.vertex_id for issue in issues),
             ),
         )
+
+    def input_graph(self, graph, value, input_type):
+        """Fold an approved text input into the effective graph before fingerprinting."""
+        graph = self.catalog.effective_graph(graph)
+        if value:
+            selected = [
+                node
+                for node in graph["nodes"]
+                if self.catalog.classification(node["data"]["type"]) == "TextInput"
+            ]
+            if input_type not in {"text", "any"} or not selected:
+                raise ProviderConnectionError("verified_review_unavailable")
+            for node in selected:
+                node["data"]["node"]["template"]["input_value"]["value"] = value
+        return graph

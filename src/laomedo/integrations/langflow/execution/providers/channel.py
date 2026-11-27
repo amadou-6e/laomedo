@@ -12,6 +12,7 @@ from laomedo.integrations.langflow.execution.worker.errors import GraphWorkerErr
 from laomedo.integrations.langflow.execution.providers.models import (
     ProviderWorkerCall,
     ProviderWorkerReply,
+    ProviderWorkerEvent,
 )
 
 
@@ -136,3 +137,44 @@ class ProviderWorkerResponse(BytesIO):
 
     def getcode(self):
         return self.status
+
+
+class ProviderWorkerEvents:
+    """Native EventManager queue adapter over the same serial private pipe."""
+
+    def __init__(self, channel):
+        if channel is None:
+            raise GraphWorkerError()
+        self.channel = channel
+
+    def put_nowait(self, item):
+        event = json.loads(item[1])
+        if event.get("event") not in {"build_start", "end_vertex"}:
+            return
+        try:
+            value = ProviderWorkerEvent.model_validate(event)
+        except ValueError:
+            if event["event"] != "end_vertex":
+                raise
+            build = event.get("data", {}).get("build_data", {})
+            value = ProviderWorkerEvent(
+                event="end_vertex",
+                data={
+                    "build_data": {
+                        "id": build.get("id"),
+                        "valid": build.get("valid") is True,
+                        "data": None,
+                        "output_not_captured": True,
+                    }
+                },
+            )
+        vertex = (
+            value.data.get("id")
+            if value.event == "build_start"
+            else value.data.get("build_data", {}).get("id")
+        )
+        if not vertex:
+            return
+        reply = self.channel.call("event", vertex, body=value.model_dump(mode="json"))
+        if reply.status != 200:
+            raise GraphWorkerError()

@@ -208,16 +208,45 @@ class ProviderBrokerStartupCheck(BrokerStartupCheck):
                 assert (
                     response.status_code == 200 and response.json()["data"] == graph
                 ), "saved graph differs"
+                # Exercise real native ownership/policy/dry-plan HTTP admission,
+                # replacing only execution; this does not launch a worker/model.
+                from unittest.mock import AsyncMock, patch
+                from langflow.api.v1.schemas import RunResponse
+
+                executor = app.state.laomedo_assistant.graph_executor
+                with patch.object(
+                    executor,
+                    "execute",
+                    new=AsyncMock(return_value=RunResponse(outputs=[])),
+                ) as execute:
+                    response = await client.post(
+                        "/api/v2/workflows",
+                        json={
+                            "flow_id": identifier,
+                            "mode": "stream",
+                            "stream_protocol": "agui",
+                        },
+                    )
+                    assert response.status_code == 200, "canvas admission failed"
+                    assert (
+                        '"type":"RUN_FINISHED"' in response.text
+                    ), "canvas protocol did not finish"
+                    execute.assert_awaited_once()
                 for path in (
                     "/api/v1/custom_component/update",
                     "/api/v1/validate/code",
-                    "/api/v2/workflows",
                 ):
                     response = await client.post(path, json={"code": "not executed"})
                     assert response.status_code in (
                         404,
                         405,
                     ), "untrusted native API entered broker"
+                response = await client.post(
+                    "/api/v2/workflows", json={"code": "not executed"}
+                )
+                assert (
+                    response.status_code == 422
+                ), "canvas adapter accepted an invalid run"
                 response = await client.post("/api/v1/logout")
                 assert response.status_code == 200, "provider fixture logout failed"
 

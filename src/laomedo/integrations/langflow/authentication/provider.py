@@ -249,6 +249,13 @@ class ProviderBrokerRuntime(PrivateBrokerRuntime):
         ProfileCookieBoundary.outermost(app)
         routes = ProviderBrowserRoutes(catalog)
         routes.install(app)
+        from laomedo.integrations.langflow.execution.providers.browser import (
+            ProviderCanvasRoutes,
+        )
+
+        ProviderCanvasRoutes(self.private_runtime.settings.origin, executor).install(
+            app
+        )
         routes.install_fallback(app)
         from langflow.main import setup_static_files
 

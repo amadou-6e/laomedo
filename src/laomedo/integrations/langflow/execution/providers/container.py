@@ -13,7 +13,11 @@ from laomedo.integrations.langflow.execution.worker.models import (
     GraphWorkerResult,
     GraphWorkerScope,
 )
-from laomedo.integrations.langflow.execution.providers.models import ProviderWorkerCall
+from laomedo.integrations.langflow.execution.providers.models import (
+    ProviderWorkerCall,
+    ProviderWorkerReply,
+    ProviderWorkerEvent,
+)
 from laomedo.integrations.langflow.execution.providers.settings import (
     PROVIDER_WORKER_MODULE,
 )
@@ -42,6 +46,8 @@ class DockerProviderGraphWorker(DockerGraphWorker):
         self._pending = set()
         self._shutdown = None
         self.stops = None
+        self.on_event = None
+        self.vertices = {node["id"] for node in job.graph["nodes"]}
         self._validate_graph(job)
 
     def _job_scope(self, job_id):
@@ -170,7 +176,22 @@ class DockerProviderGraphWorker(DockerGraphWorker):
             if call.request_id != request_id + 1:
                 raise GraphWorkerError()
             request_id = call.request_id
-            reply = await self._request(call, cancelled)
+            if call.action == "event":
+                event = ProviderWorkerEvent.model_validate(call.body)
+                vertex = (
+                    event.data.get("id")
+                    if event.event == "build_start"
+                    else event.data.get("build_data", {}).get("id")
+                )
+                if call.vertex_id not in self.vertices or vertex != call.vertex_id:
+                    raise GraphWorkerError()
+                if self.on_event is not None:
+                    self.on_event(event)
+                reply = ProviderWorkerReply(
+                    request_id=call.request_id, status=200, payload={}
+                )
+            else:
+                reply = await self._request(call, cancelled)
             output = BytesIO()
             GraphWorkerChannel.write_message(output, reply.model_dump(mode="json"))
             process.stdin.write(output.getvalue())

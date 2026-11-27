@@ -196,6 +196,8 @@ class ProviderNativeContainerTests(unittest.IsolatedAsyncioTestCase):
                     self.assertLess(time.monotonic(), deadline)
                     await asyncio.sleep(0.05)
                 trace = SyntheticWorkerTrace()
+                events = []
+                worker.on_event = events.append
                 with patch("asyncio.create_subprocess_exec", new=trace.start):
                     result = await asyncio.wait_for(worker.run(prepared.job), 65)
                 diagnostics = await trace.diagnostics()
@@ -211,6 +213,65 @@ class ProviderNativeContainerTests(unittest.IsolatedAsyncioTestCase):
                 self.assertTrue(all(stop.settled for stop in worker.stops))
                 self.assertFalse(any(stop.cancel_confirmed for stop in worker.stops))
                 self.assertIsNone(controllers.graph_runs.finish(capability))
+                self.assertEqual(
+                    {event.event for event in events}, {"build_start", "end_vertex"}
+                )
+
+                # Exercise accountless text composition in the same real native
+                # sandbox. Only the first transport fixture used an inert Agent.
+                from laomedo.integrations.langflow.assistant.catalog import (
+                    ComponentCatalog,
+                )
+                from laomedo.integrations.langflow.assistant.models import DraftGraph
+
+                graph, _ = ComponentCatalog(catalog._registry).compile(
+                    DraftGraph.model_validate(
+                        {
+                            "nodes": [
+                                {
+                                    "key": "join",
+                                    "component_type": "input_output/CombineText",
+                                    "fields": {
+                                        "text1": "Clean",
+                                        "text2": "text workflow",
+                                        "delimiter": " ",
+                                    },
+                                },
+                                {
+                                    "key": "out",
+                                    "component_type": "input_output/TextOutput",
+                                },
+                            ],
+                            "edges": [
+                                {
+                                    "source": "join",
+                                    "output": "combined_text",
+                                    "target": "out",
+                                    "input": "input_value",
+                                }
+                            ],
+                        }
+                    )
+                )
+                text = ProviderGraphAdmission(connections, catalog.admission).prepare(
+                    owner, "lease", flow, uuid4(), graph, timeout_seconds=60.0
+                )
+                self.assertEqual(text.plan.nodes, ())
+                text_capability = controllers.graph_runs.admit(text.plan)
+                text_dispatcher = ProviderGraphDispatcher(
+                    controllers, text_capability, text.plan.graph_digest
+                )
+                text_worker = DockerProviderGraphWorker(
+                    worker.settings, text.job, text_dispatcher
+                )
+                trace = SyntheticWorkerTrace()
+                with patch("asyncio.create_subprocess_exec", new=trace.start):
+                    text_result = await asyncio.wait_for(text_worker.run(text.job), 65)
+                self.assertEqual(
+                    text_result.event, "completed", await trace.diagnostics()
+                )
+                self.assertIn("Clean text workflow", text_result.model_dump_json())
+                self.assertEqual(text_worker.stops, ())
             finally:
                 if lease.poll() is None:
                     lease.terminate()
