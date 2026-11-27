@@ -13,6 +13,10 @@ never substitutes a selection, holds only the account's discovery reservation
 during native work, and rechecks the graph lease/generation afterward. Discovery
 submits zero model turns. A cold or invalid later review node therefore refuses
 before an earlier editing node can spend a turn.
+Discovery refuses a busy graph slot for the same account generation; finish its
+active graph or discovery before starting another. Temporary native catalog
+containers retain their existing bounded cleanup owners; cached host runner
+slots remain owned by the connection lifecycle.
 
 ```text
 connections/

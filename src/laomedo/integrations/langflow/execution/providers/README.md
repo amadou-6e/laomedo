@@ -90,6 +90,8 @@ for every selected account, including on cancellation. No Agent can start before
 all pinned model/effort choices pass. `ProviderGraphDispatcher.failures` retains
 only the first sanitized host machine code for each vertex/action; the existing
 Job metadata records these refusals without task text, exception strings or paths.
+If the worker fails, the graph reports the code from the last retained refusal;
+metadata preserves the first refusal for each distinct vertex/action pair.
 The canvas may show a sanitized host failure code instead of the generic runtime
 code; worker messages cannot select that public code.
 The host's acknowledged native records decide Agent completion; the independently
