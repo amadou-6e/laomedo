@@ -60,10 +60,21 @@ class SavedRunnerRequestHandler(RunnerRequestHandler):
                 admitted.body,
                 response_gate=response_gate,
                 verified_review=admitted.provenance,
+                dispatch_guard=partial(
+                    self.server.manager.graph_runs.check_review_dispatch,
+                    admitted.graph_review,
+                ),
             )
-            self.server.manager.graph_runs.bind_review_run(
-                admitted.graph_review, record["run_id"]
-            )
+            try:
+                self.server.manager.graph_runs.bind_review_run(
+                    admitted.graph_review, record["run_id"]
+                )
+            except Exception:
+                # Cancellation happens before the HTTP gate opens. If custody
+                # prevents cancellation, the native dispatch guard still refuses
+                # before credentials or model work, and retains a failed record.
+                self.server.runner.cancel(record["run_id"])
+                raise
             return record
 
     def _serve(self, method):

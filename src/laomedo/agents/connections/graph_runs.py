@@ -198,6 +198,13 @@ class ProviderGraphRuns:
             ):
                 raise ProviderConnectionError("verified_review_unavailable")
 
+    def check_review_dispatch(self, review: GraphRunReview):
+        """Refuse native execution until the host acknowledged this target run."""
+        with self.service._lock:
+            self.check_review(review)
+            if review.target.vertex_id not in self._runs[review.worker_key]:
+                raise ProviderConnectionError("verified_review_unavailable")
+
     def finish(self, capability):
         """Revoke this worker without deleting any retained native history."""
         with self.service._lock:

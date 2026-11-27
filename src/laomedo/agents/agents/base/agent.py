@@ -515,9 +515,12 @@ class BaseAgent(ABC):
         *,
         response_gate: threading.Event | None = None,
         verified_review: VerifiedReviewProvenance | None = None,
+        dispatch_guard=None,
     ) -> dict:
         """Reserve one request identity, then run only after the HTTP reply."""
         if not isinstance(request, dict):
+            raise RunnerError("invalid_request")
+        if dispatch_guard is not None and not callable(dispatch_guard):
             raise RunnerError("invalid_request")
         request_id = request.get("request_id")
         try:
@@ -589,7 +592,7 @@ class BaseAgent(ABC):
                 gate.set()
             worker = threading.Thread(
                 target=self._async_worker,
-                args=(record["run_id"], body["task"], gate),
+                args=(record["run_id"], body["task"], gate, dispatch_guard),
                 daemon=True,
             )
             worker.start()
@@ -1012,10 +1015,12 @@ class BaseAgent(ABC):
             raise
         return record
 
-    def _async_worker(self, run_id, task, gate):
+    def _async_worker(self, run_id, task, gate, dispatch_guard=None):
         """Execute a reserved request on its owned worker and retain terminal or uncertain outcomes."""
         gate.wait()
         try:
+            if dispatch_guard is not None:
+                dispatch_guard()
             self._prepare_credentials()
             self._execute(run_id, task, resume=False)
         except Exception as exc:

@@ -1,5 +1,15 @@
 # Abstract Agent lifecycle
 
+## Host dispatch admission
+
+`BaseAgent.start_async` accepts an optional host-only `dispatch_guard`. The
+asynchronous worker invokes it after the response gate opens and before any
+credential preparation or native execution. A refusal retains a terminal failure
+without dispatch. The guard is not accepted from request JSON and never enters
+native request identity or model instructions. Saved graph reviews use it to
+require the target's host acknowledgement and current graph authority, even when
+reservation succeeded but binding or cancellation failed.
+
 ## Idempotent asynchronous resume
 
 `resume.py` owns `ResumeDispatcher`, a durable admission journal around the

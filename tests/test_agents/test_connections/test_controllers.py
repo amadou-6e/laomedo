@@ -24,6 +24,7 @@ from laomedo.agents.connections.service import ProviderConnections
 from laomedo.agents.errors import RunnerError
 from laomedo.agents.workspaces.models import WorkspaceChanges
 from laomedo.docker import DockerRuntime
+from laomedo.agents.agents.base.agent import BaseAgent
 
 
 class FakeNativeAgent:
@@ -75,6 +76,44 @@ class FakeNativeAgent:
             json.dumps(record), encoding="utf-8"
         )
         return record
+
+
+class GatedNativeAgent(FakeNativeAgent):
+    """Use the actual base start gate with inert credential/model callbacks."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.control_lock = threading.Lock()
+        self._prepare_credentials = Mock()
+        self._execute = Mock()
+        self.workers = []
+
+    def _run_dir(self, run_id):
+        return self.state / "runs" / run_id
+
+    def release_mcp(self, run_id):
+        return None
+
+    def start_async(self, body, **kwargs):
+        record = super().start_async(body, **kwargs)
+        worker = threading.Thread(
+            target=BaseAgent._async_worker,
+            args=(
+                self,
+                record["run_id"],
+                body["task"],
+                kwargs["response_gate"],
+                kwargs.get("dispatch_guard"),
+            ),
+            daemon=True,
+        )
+        self.workers.append(worker)
+        worker.start()
+        return record
+
+    def close(self):
+        for worker in self.workers:
+            worker.join(timeout=3)
 
 
 class ProviderControllerTests(unittest.TestCase):
@@ -394,6 +433,60 @@ class ProviderControllerTests(unittest.TestCase):
         ):
             self.manager.stage_review_request(capability, digest, "claude", body)
         self.assertEqual(self.manager._review_grants, {})
+
+    def test_failed_native_binding_never_crosses_credential_or_model_admission(self):
+        self.manager.factory = GatedNativeAgent
+        target_endpoint = self.manager.endpoint(self.profile, self.two)
+        target = self.manager.slots[(self.profile, self.two, 1, "graph")]
+        self.records[1] = self.records[1].model_copy(update={"provider": "claude"})
+        self.service._save(self.profile, self.records)
+        capability, digest = self.graph_review_capability()
+        source = self.graph_source(capability, digest)
+        source_slot = self.manager.slots[(self.profile, self.one, 1, "graph")]
+        source_slot.runner.workspace_changes = Mock(
+            return_value=WorkspaceChanges(
+                run_id=source["run_id"],
+                source_hash="source",
+                post_run_hash="post",
+                patch_hash="patch",
+                patch="host patch",
+            )
+        )
+        staged = self.manager.stage_review_request(
+            capability,
+            digest,
+            "claude",
+            {
+                "request_id": str(uuid4()),
+                "task": "Review",
+                "model": "m",
+                "effort": "low",
+                "skill_refs": [],
+            },
+        )
+        request = Request(
+            target_endpoint[0] + "/v1/runs/async",
+            data=json.dumps(staged.body).encode(),
+            method="POST",
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": "Bearer " + "0" * 64,
+                "X-Laomedo-Verified-Review": staged.grant,
+            },
+        )
+        with (
+            patch.object(self.manager.graph_runs, "read_run", side_effect=OSError()),
+            patch.object(target.runner, "cancel", side_effect=RunnerError("fixture")),
+        ):
+            with self.assertRaises(HTTPError):
+                urlopen(request, timeout=3)
+        for worker in target.runner.workers:
+            worker.join(timeout=3)
+            self.assertFalse(worker.is_alive())
+        target.runner._prepare_credentials.assert_not_called()
+        target.runner._execute.assert_not_called()
+        record_path = next((target.state / "runs").glob("*/record.json"))
+        self.assertEqual(json.loads(record_path.read_text())["status"], "failed")
 
     def test_restart_recovers_assistant_scope_without_a_graph_controller(self):
         self.manager.assistant_endpoint(self.profile, self.one, 1)
