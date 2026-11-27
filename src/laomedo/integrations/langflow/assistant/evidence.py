@@ -198,6 +198,12 @@ class WorkflowRunEvidence:
         if cursor < 0 or cursor > RUN_OUTPUT_ITEMS:
             raise AssistantError("assistant_input_invalid", 422)
         await self.actions.authorize(context)
+        await self.actions.read(
+            context.owner_id,
+            context.conversation_id,
+            identifier,
+            session_key=context.session_key,
+        )
         await self.actions.reconcile(identifier)
         action = await self.actions.read(
             context.owner_id,

@@ -348,6 +348,18 @@ class WorkflowConfiguration:
             await self.check(context, catalog, resolved, active=active)
             catalog.allow_resolution(resolved)
 
+    def approval_deadline(self, definitions, latest):
+        """Bound a prepared proposal by every referenced configuration's lifetime."""
+        deadline = latest
+        for definition in definitions:
+            if definition.resolution_id is None:
+                continue
+            resolved = self.resolutions.get(definition.resolution_id)
+            if resolved is None:
+                raise AssistantError("assistant_configuration_stale", 409)
+            deadline = min(deadline, resolved.expires_at)
+        return deadline
+
     async def check_graph(self, context, catalog, data, *, active=True):
         """Fence persisted resource references at use without refreshing native catalogues."""
         if active:

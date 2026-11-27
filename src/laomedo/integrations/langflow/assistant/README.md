@@ -16,6 +16,13 @@ submit a model task. Real acceptance and independent review are pending.
 Graph inspection exposes node positions. An approved edit can move identified
 nodes to explicit bounded canvas coordinates while preserving all other graph
 data; moves participate in the same revision and approval checks as other edits.
+`WorkflowConfiguration.approval_deadline` limits edit approval to the earliest
+referenced configuration expiry. Expired proposals require a fresh resolution
+and proposal; a pending card never promises a longer configuration lifetime.
+`WorkflowRunEvidence.read` checks conversation ownership before reconciling a
+run, then reads the resulting owned state. Catalog resolution registration and
+lookup assume `WorkflowConfiguration.prepare` has checked the active owner,
+conversation, browser session, expiry and resources for that operation.
 
 Audited adapters are exact-source Codex, Claude, OpenCode, Skill and MCPTools
 components. Other installed components expose static typed fields and compatible

@@ -379,7 +379,10 @@ export default function GraphAgents({ flowId }: { flowId?: string }) {
                               <StatusBadge
                                 status={selectedLane?.status ?? "unknown"}
                               />
-                              <span>
+                              <span
+                                aria-label={`${scopeLabel} duration${scopeLabel === "Run" ? ", including preparation" : ""}`}
+                                title={`${scopeLabel} duration${scopeLabel === "Run" ? ", including preparation" : ""}`}
+                              >
                                 {selectedLane &&
                                   duration(
                                     selectedLane.started,

@@ -80,12 +80,15 @@ class WorkflowActions:
     async def propose(self, context, request):
         """Record a bounded exact-revision proposal; never write the target or run it."""
         await self.authorize(context)
+        expires_at = time.time() + 900
         if self.configuration is not None and request.kind == "edit":
+            definitions = [*request.changes.add_nodes, *request.changes.updates]
             await self.configuration.prepare(
                 context,
                 self.catalog,
-                [*request.changes.add_nodes, *request.changes.updates],
+                definitions,
             )
+            expires_at = self.configuration.approval_deadline(definitions, expires_at)
         async with self.store.transaction() as session:
             await self.workflows.require_active(session, context)
             prior = (
@@ -138,7 +141,7 @@ class WorkflowActions:
                 request=request.model_dump(mode="json"),
                 preview=preview,
                 revision=request.expected_revision,
-                expires_at=time.time() + 900,
+                expires_at=expires_at,
             )
             session.add(row)
             await session.flush()

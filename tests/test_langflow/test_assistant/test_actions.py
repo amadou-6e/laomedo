@@ -203,6 +203,59 @@ class GraphActionTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(ValueError):
             WorkflowRunEvidence.safe_value("x" * 65537)
 
+    async def test_unowned_evidence_cannot_trigger_reconciliation(self):
+        from laomedo.integrations.langflow.assistant.evidence import WorkflowRunEvidence
+
+        with patch.object(self.actions, "reconcile", new=AsyncMock()) as reconcile:
+            with self.assertRaises(AssistantError):
+                await WorkflowRunEvidence(self.actions).read(self.context, uuid4())
+        reconcile.assert_not_awaited()
+
+    async def test_edit_card_expires_with_its_earliest_resolved_configuration(self):
+        from types import SimpleNamespace
+        from laomedo.integrations.langflow.assistant.configuration import (
+            WorkflowConfiguration,
+        )
+        from laomedo.integrations.langflow.assistant.models import (
+            GraphFieldUpdate,
+            ResolvedConfiguration,
+        )
+
+        configuration = WorkflowConfiguration(
+            SimpleNamespace(authorize=AsyncMock(), check_session=AsyncMock())
+        )
+        self.actions.configuration = configuration
+        deadline = time.time() + 60
+        updates = []
+        for node, expiry in (("Text-one", deadline + 30), ("Text-two", deadline)):
+            resolved = ResolvedConfiguration(
+                owner_id=self.owner,
+                conversation_id=self.conversation,
+                session_key="fixture",
+                component_type="test/Text",
+                schema_revision=self.catalog.schema_revision("test/Text"),
+                fields={"text": "new"},
+                expires_at=expiry,
+            )
+            configuration.resolutions[resolved.id] = resolved
+            updates.append(
+                GraphFieldUpdate(
+                    node_id=node, fields=resolved.fields, resolution_id=resolved.id
+                )
+            )
+        proposal = await self.actions.propose(
+            self.context,
+            self.request.model_copy(update={"changes": GraphChanges(updates=updates)}),
+        )
+        self.assertEqual(proposal["expires_at"], deadline)
+        with patch("time.time", return_value=deadline + 1):
+            result, snapshot, _ = await self.decide(proposal)
+        self.assertEqual(result["state"], "expired")
+        self.assertIsNone(snapshot)
+        async with self.store.sessions() as session:
+            row = await session.get(Flow, self.flow_id)
+            self.assertEqual(row.data, self.original)
+
     async def test_pending_run_has_no_execution_identity_or_invented_output(self):
         from laomedo.integrations.langflow.assistant.evidence import WorkflowRunEvidence
 

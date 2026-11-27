@@ -145,6 +145,12 @@ class ProviderExecutorTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.executor.uncertain, {})
 
     async def test_late_resource_loss_blocks_output_without_rewriting_completion(self):
+        from laomedo.agents.interface.models import RunnerDiagnostics
+
+        self.assertEqual(
+            RunnerDiagnostics.safe_code("skill_revision_unavailable"),
+            "skill_revision_unavailable",
+        )
         self.executor.admission.check_resources.side_effect = ProviderConnectionError(
             "skill_revision_unavailable"
         )

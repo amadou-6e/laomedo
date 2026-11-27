@@ -47,7 +47,10 @@ class ComponentCatalog:
         return None
 
     def resolution(self, identifier, identity, fields):
-        """Bind only an already host-validated resolution to exact node values."""
+        """Match values after WorkflowConfiguration.prepare authorizes this operation.
+
+        This pure lookup does not check owner, conversation, session or expiry.
+        """
         resolved = self.resolutions.get(identifier)
         if (
             resolved is None
@@ -60,7 +63,10 @@ class ComponentCatalog:
         return resolved
 
     def allow_resolution(self, resolved):
-        """Admit exact audited values, never arbitrary field names or provider credentials."""
+        """Register values only after WorkflowConfiguration.prepare checks authority.
+
+        The caller owns owner, conversation, browser, expiry and resource checks.
+        """
         self.resolutions[resolved.id] = resolved
 
     @classmethod

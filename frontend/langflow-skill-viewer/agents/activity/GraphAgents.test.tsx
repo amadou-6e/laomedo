@@ -328,11 +328,13 @@ test("Gantt scopes messages to child and turn, breadcrumbs restore ancestors and
   render(<GraphAgents flowId="flow"/>);
   expect(await screen.findByRole("button",{name:"node \u00b7 completed"})).toHaveAttribute("aria-pressed","false");
   expect(await screen.findByText("Parent answer")).toBeInTheDocument();
+  expect(screen.getByLabelText("Run duration, including preparation")).toHaveAttribute("title", "Run duration, including preparation");
   expect(screen.getByText("First child answer")).toBeInTheDocument();
   fireEvent.click(await screen.findByRole("button",{name:/Review changes.*2 turns.*completed$/}));
   expect(await screen.findByText("First child answer")).toBeInTheDocument();expect(screen.queryByText("Parent answer")).toBeNull();
   fireEvent.click(screen.getByRole("button",{name:/^Turn 1.*Review changes.*completed, /}));
   expect(screen.queryByText("Second child answer")).toBeNull();
+  expect(screen.getByLabelText("Turn duration")).toHaveAttribute("title", "Turn duration");
   expect(screen.getAllByRole("region",{name:"Usage overview"})).toHaveLength(1);
   expect(screen.getAllByRole("region",{name:"OpenTelemetry"})).toHaveLength(1);
   fireEvent.click(screen.getByRole("navigation",{name:"Activity selection"}).querySelector('button')!);

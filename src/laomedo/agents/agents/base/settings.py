@@ -232,7 +232,6 @@ RUNNER_FAILURE_CODES = frozenset(
         "unsupported_opencode_effort",
         "unsupported_opencode_skill_name",
         "workspace_changed_since_snapshot",
-        "workspace_access_failed",
         "workspace_copy_mismatch",
     )
 )

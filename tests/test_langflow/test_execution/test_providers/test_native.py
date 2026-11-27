@@ -30,6 +30,7 @@ from laomedo.integrations.langflow.execution.providers.dispatcher import (
     ProviderGraphDispatcher,
 )
 from laomedo.integrations.langflow.execution.worker.settings import GraphWorkerSettings
+from laomedo.skills.registry.store import SkillStore
 from support.docker import DockerTestContainer
 from test_agents.test_connections.test_controllers import FakeNativeAgent
 
@@ -44,6 +45,7 @@ class SyntheticCompletedNative(FakeNativeAgent):
             provider="codex",
             answer="synthetic model reply through actual private pipe",
             attempt_finished=True,
+            offered_skill=body.get("skill_ref"),
         )
         (self.state / "runs" / record["run_id"] / "record.json").write_text(
             json.dumps(record)
@@ -104,7 +106,7 @@ sys.exit(asyncio.run(DiagnosticWorker().run()))
     "An explicitly built local worker image is required",
 )
 class ProviderNativeContainerTests(unittest.IsolatedAsyncioTestCase):
-    """Execute the actual installed Codex component in the confined native worker."""
+    """Execute actual Skill/Codex components with an inert host model boundary."""
 
     async def test_native_agent_component_uses_scoped_host_pipe_and_cleans_up(self):
         root = Path(__file__).resolve().parents[4]
@@ -114,6 +116,15 @@ class ProviderNativeContainerTests(unittest.IsolatedAsyncioTestCase):
                 tempfile.TemporaryDirectory(prefix="laomedo-provider-container-")
             )
             state = Path(directory)
+            source = state / "skill-source"
+            source.mkdir()
+            (source / "SKILL.md").write_text(
+                "---\nname: transport-skill\n---\nPRIVATE_HOST_SKILL_BYTES\n",
+                encoding="utf-8",
+            )
+            reference = SkillStore(state / "skills").import_skill(
+                "transport-skill", source
+            )
             connections = ProviderConnections(state / "connections")
             resources.callback(connections.close)
             controllers = ProviderControllers(
@@ -136,6 +147,12 @@ class ProviderNativeContainerTests(unittest.IsolatedAsyncioTestCase):
             )
             connections._save(owner, [account])
             component = deepcopy(catalog._registry["laomedo"]["LaomedoCodexAgent"])
+            skill = deepcopy(catalog._registry["laomedo"]["LaomedoSkill"])
+            for name, value in {
+                "skill_id": reference["skill_id"],
+                "revision_id": reference["revision_id"],
+            }.items():
+                skill["template"][name]["value"] = value
             for name, value in {
                 "task": "Synthetic transport check",
                 "model": "fixture",
@@ -154,13 +171,41 @@ class ProviderNativeContainerTests(unittest.IsolatedAsyncioTestCase):
                             "type": "LaomedoCodexAgent",
                             "node": component,
                         },
+                    },
+                    {
+                        "id": "skill-fixture",
+                        "type": "genericNode",
+                        "data": {
+                            "id": "skill-fixture",
+                            "type": "LaomedoSkill",
+                            "node": skill,
+                        },
+                    },
+                ],
+                "edges": [
+                    {
+                        "source": "skill-fixture",
+                        "target": "codex-fixture",
+                        "data": {
+                            "sourceHandle": {
+                                "id": "skill-fixture",
+                                "name": "skill",
+                                "dataType": "LaomedoSkill",
+                                "output_types": ["Data"],
+                            },
+                            "targetHandle": {
+                                "id": "codex-fixture",
+                                "fieldName": "skill_reference",
+                                "inputTypes": ["Data"],
+                                "type": "other",
+                            },
+                        },
                     }
                 ],
-                "edges": [],
             }
-            prepared = ProviderGraphAdmission(connections, catalog.admission).prepare(
-                owner, "lease", flow, job_id, graph, timeout_seconds=60.0
-            )
+            prepared = ProviderGraphAdmission(
+                connections, catalog.admission, skill_store=controllers.skill_store
+            ).prepare(owner, "lease", flow, job_id, graph, timeout_seconds=60.0)
             capability = controllers.graph_runs.admit(prepared.plan)
             dispatcher = ProviderGraphDispatcher(
                 controllers, capability, prepared.plan.graph_digest
@@ -208,6 +253,19 @@ class ProviderNativeContainerTests(unittest.IsolatedAsyncioTestCase):
                 )
                 self.assertEqual(
                     dispatcher.node_outcomes["codex-fixture"]["state"], "succeeded"
+                )
+                native = next(iter(controllers.slots.values())).runner
+                records = list((native.state / "runs").glob("*/record.json"))
+                self.assertEqual(len(records), 1)
+                self.assertEqual(
+                    json.loads(records[0].read_text())["offered_skill"],
+                    {
+                        key: reference[key]
+                        for key in ("skill_id", "revision_id", "tree_hash")
+                    },
+                )
+                self.assertNotIn(
+                    "PRIVATE_HOST_SKILL_BYTES", prepared.job.model_dump_json()
                 )
                 self.assertEqual(worker._jobs, {})
                 self.assertTrue(all(stop.settled for stop in worker.stops))
