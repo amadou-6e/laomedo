@@ -35,6 +35,13 @@ independent lease registration. Shared control raises the subclass's
 Subclasses keep their own mount and authority policy; shared transport never
 chooses an owner or creates a grant.
 
+`_local_context` resolves and verifies the literal local daemon endpoint, removes
+the mutable context selector from that job's control environment, and pins
+`DOCKER_HOST` for subsequent create/inspect/remove calls. Both worker and profile
+reservations carry the same endpoint into `LeaseClient`, so independent cleanup
+cannot silently follow a retargeted Docker context. A service's `service.json`
+publication, after its initial heartbeat pair, is its startup-ready receipt.
+
 `settings.py` owns `BaseDockerRuntimeSettings`: image digest, lease state, Docker
 context, resource limits and control timeout, accepted only from explicit host
 arguments. Each runtime subclasses it with its own defaults and fields.

@@ -65,6 +65,7 @@ class BaseDockerRuntime:
                 name=identity.name,
                 token=identity.token.get_secret_value(),
                 cancelled=cancelled,
+                docker_endpoint=identity.docker_endpoint,
             )
         )
 
@@ -148,12 +149,19 @@ class BaseDockerRuntime:
             ],
             environment,
         )
-        if result.returncode or json.loads(result.stdout) not in {
+        try:
+            endpoint = json.loads(result.stdout) if not result.returncode else None
+        except (ValueError, UnicodeError):
+            raise self.runtime_error() from None
+        if not isinstance(endpoint, str) or endpoint not in {
             "npipe:////./pipe/docker_engine",
             "npipe:////./pipe/dockerDesktopLinuxEngine",
             "unix:///var/run/docker.sock",
         }:
             raise self.runtime_error()
+        environment.pop("DOCKER_CONTEXT", None)
+        environment["DOCKER_HOST"] = endpoint
+        return endpoint
 
     async def _inspect(self, identity, environment):
         """Return only an exact labelled reservation; unknown errors are not absence."""

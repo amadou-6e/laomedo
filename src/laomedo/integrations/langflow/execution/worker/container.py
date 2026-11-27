@@ -187,7 +187,8 @@ class DockerGraphWorker(BaseDockerRuntime):
         lease = process = None
         try:
             await self._authorize_job(job, first_vertex)
-            await self._local_context(environment)
+            endpoint = await self._local_context(environment)
+            identity = identity.model_copy(update={"docker_endpoint": endpoint})
             registration = self._start_lease(identity, cancelled)
             try:
                 lease = await asyncio.shield(registration)

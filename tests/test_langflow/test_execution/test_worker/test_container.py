@@ -1,6 +1,7 @@
 """Deployment boundaries checked before a private job enters Docker."""
 
 import copy
+import json
 import asyncio
 import os
 from pathlib import Path
@@ -15,7 +16,8 @@ from unittest.mock import patch, AsyncMock, Mock
 from uuid import uuid4
 from support.docker import DockerTestContainer
 
-from pydantic import ValidationError
+from pydantic import SecretStr, ValidationError
+from laomedo.host.leases.models import ContainerIdentity
 
 from laomedo.integrations.langflow.execution.worker.container import DockerGraphWorker
 from laomedo.integrations.langflow.execution.base import BaseDockerRuntime
@@ -122,6 +124,58 @@ class DockerDeploymentTests(unittest.TestCase):
                 image_id=self.settings.image_id,
                 lease_state=Path(self.directory.name) / "runtime",
             )
+
+
+class DockerEndpointTests(unittest.IsolatedAsyncioTestCase):
+    """Registration and later Docker control stay on the exact inspected daemon."""
+
+    async def test_local_context_is_pinned_into_environment_and_lease_registration(
+        self,
+    ):
+        endpoint = "npipe:////./pipe/dockerDesktopLinuxEngine"
+        worker = DockerGraphWorker(
+            SimpleNamespace(
+                docker_context="desktop-linux", lease_state=Path(tempfile.gettempdir())
+            ),
+            None,
+            None,
+        )
+        worker._control = AsyncMock(
+            return_value=subprocess.CompletedProcess(
+                [], 0, json.dumps(endpoint).encode(), b""
+            )
+        )
+        environment = {"DOCKER_CONTEXT": "desktop-linux"}
+        self.assertEqual(await worker._local_context(environment), endpoint)
+        self.assertNotIn("DOCKER_CONTEXT", environment)
+        self.assertEqual(environment["DOCKER_HOST"], endpoint)
+        identity = ContainerIdentity(
+            name="fixture",
+            run_id=str(uuid4()),
+            token=SecretStr("a" * 32),
+            docker_endpoint=endpoint,
+        )
+        with patch(
+            "laomedo.integrations.langflow.execution.base.LeaseClient", autospec=True
+        ) as factory:
+            await worker._start_lease(identity, threading.Event())
+        self.assertEqual(factory.call_args.kwargs["docker_endpoint"], endpoint)
+
+    async def test_remote_or_malformed_daemon_does_not_change_control_environment(self):
+        worker = DockerGraphWorker(
+            SimpleNamespace(docker_context="desktop-linux"), None, None
+        )
+        for endpoint in ("tcp://remote:2375", {}, None, 1):
+            with self.subTest(endpoint=endpoint):
+                worker._control = AsyncMock(
+                    return_value=subprocess.CompletedProcess(
+                        [], 0, json.dumps(endpoint).encode(), b""
+                    )
+                )
+                environment = {"DOCKER_CONTEXT": "desktop-linux"}
+                with self.assertRaises(GraphWorkerError):
+                    await worker._local_context(environment)
+                self.assertEqual(environment, {"DOCKER_CONTEXT": "desktop-linux"})
 
 
 class SyntheticContainerReader:
@@ -339,7 +393,7 @@ class ContainerSupervisorTests(unittest.IsolatedAsyncioTestCase):
             )
             try:
                 deadline = time.monotonic() + 15.0
-                while not (Path(directory) / "service.alive").exists():
+                while not (Path(directory) / "service.json").exists():
                     self.assertIsNone(service.poll(), "Lease service failed to start")
                     self.assertLess(time.monotonic(), deadline)
                     await asyncio.sleep(0.05)

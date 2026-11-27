@@ -153,12 +153,13 @@ class DockerProfileRuntime(BaseDockerRuntime):
     async def _start(self, owner_id):
         """Verify isolation before starting a fresh native server with no broker state."""
         environment = self._environment()
-        await self._local_context(environment)
+        endpoint = await self._local_context(environment)
         volume = await self._volume(owner_id, environment)
         identity = ContainerIdentity(
             name="laomedo-profile-" + uuid4().hex,
             run_id=str(uuid4()),
             token=SecretStr(secrets.token_hex(16)),
+            docker_endpoint=endpoint,
         )
         cancelled = threading.Event()
         lease = None
