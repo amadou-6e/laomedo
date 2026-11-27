@@ -30,44 +30,6 @@ class ProviderGraphRuns:
         self._started = {}
         self._retired = {}
 
-    @staticmethod
-    def _key(capability):
-        """Hash only well-formed opaque worker capabilities without logging them."""
-        if (
-            not isinstance(capability, str)
-            or len(capability) != 64
-            or any(character not in "0123456789abcdef" for character in capability)
-        ):
-            raise ProviderConnectionError("verified_review_unavailable")
-        return hashlib.sha256(capability.encode("ascii")).hexdigest()
-
-    def _current(self, key, digest):
-        """Resolve a live plan while holding the connection lifecycle lock."""
-        plan = self._plans.get(key)
-        if plan is not None and plan.deadline <= time.monotonic():
-            self._retire(key)
-            plan = None
-        if plan is None:
-            raise ProviderConnectionError("verified_review_unavailable")
-        if not isinstance(digest, str) or not secrets.compare_digest(
-            plan.graph_digest.encode("utf-8"), digest.encode("utf-8")
-        ):
-            raise ProviderConnectionError("verified_review_unavailable")
-        self.service.check_lease(plan.lease_hash)
-        return plan
-
-    def _node(self, plan, vertex_id):
-        """Revalidate this vertex's admitted account without account fallback."""
-        node = next((item for item in plan.nodes if item.vertex_id == vertex_id), None)
-        if node is None:
-            raise ProviderConnectionError("verified_review_unavailable")
-        record = self.service.admitted(
-            plan.profile_id, node.connection_id, node.generation
-        )
-        if record.provider != node.provider:
-            raise ProviderConnectionError("verified_review_unavailable")
-        return node
-
     def admit(self, plan: GraphRunPlan):
         """Issue one capability from a host-approved plan, never a worker claim."""
         if not isinstance(plan, GraphRunPlan):
@@ -129,32 +91,6 @@ class ProviderGraphRuns:
         with self.service._lock:
             self._bind_run(self._key(capability), graph_digest, vertex_id, run_id)
 
-    def _bind_run(self, key, graph_digest, vertex_id, run_id):
-        """Bind only the runner record with this vertex's host-issued request ID."""
-        try:
-            if not isinstance(run_id, str) or str(UUID(run_id)) != run_id:
-                raise ValueError
-        except (ValueError, TypeError, AttributeError):
-            raise ProviderConnectionError("verified_review_unavailable") from None
-        with self.service._lock:
-            plan = self._current(key, graph_digest)
-            self._node(plan, vertex_id)
-            runs = self._runs[key]
-            if (
-                vertex_id not in self._started[key]
-                or vertex_id in runs
-                or run_id in runs.values()
-            ):
-                raise ProviderConnectionError("verified_review_unavailable")
-            record = self.read_run(plan.profile_id, self._node(plan, vertex_id), run_id)
-            if (
-                not isinstance(record, dict)
-                or record.get("run_id") != run_id
-                or record.get("client_request_id") != self._started[key][vertex_id]
-            ):
-                raise ProviderConnectionError("verified_review_unavailable")
-            runs[vertex_id] = run_id
-
     def bind_review_run(self, review: GraphRunReview, run_id):
         """Bind a review's native acknowledgement before releasing its start gate."""
         with self.service._lock:
@@ -176,26 +112,6 @@ class ProviderGraphRuns:
             request_id = str(uuid4())
             self._started[key][vertex_id] = request_id
             return GraphNodeStart(node=node, request_id=request_id)
-
-    def _review(self, key, graph_digest, vertex_id):
-        """Project an exact review while the caller holds the lifecycle lock."""
-        plan = self._current(key, graph_digest)
-        node = self._node(plan, vertex_id)
-        if node.provider != "claude" or node.review_source is None:
-            raise ProviderConnectionError("verified_review_unavailable")
-        source = self._node(plan, node.review_source)
-        run_id = self._runs[key].get(node.review_source)
-        if run_id is None:
-            raise ProviderConnectionError("verified_review_unavailable")
-        return GraphRunReview(
-            profile_id=plan.profile_id,
-            lease_hash=plan.lease_hash,
-            worker_key=key,
-            graph_digest=plan.graph_digest,
-            source=source,
-            target=node,
-            source_run=run_id,
-        )
 
     def review(self, capability, graph_digest, vertex_id):
         """Derive review authority from this invocation, never worker selectors."""
@@ -232,6 +148,103 @@ class ProviderGraphRuns:
             self._retire(key)
             return self._retired.get(key)
 
+    def settle(self, capability):
+        """Forget only a revoked receipt after its supervisor confirms cleanup."""
+        with self.service._lock:
+            self._retired.pop(self._key(capability), None)
+
+    def close(self):
+        """Revoke all worker authority during host shutdown, without dispatch."""
+        with self.service._lock:
+            self._plans.clear()
+            self._runs.clear()
+            self._started.clear()
+            self._retired.clear()
+
+    @staticmethod
+    def _key(capability):
+        """Hash only well-formed opaque worker capabilities without logging them."""
+        if (
+            not isinstance(capability, str)
+            or len(capability) != 64
+            or any(character not in "0123456789abcdef" for character in capability)
+        ):
+            raise ProviderConnectionError("verified_review_unavailable")
+        return hashlib.sha256(capability.encode("ascii")).hexdigest()
+
+    def _current(self, key, digest):
+        """Resolve a live plan while holding the connection lifecycle lock."""
+        plan = self._plans.get(key)
+        if plan is not None and plan.deadline <= time.monotonic():
+            self._retire(key)
+            plan = None
+        if plan is None:
+            raise ProviderConnectionError("verified_review_unavailable")
+        if not isinstance(digest, str) or not secrets.compare_digest(
+            plan.graph_digest.encode("utf-8"), digest.encode("utf-8")
+        ):
+            raise ProviderConnectionError("verified_review_unavailable")
+        self.service.check_lease(plan.lease_hash)
+        return plan
+
+    def _node(self, plan, vertex_id):
+        """Revalidate this vertex's admitted account without account fallback."""
+        node = next((item for item in plan.nodes if item.vertex_id == vertex_id), None)
+        if node is None:
+            raise ProviderConnectionError("verified_review_unavailable")
+        record = self.service.admitted(
+            plan.profile_id, node.connection_id, node.generation
+        )
+        if record.provider != node.provider:
+            raise ProviderConnectionError("verified_review_unavailable")
+        return node
+
+    def _bind_run(self, key, graph_digest, vertex_id, run_id):
+        """Bind only the runner record with this vertex's host-issued request ID."""
+        try:
+            if not isinstance(run_id, str) or str(UUID(run_id)) != run_id:
+                raise ValueError
+        except (ValueError, TypeError, AttributeError):
+            raise ProviderConnectionError("verified_review_unavailable") from None
+        with self.service._lock:
+            plan = self._current(key, graph_digest)
+            self._node(plan, vertex_id)
+            runs = self._runs[key]
+            if (
+                vertex_id not in self._started[key]
+                or vertex_id in runs
+                or run_id in runs.values()
+            ):
+                raise ProviderConnectionError("verified_review_unavailable")
+            record = self.read_run(plan.profile_id, self._node(plan, vertex_id), run_id)
+            if (
+                not isinstance(record, dict)
+                or record.get("run_id") != run_id
+                or record.get("client_request_id") != self._started[key][vertex_id]
+            ):
+                raise ProviderConnectionError("verified_review_unavailable")
+            runs[vertex_id] = run_id
+
+    def _review(self, key, graph_digest, vertex_id):
+        """Project an exact review while the caller holds the lifecycle lock."""
+        plan = self._current(key, graph_digest)
+        node = self._node(plan, vertex_id)
+        if node.provider != "claude" or node.review_source is None:
+            raise ProviderConnectionError("verified_review_unavailable")
+        source = self._node(plan, node.review_source)
+        run_id = self._runs[key].get(node.review_source)
+        if run_id is None:
+            raise ProviderConnectionError("verified_review_unavailable")
+        return GraphRunReview(
+            profile_id=plan.profile_id,
+            lease_hash=plan.lease_hash,
+            worker_key=key,
+            graph_digest=plan.graph_digest,
+            source=source,
+            target=node,
+            source_run=run_id,
+        )
+
     def _retire(self, key):
         """Separate revoked cleanup receipts from the live admission capacity."""
         plan = self._plans.pop(key, None)
@@ -246,16 +259,3 @@ class ProviderGraphRuns:
                     if node.vertex_id in started
                 ),
             )
-
-    def settle(self, capability):
-        """Forget only a revoked receipt after its supervisor confirms cleanup."""
-        with self.service._lock:
-            self._retired.pop(self._key(capability), None)
-
-    def close(self):
-        """Revoke all worker authority during host shutdown, without dispatch."""
-        with self.service._lock:
-            self._plans.clear()
-            self._runs.clear()
-            self._started.clear()
-            self._retired.clear()

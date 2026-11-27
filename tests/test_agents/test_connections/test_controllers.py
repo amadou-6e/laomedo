@@ -26,6 +26,7 @@ from laomedo.agents.errors import RunnerError
 from laomedo.agents.workspaces.models import WorkspaceChanges
 from laomedo.docker import DockerRuntime
 from laomedo.agents.agents.base.agent import BaseAgent
+from laomedo.agents.mcp.settings import McpSettings
 
 
 class FakeNativeAgent:
@@ -450,6 +451,16 @@ class ProviderControllerTests(unittest.TestCase):
         ):
             self.manager.stage_review_request(capability, digest, "claude", body)
         self.assertEqual(self.manager._review_grants, {})
+
+    def test_both_native_scopes_receive_the_app_owned_mcp_settings(self):
+        settings = McpSettings(directory=self.manager.root / "mcp")
+        self.manager.mcp_settings = settings
+        self.manager.factory = Mock(side_effect=FakeNativeAgent)
+        self.manager.endpoint(self.profile, self.one)
+        self.manager.assistant_endpoint(self.profile, self.one, 1)
+        self.assertEqual(self.manager.factory.call_count, 2)
+        for call in self.manager.factory.call_args_list:
+            self.assertIs(call.kwargs["mcp_settings"], settings)
 
     def test_failed_native_binding_never_crosses_credential_or_model_admission(self):
         self.manager.factory = GatedNativeAgent

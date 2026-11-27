@@ -236,9 +236,11 @@ class ProviderBrokerRuntime(PrivateBrokerRuntime):
         from laomedo.agents.mcp.registry import McpRegistry
         from laomedo.agents.mcp.settings import McpSettings
 
-        McpRegistry.install(
-            app, McpSettings(directory=self.profile_runtime.admission.root / "mcp")
+        mcp_settings = McpSettings(
+            directory=self.profile_runtime.admission.root / "mcp"
         )
+        McpRegistry.install(app, mcp_settings)
+        app.state.provider_connections.controllers.mcp_settings = mcp_settings
         executor = ProviderGraphExecutor(
             self.settings.worker, catalog, app.state.provider_connections.controllers
         )

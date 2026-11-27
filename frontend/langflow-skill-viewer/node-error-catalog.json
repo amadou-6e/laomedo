@@ -2309,6 +2309,21 @@
     "description": "The viewer could not confirm the current pull request content. The cause has not been established.",
     "recovery": "Refresh PR repeats only this read. It does not edit GitHub, run the graph or start an Agent. Check the current selection and local GitHub connection if the read still fails."
   },
+  "isolated_graph_worker_required": {
+    "title": "This flow needs isolated execution",
+    "description": "The current app cannot safely run this connected Agent workflow.",
+    "recovery": "Use the app's isolated graph runtime. Ask the operator to configure it before running this flow."
+  },
+  "activity_native_capture_required": {
+    "title": "Activity could not be recorded",
+    "description": "The app could not set up activity recording for this run.",
+    "recovery": "Check the run's actual status before trying again. Ask the operator to check the activity configuration."
+  },
+  "activity_capture_boundary_ambiguous": {
+    "title": "Activity could not be recorded",
+    "description": "The app found conflicting activity recording settings.",
+    "recovery": "Check the run's actual status before trying again. Ask the operator to correct the activity configuration."
+  },
   "profile_cookie_boundary_unavailable": {
     "title": "The app could not start safely",
     "description": "Your local sign-in could not be set up. Saved profiles have not been changed.",

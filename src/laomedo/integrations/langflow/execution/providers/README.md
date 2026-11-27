@@ -113,6 +113,10 @@ receipts. The shared supervisor remains the single owner of container hardening,
 lease registration, inspection and exact cleanup. Normal native run history
 survives job revocation; unknown cancellation is never claimed as settlement.
 
+The broker passes one host-owned `McpSettings` object to its registry and native
+controllers. Each provider passes that object to `BaseAgent`, whose MCP admission
+reads only that fixed private rendezvous directory; request bodies cannot select it.
+
 This integration is under development. The ordinary native-process review
 binding remains disabled until the isolated app and actual graph path are
 verified. Host policy/dispatcher tests are separate from real container and

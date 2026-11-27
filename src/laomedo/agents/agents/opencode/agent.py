@@ -58,6 +58,7 @@ class OpenCodeAgent(BaseAgent):
         git_workspace=False,
         publication_controller=None,
         artifact_sources=None,
+        mcp_settings=None,
     ):
         """Bind admitted configuration and owned state; provider startup errors propagate before use."""
         if profile is not None:
@@ -78,6 +79,7 @@ class OpenCodeAgent(BaseAgent):
             git_workspace=git_workspace,
             publication_controller=publication_controller,
             artifact_sources=artifact_sources,
+            mcp_settings=mcp_settings,
         )
         self._recover_containers()
 

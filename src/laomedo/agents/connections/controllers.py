@@ -156,6 +156,7 @@ class ProviderControllers:
         self.skill_store = skill_store
         self.source = source
         self.factory = factory
+        self.mcp_settings = None
         self.slots = {}
         self._review_grants = {}
         self.graph_runs = ProviderGraphRuns(service, read_run=self._graph_run_record)
@@ -359,18 +360,6 @@ class ProviderControllers:
             with self.service._lock:
                 slot.operations -= 1
 
-    def _graph_run_record(self, profile_id, node, run_id):
-        """Read an acknowledgement only from the exact admitted native slot."""
-        slot = self.slots.get(
-            (profile_id, node.connection_id, node.generation, "graph")
-        )
-        if slot is None or slot.runner is None or slot.creating:
-            raise ProviderConnectionError("verified_review_unavailable")
-        try:
-            return slot.runner.status(run_id)
-        except (OSError, RunnerError, ValueError):
-            raise ProviderConnectionError("verified_review_unavailable") from None
-
     def read_graph_activity(
         self, profile_id, node, run_id, attempt_id, *, after=0, limit=200
     ):
@@ -390,92 +379,6 @@ class ProviderControllers:
         finally:
             with self.service._lock:
                 slot.operations -= 1
-
-    def _stage_verified_review(
-        self,
-        profile_id,
-        lease_hash,
-        source_run,
-        target_connection,
-        target_generation,
-        request_id,
-        instruction,
-        *,
-        request_body=None,
-        graph_review,
-    ):
-        """Stage one opaque, non-content grant after checking both owned sources."""
-        try:
-            if str(UUID(str(request_id))) != request_id:
-                raise ValueError()
-        except (ValueError, TypeError, AttributeError):
-            raise ProviderConnectionError("verified_review_unavailable") from None
-        if (
-            not isinstance(instruction, str)
-            or not instruction.strip()
-            or len(instruction.encode("utf-8")) > 3000
-        ):
-            raise ProviderConnectionError("verified_review_unavailable")
-        with self.service._lock:
-            self.service.check_lease(lease_hash)
-            self.graph_runs.check_review(graph_review)
-            if (
-                graph_review.profile_id != profile_id
-                or graph_review.lease_hash != lease_hash
-                or graph_review.source_run != source_run
-                or graph_review.target.connection_id != target_connection
-                or graph_review.target.generation != target_generation
-            ):
-                raise ProviderConnectionError("verified_review_unavailable")
-        source = self.workspace_changes(profile_id, source_run)
-        with self.service._lock:
-            self.service.check_lease(lease_hash)
-            self.service.admitted(profile_id, source.connection_id, source.generation)
-            target = self.service.admitted(
-                profile_id, target_connection, target_generation
-            )
-            if target.provider != "claude" or self.closed:
-                raise ProviderConnectionError("verified_review_unavailable")
-            now = time.monotonic()
-            self._review_grants = {
-                key: value
-                for key, value in self._review_grants.items()
-                if value.expires_at > now
-            }
-            if len(self._review_grants) >= MAX_PENDING_VERIFIED_REVIEWS:
-                raise ProviderConnectionError("verified_review_unavailable")
-            token = secrets.token_urlsafe(32)
-            self._review_grants[token] = VerifiedReviewGrant(
-                profile_id=profile_id,
-                lease_hash=lease_hash,
-                source_connection=source.connection_id,
-                source_generation=source.generation,
-                source_run=source.changes.run_id,
-                source_hash=source.changes.source_hash,
-                post_run_hash=source.changes.post_run_hash,
-                patch_hash=source.changes.patch_hash,
-                target_connection=target_connection,
-                target_generation=target_generation,
-                request_id=request_id,
-                instruction_hash=hashlib.sha256(
-                    instruction.encode("utf-8")
-                ).hexdigest(),
-                request_body_hash=(
-                    hashlib.sha256(
-                        json.dumps(
-                            request_body,
-                            sort_keys=True,
-                            separators=(",", ":"),
-                            ensure_ascii=False,
-                        ).encode("utf-8")
-                    ).hexdigest()
-                    if request_body is not None
-                    else None
-                ),
-                expires_at=now + VERIFIED_REVIEW_GRANT_SECONDS,
-                graph_review=graph_review,
-            )
-            return token
 
     @staticmethod
     def review_task(instruction, patch):
@@ -1004,6 +907,104 @@ class ProviderControllers:
                 0
             ]
 
+    def _graph_run_record(self, profile_id, node, run_id):
+        """Read an acknowledgement only from the exact admitted native slot."""
+        slot = self.slots.get(
+            (profile_id, node.connection_id, node.generation, "graph")
+        )
+        if slot is None or slot.runner is None or slot.creating:
+            raise ProviderConnectionError("verified_review_unavailable")
+        try:
+            return slot.runner.status(run_id)
+        except (OSError, RunnerError, ValueError):
+            raise ProviderConnectionError("verified_review_unavailable") from None
+
+    def _stage_verified_review(
+        self,
+        profile_id,
+        lease_hash,
+        source_run,
+        target_connection,
+        target_generation,
+        request_id,
+        instruction,
+        *,
+        request_body=None,
+        graph_review,
+    ):
+        """Stage one opaque, non-content grant after checking both owned sources."""
+        try:
+            if str(UUID(str(request_id))) != request_id:
+                raise ValueError()
+        except (ValueError, TypeError, AttributeError):
+            raise ProviderConnectionError("verified_review_unavailable") from None
+        if (
+            not isinstance(instruction, str)
+            or not instruction.strip()
+            or len(instruction.encode("utf-8")) > 3000
+        ):
+            raise ProviderConnectionError("verified_review_unavailable")
+        with self.service._lock:
+            self.service.check_lease(lease_hash)
+            self.graph_runs.check_review(graph_review)
+            if (
+                graph_review.profile_id != profile_id
+                or graph_review.lease_hash != lease_hash
+                or graph_review.source_run != source_run
+                or graph_review.target.connection_id != target_connection
+                or graph_review.target.generation != target_generation
+            ):
+                raise ProviderConnectionError("verified_review_unavailable")
+        source = self.workspace_changes(profile_id, source_run)
+        with self.service._lock:
+            self.service.check_lease(lease_hash)
+            self.service.admitted(profile_id, source.connection_id, source.generation)
+            target = self.service.admitted(
+                profile_id, target_connection, target_generation
+            )
+            if target.provider != "claude" or self.closed:
+                raise ProviderConnectionError("verified_review_unavailable")
+            now = time.monotonic()
+            self._review_grants = {
+                key: value
+                for key, value in self._review_grants.items()
+                if value.expires_at > now
+            }
+            if len(self._review_grants) >= MAX_PENDING_VERIFIED_REVIEWS:
+                raise ProviderConnectionError("verified_review_unavailable")
+            token = secrets.token_urlsafe(32)
+            self._review_grants[token] = VerifiedReviewGrant(
+                profile_id=profile_id,
+                lease_hash=lease_hash,
+                source_connection=source.connection_id,
+                source_generation=source.generation,
+                source_run=source.changes.run_id,
+                source_hash=source.changes.source_hash,
+                post_run_hash=source.changes.post_run_hash,
+                patch_hash=source.changes.patch_hash,
+                target_connection=target_connection,
+                target_generation=target_generation,
+                request_id=request_id,
+                instruction_hash=hashlib.sha256(
+                    instruction.encode("utf-8")
+                ).hexdigest(),
+                request_body_hash=(
+                    hashlib.sha256(
+                        json.dumps(
+                            request_body,
+                            sort_keys=True,
+                            separators=(",", ":"),
+                            ensure_ascii=False,
+                        ).encode("utf-8")
+                    ).hexdigest()
+                    if request_body is not None
+                    else None
+                ),
+                expires_at=now + VERIFIED_REVIEW_GRANT_SECONDS,
+                graph_review=graph_review,
+            )
+            return token
+
     def _assistant_source(self, state):
         """Prepare only the fixed scratch sibling, never the graph repository."""
         repository = state.parent / "source"
@@ -1093,6 +1094,8 @@ class ProviderControllers:
                 raise ProviderConnectionError("provider_runner_unavailable")
             record = self.service._record(profile_id, connection_id)
             options = {"artifact_sources": {}} if scope == "assistant" else {}
+            if self.mcp_settings is not None:
+                options["mcp_settings"] = self.mcp_settings
             if record.provider == "claude" and self.factory is None:
                 auth = SavedClaudeConnection(
                     self.service, profile_id, connection_id, generation

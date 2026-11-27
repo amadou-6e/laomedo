@@ -150,6 +150,35 @@ class ProviderBrokerStartupCheck(BrokerStartupCheck):
             assert (
                 McpRegistry.current() is app.state.laomedo_mcp
             ), "authoring tool lifetime unavailable"
+            from types import SimpleNamespace
+            from unittest.mock import AsyncMock
+            from laomedo.agents.mcp.client import McpAccess
+            from laomedo.agents.mcp.models import McpTool
+
+            registry = McpRegistry.current()
+            assert (
+                app.state.provider_connections.controllers.mcp_settings
+                is registry.settings
+            )
+            tool = SimpleNamespace(
+                descriptor=McpTool(
+                    server="startup",
+                    upstream_name="echo",
+                    display_name="Echo",
+                    description="Startup admission only.",
+                    input_schema={"type": "object"},
+                ),
+                invoke=AsyncMock(),
+            )
+            registration = await registry.register([tool])
+            access = await asyncio.to_thread(
+                McpAccess,
+                str(registration.registration_id),
+                registration.manifest.model_dump(mode="json"),
+                settings=app.state.provider_connections.controllers.mcp_settings,
+            )
+            await asyncio.to_thread(access.close)
+            registry.release(registration.registration_id)
             async with AsyncClient(
                 transport=ASGITransport(app=app),
                 base_url=origin,

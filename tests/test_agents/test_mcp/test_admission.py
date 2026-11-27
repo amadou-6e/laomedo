@@ -147,6 +147,19 @@ class McpAdmissionTests(unittest.TestCase):
         self.assertNotIn(access.token, retained)
         self.assertNotIn("mcp_registration", record)
 
+    def test_native_admission_uses_the_host_owned_rendezvous_settings(self):
+        case = RunnerCase.create()
+        self.addCleanup(case.close)
+        settings = McpSettings(directory=case.root.parent / (case.root.name + "-mcp"))
+        case.runner.mcp_settings = settings
+        request = {
+            "mcp_manifest": self.manifest.model_dump(mode="json"),
+            "mcp_registration": str(uuid4()),
+        }
+        with patch("laomedo.agents.agents.base.agent.McpAccess") as access:
+            case.runner._admit_mcp(request)
+        self.assertIs(access.call_args.kwargs["settings"], settings)
+
     def test_missing_registration_is_refused_before_preparation(self):
         """Unpaired tool metadata cannot produce an admitted workspace or run."""
         case = RunnerCase.create()

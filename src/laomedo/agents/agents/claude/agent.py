@@ -78,6 +78,7 @@ class ClaudeAgent(BaseAgent):
         git_workspace=False,
         artifact_sources=None,
         auth_connection=None,
+        mcp_settings=None,
     ):
         """Bind admitted configuration and owned state; provider startup errors propagate before use."""
         if type(turn_timeout) is not int or not 1 <= turn_timeout <= 86400:
@@ -102,6 +103,7 @@ class ClaudeAgent(BaseAgent):
             mediator_state=mediator_state,
             git_workspace=git_workspace,
             artifact_sources=artifact_sources,
+            mcp_settings=mcp_settings,
         )
         self.profile = self.container.profile
         self.image, self.image_id = image, self.container.image_id

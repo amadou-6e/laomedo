@@ -100,6 +100,7 @@ class CodexAgent(BaseAgent):
         publication_controller=None,
         image_id: str | None = None,
         artifact_sources=None,
+        mcp_settings=None,
     ):
         """Bind admitted configuration and owned state; provider startup errors propagate before use."""
         self._session_owner = None
@@ -140,6 +141,7 @@ class CodexAgent(BaseAgent):
             git_workspace=git_workspace,
             publication_controller=publication_controller,
             artifact_sources=artifact_sources,
+            mcp_settings=mcp_settings,
         )
         self.transport = transport
         self.split_executor = split_executor

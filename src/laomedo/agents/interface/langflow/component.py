@@ -442,13 +442,6 @@ class AgentComponent(Component):
         global _HTTP
         _HTTP = opener
 
-    def _isolated_channel(self):
-        from laomedo.integrations.langflow.execution.providers.channel import (
-            ProviderWorkerChannel,
-        )
-
-        return ProviderWorkerChannel.for_graph(getattr(self, "graph", None))
-
     async def update_build_config(self, build_config, field_value, field_name=None):
         from laomedo.integrations.langflow.provider_connections.bindings import (
             ProviderGraphBindings,
@@ -596,6 +589,13 @@ class AgentComponent(Component):
         self._contract_submission = deepcopy(value)
         self.status = "Laomedo outcome: " + value["executor_status"]
         return Data(data=value)
+
+    def _isolated_channel(self):
+        from laomedo.integrations.langflow.execution.providers.channel import (
+            ProviderWorkerChannel,
+        )
+
+        return ProviderWorkerChannel.for_graph(getattr(self, "graph", None))
 
     def _update_template(self, frontend_node):
         from laomedo.integrations.langflow.provider_connections.bindings import (

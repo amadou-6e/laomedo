@@ -38,6 +38,7 @@ from laomedo.agents.artifacts.models import ArtifactReference
 from laomedo.agents.orchestration.models import HandoffProvenance
 from laomedo.agents.errors import RunnerError
 from laomedo.agents.mcp.client import McpAccess
+from laomedo.agents.mcp.settings import McpSettings
 from laomedo.agents.mcp.models import McpManifest
 from laomedo.agents.mcp.errors import McpError
 from laomedo.agents.workspaces.utils import _copy_tree
@@ -87,9 +88,11 @@ class BaseAgent(ABC):
         git_workspace: bool = False,
         publication_controller=None,
         artifact_sources=None,
+        mcp_settings: McpSettings | None = None,
     ):
         """Bind admitted configuration and owned state; provider startup errors propagate before use."""
         self.state = _private(state)
+        self.mcp_settings = mcp_settings
         self.store = SkillStore(skill_store)
         self.source = source_workspace.expanduser().resolve()
         self.git_workspace = git_workspace
@@ -649,7 +652,9 @@ class BaseAgent(ABC):
             return None
         try:
             return McpAccess(
-                request["mcp_registration"], manifest.model_dump(mode="json")
+                request["mcp_registration"],
+                manifest.model_dump(mode="json"),
+                settings=self.mcp_settings,
             )
         except McpError as exc:
             raise RunnerError(exc.code) from None
