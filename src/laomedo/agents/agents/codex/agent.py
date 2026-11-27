@@ -254,6 +254,11 @@ class CodexAgent(BaseAgent):
                 _json(path, record)
 
     @property
+    def quota(self) -> BaseSubscriptionQuota | None:
+        """Compose the provider-owned zero-turn quota reader without native effects."""
+        return CodexSubscriptionQuota(self)
+
+    @property
     def supports_mediated_github(self):
         """Declare support only for this Agent mode that actually owns the supervised mediated path."""
         return self.supervise_containers and not self.split_executor
@@ -451,11 +456,6 @@ class CodexAgent(BaseAgent):
             effort=effort,
             native_command=native_command,
         )
-
-    @property
-    def quota(self) -> BaseSubscriptionQuota | None:
-        """Compose the provider-owned zero-turn quota reader without native effects."""
-        return CodexSubscriptionQuota(self)
 
     def prepare_initial_command(self, request: dict) -> str:
         """Admit only exact control-only status on a newly created native session."""

@@ -135,6 +135,11 @@ class BaseAgent(ABC):
         self._mcp_lock = threading.Lock()
 
     @property
+    def quota(self) -> BaseSubscriptionQuota | None:
+        """Expose no quota capability unless this provider composes one."""
+        return None
+
+    @property
     def credentials(self):
         """Compose the declared native credential provider without reading secrets."""
         with ROLE_INIT_LOCK:
@@ -554,11 +559,6 @@ class BaseAgent(ABC):
         if _hash_tree(snapshot) != record["post_run_hash"]:
             raise ArtifactError("artifact_source_changed_during_selection")
         return selections(result)
-
-    @property
-    def quota(self) -> BaseSubscriptionQuota | None:
-        """Expose no quota capability unless this provider composes one."""
-        return None
 
     def _mcp_manifest(self, request):
         """Validate paired external admission fields before identity lookup or effects."""

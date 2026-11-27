@@ -67,6 +67,49 @@ except Exception:
             if self.lock is not None:
                 self.lock.release()
 
+    @classmethod
+    def project(cls, payload) -> SubscriptionSnapshot:
+        """Preserve every documented meter, without inventing missing scalar values."""
+        if not isinstance(payload, dict) or not isinstance(payload.get("usage"), dict):
+            raise ValueError()
+        windows = []
+        for name, kind, minutes in (
+            ("rolling", "primary", 300),
+            ("weekly", "secondary", 10080),
+            ("monthly", "monthly", None),
+        ):
+            meter = payload["usage"].get(name)
+            if meter is None:
+                continue
+            if not isinstance(meter, dict) or meter.get("status") not in {
+                "ok",
+                "rate-limited",
+            }:
+                raise ValueError()
+            percent = meter.get("percent")
+            if (
+                isinstance(percent, bool)
+                or not isinstance(percent, (int, float))
+                or not math.isfinite(percent)
+                or not 0 <= percent <= 100
+            ):
+                percent = None
+            windows.append(
+                SubscriptionWindow(
+                    kind=kind,
+                    used_percent=float(percent) if percent is not None else None,
+                    window_minutes=minutes,
+                    resets_at=cls._reset(meter.get("resetsAt")),
+                )
+            )
+        return SubscriptionSnapshot(
+            buckets=[
+                SubscriptionBucket(
+                    limit_id="opencode-go", label="OpenCode Go", windows=windows
+                )
+            ]
+        )
+
     def _read(self) -> SubscriptionSnapshot:
         """Return safe meters after custody revalidation; never retain raw errors."""
         try:
@@ -140,49 +183,6 @@ except Exception:
             AttributeError,
         ):
             raise RunnerError("provider_subscription_limits_unavailable") from None
-
-    @classmethod
-    def project(cls, payload) -> SubscriptionSnapshot:
-        """Preserve every documented meter, without inventing missing scalar values."""
-        if not isinstance(payload, dict) or not isinstance(payload.get("usage"), dict):
-            raise ValueError()
-        windows = []
-        for name, kind, minutes in (
-            ("rolling", "primary", 300),
-            ("weekly", "secondary", 10080),
-            ("monthly", "monthly", None),
-        ):
-            meter = payload["usage"].get(name)
-            if meter is None:
-                continue
-            if not isinstance(meter, dict) or meter.get("status") not in {
-                "ok",
-                "rate-limited",
-            }:
-                raise ValueError()
-            percent = meter.get("percent")
-            if (
-                isinstance(percent, bool)
-                or not isinstance(percent, (int, float))
-                or not math.isfinite(percent)
-                or not 0 <= percent <= 100
-            ):
-                percent = None
-            windows.append(
-                SubscriptionWindow(
-                    kind=kind,
-                    used_percent=float(percent) if percent is not None else None,
-                    window_minutes=minutes,
-                    resets_at=cls._reset(meter.get("resetsAt")),
-                )
-            )
-        return SubscriptionSnapshot(
-            buckets=[
-                SubscriptionBucket(
-                    limit_id="opencode-go", label="OpenCode Go", windows=windows
-                )
-            ]
-        )
 
     @staticmethod
     def _reset(value):

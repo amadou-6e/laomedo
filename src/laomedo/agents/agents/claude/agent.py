@@ -107,14 +107,14 @@ class ClaudeAgent(BaseAgent):
         self.profile = self.container.profile
         self.image, self.image_id = image, self.container.image_id
 
-    def editor_model_catalog(self):
-        """Perform the provider-specific explicit refresh without submitting a model turn."""
-        return self.model_catalog(refresh=True)
-
     @property
     def quota(self) -> BaseSubscriptionQuota | None:
         """Compose the provider-owned zero-turn quota reader without native effects."""
         return ClaudeSubscriptionQuota(self)
+
+    def editor_model_catalog(self):
+        """Perform the provider-specific explicit refresh without submitting a model turn."""
+        return self.model_catalog(refresh=True)
 
     def prepare_resume(self, run_id, body):
         """Validate provider resume extensions and credential admission before reusing native identity."""

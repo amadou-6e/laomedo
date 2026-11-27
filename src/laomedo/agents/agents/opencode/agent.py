@@ -84,6 +84,15 @@ class OpenCodeAgent(BaseAgent):
         )
         self._recover_containers()
 
+    @property
+    def quota(self) -> BaseSubscriptionQuota | None:
+        """Compose the provider-owned zero-turn quota reader without native effects."""
+        return (
+            OpenCodeSubscriptionQuota(self.profile, lock=self.lock)
+            if self.profile is not None
+            else None
+        )
+
     def runtime_binding(self):
         """Return existing nonsecret provider/image/profile metadata for retained run identity."""
         return RuntimeBinding(
@@ -94,15 +103,6 @@ class OpenCodeAgent(BaseAgent):
             execution_mode="opencode_acp",
             cli_version="opencode " + CLI_VERSION,
             config_sha256=None,
-        )
-
-    @property
-    def quota(self) -> BaseSubscriptionQuota | None:
-        """Compose the provider-owned zero-turn quota reader without native effects."""
-        return (
-            OpenCodeSubscriptionQuota(self.profile, lock=self.lock)
-            if self.profile is not None
-            else None
         )
 
     def recover_interrupted(self, record):
