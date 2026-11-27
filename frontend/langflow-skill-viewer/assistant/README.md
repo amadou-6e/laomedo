@@ -358,3 +358,8 @@ their native editor. Backend owner/version checks remain authoritative.
 The native input wrapper's mount-refresh hook also skips assistant-pinned MCP
 nodes before invoking any template mutation. This covers the wrapper around the
 read-only field, including tool metadata, rather than relying on the leaf alone.
+Translation refresh matches these nodes' saved outputs to the native template by
+output name, rather than list position. A Toolset-only projection therefore keeps
+its own label instead of borrowing the native template's first Response label.
+Ordinary nodes retain native translation behavior. The adapter changes labels
+only; saved output identities, connections and resource pins remain untouched.

@@ -115,6 +115,20 @@ def apply_assistant(checkout: Path, source: Path):
             "    async function fetchData() {",
         )
     )
+    store = frontend / "stores/flowStore.ts"
+    store_content = store.read_text(encoding="utf-8")
+    store_anchor = "      const freshOut = freshDef.outputs?.[i];"
+    if store_content.count(store_anchor) != 1:
+        raise SystemExit("assistant_registered_mcp_translation_anchor_missing")
+    store_content = (
+        'import { isRegisteredMcpNode } from "@/components/laomedoAssistant/graphs/registeredMcp";\n'
+        + store_content.replace(
+            store_anchor,
+            "      const freshOut = isRegisteredMcpNode(node.data)\n"
+            "        ? freshDef.outputs?.find((candidate) => candidate.name === output.name)\n"
+            "        : freshDef.outputs?.[i];",
+        )
+    )
     shutil.copytree(
         source / "assistant", destination, ignore=shutil.ignore_patterns("README.md")
     )
@@ -126,3 +140,4 @@ def apply_assistant(checkout: Path, source: Path):
     parameter.write_text(parameter_content, encoding="utf-8")
     generic.write_text(generic_content, encoding="utf-8")
     mount.write_text(mount_content, encoding="utf-8")
+    store.write_text(store_content, encoding="utf-8")

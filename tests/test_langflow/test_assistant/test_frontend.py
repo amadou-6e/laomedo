@@ -28,6 +28,7 @@ class AssistantFrontendModulesTests(unittest.TestCase):
                 "components/core/parameterRenderComponent/index.tsx": "    const baseInputProps: InputProps = {",
                 "CustomNodes/GenericNode/index.tsx": "    (data.node?.outputs ?? []).forEach((output) => {",
                 "CustomNodes/hooks/use-fetch-data-on-mount.ts": "  useEffect(() => {\n    async function fetchData() {",
+                "stores/flowStore.ts": "      const freshOut = freshDef.outputs?.[i];",
             }
             for relative, value in inputs.items():
                 path = frontend / relative
@@ -62,6 +63,9 @@ class AssistantFrontendModulesTests(unittest.TestCase):
                 mount.index("if (isRegisteredMcpNode"),
                 mount.index("async function fetchData"),
             )
+            store = (frontend / "stores/flowStore.ts").read_text(encoding="utf-8")
+            self.assertIn("isRegisteredMcpNode(node.data)", store)
+            self.assertIn("candidate.name === output.name", store)
             destination = frontend / "components/laomedoAssistant"
             for path in (source / "assistant").rglob("*"):
                 if not path.is_file() or path.name == "README.md":
