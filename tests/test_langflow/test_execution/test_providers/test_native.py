@@ -17,6 +17,7 @@ from uuid import uuid4
 from laomedo.agents.connections.controllers import ProviderControllers
 from laomedo.agents.connections.models import ConnectionRecord
 from laomedo.agents.connections.service import ProviderConnections
+from laomedo.agents.mcp.models import McpManifest, McpRegistration, McpTool
 from laomedo.integrations.langflow.execution.providers.admission import (
     ProviderGraphAdmission,
 )
@@ -46,6 +47,8 @@ class SyntheticCompletedNative(FakeNativeAgent):
             answer="synthetic model reply through actual private pipe",
             attempt_finished=True,
             offered_skill=body.get("skill_ref"),
+            offered_mcp=body.get("mcp_manifest"),
+            offered_mcp_registration=body.get("mcp_registration"),
         )
         (self.state / "runs" / record["run_id"] / "record.json").write_text(
             json.dumps(record)
@@ -109,6 +112,15 @@ class ProviderNativeContainerTests(unittest.IsolatedAsyncioTestCase):
     """Execute actual Skill/Codex components with an inert host model boundary."""
 
     async def test_native_agent_component_uses_scoped_host_pipe_and_cleans_up(self):
+        await self.check_native_graph(registered_mcp=False)
+
+    async def test_mcp_selection_projects_out_of_worker_and_host_injects_exact_manifest(
+        self,
+    ):
+        """Real Docker and native Agent component; native model response is inert."""
+        await self.check_native_graph(registered_mcp=True)
+
+    async def check_native_graph(self, *, registered_mcp):
         root = Path(__file__).resolve().parents[4]
         catalog = ProviderComponentCatalog(root / "components")
         with ExitStack() as resources:
@@ -203,12 +215,76 @@ class ProviderNativeContainerTests(unittest.IsolatedAsyncioTestCase):
                     }
                 ],
             }
+            registration = None
+            if registered_mcp:
+                tools = deepcopy(catalog._registry["laomedo"]["MCPTools"])
+                tools["tool_mode"] = True
+                tools["template"]["mcp_server"]["value"] = {"name": "fixture-server"}
+                graph["nodes"].append(
+                    {
+                        "id": "mcp-fixture",
+                        "type": "genericNode",
+                        "data": {
+                            "id": "mcp-fixture",
+                            "type": "MCPTools",
+                            "node": tools,
+                            "laomedo_authoring_bindings": {
+                                "resources": [
+                                    {"kind": "mcp", "id": str(uuid4()), "version": "1"}
+                                ]
+                            },
+                        },
+                    }
+                )
+                graph["edges"].append(
+                    {
+                        "source": "mcp-fixture",
+                        "target": "codex-fixture",
+                        "data": {
+                            "sourceHandle": {"name": "component_as_tool"},
+                            "targetHandle": {"fieldName": "mcp_tools"},
+                        },
+                    }
+                )
+                registration = McpRegistration(
+                    registration_id=uuid4(),
+                    manifest=McpManifest(
+                        tools=(
+                            McpTool(
+                                server="fixture-server",
+                                upstream_name="echo",
+                                display_name="echo",
+                                description="Echo",
+                                input_schema={"type": "object", "properties": {}},
+                            ),
+                        )
+                    ),
+                )
             prepared = ProviderGraphAdmission(
                 connections, catalog.admission, skill_store=controllers.skill_store
             ).prepare(owner, "lease", flow, job_id, graph, timeout_seconds=60.0)
+            if registration is not None:
+                self.assertEqual(len(prepared.mcps), 1)
+                self.assertNotIn(
+                    "mcp-fixture", {node["id"] for node in prepared.job.graph["nodes"]}
+                )
+                node = prepared.plan.nodes[0]
+                node = node.model_copy(
+                    update={
+                        "policy": node.policy.model_copy(
+                            update={"mcp_registration": registration}
+                        )
+                    }
+                )
+                prepared = prepared.model_copy(
+                    update={"plan": prepared.plan.model_copy(update={"nodes": (node,)})}
+                )
             capability = controllers.graph_runs.admit(prepared.plan)
             dispatcher = ProviderGraphDispatcher(
-                controllers, capability, prepared.plan.graph_digest
+                controllers,
+                capability,
+                prepared.plan.graph_digest,
+                worker_graph_digest=prepared.job.graph_digest,
             )
             worker = DockerProviderGraphWorker(
                 GraphWorkerSettings(
@@ -270,6 +346,19 @@ class ProviderNativeContainerTests(unittest.IsolatedAsyncioTestCase):
                 self.assertNotIn(
                     "PRIVATE_HOST_SKILL_BYTES", prepared.job.model_dump_json()
                 )
+                if registration is not None:
+                    record = json.loads(records[0].read_text())
+                    self.assertEqual(
+                        record["offered_mcp"],
+                        registration.manifest.model_dump(mode="json"),
+                    )
+                    self.assertEqual(
+                        record["offered_mcp_registration"],
+                        str(registration.registration_id),
+                    )
+                    self.assertNotIn(
+                        str(registration.registration_id), result.model_dump_json()
+                    )
                 self.assertEqual(worker._jobs, {})
                 self.assertTrue(all(stop.settled for stop in worker.stops))
                 self.assertFalse(any(stop.cancel_confirmed for stop in worker.stops))
