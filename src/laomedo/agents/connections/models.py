@@ -99,7 +99,7 @@ class GraphRunPlan(BaseModel):
     lease_hash: str = Field(min_length=1, repr=False, exclude=True)
     flow_id: UUID
     graph_digest: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
-    nodes: tuple[GraphRunNode, ...] = Field(min_length=1)
+    nodes: tuple[GraphRunNode, ...]
     deadline: float
 
 

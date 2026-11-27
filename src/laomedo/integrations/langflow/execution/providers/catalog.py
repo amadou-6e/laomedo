@@ -24,9 +24,15 @@ class ProviderComponentCatalog:
         from lfx.components.input_output.text import TextInputComponent
         from lfx.components.input_output.text_output import TextOutputComponent
         from lfx.components.models_and_agents.prompt import PromptComponent
+        from lfx.components.processing.combine_text import CombineTextComponent
 
         registry = {"input_output": {}, "laomedo": {}}
-        for component in (TextInputComponent, TextOutputComponent, PromptComponent):
+        for component in (
+            TextInputComponent,
+            TextOutputComponent,
+            PromptComponent,
+            CombineTextComponent,
+        ):
             node = component().to_frontend_node()
             registry["input_output"][node["data"]["type"]] = node["data"]["node"]
         for filename, name in self.FILES:

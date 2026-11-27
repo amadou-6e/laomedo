@@ -399,6 +399,31 @@ class ConfigurationTests(unittest.IsolatedAsyncioTestCase):
         )
         self.runtime.models.assert_not_awaited()
 
+    async def test_readiness_reports_the_selected_executor_support_limit(self):
+        from laomedo.agents.connections.errors import ProviderConnectionError
+
+        self.runtime.graph_executor = SimpleNamespace(
+            validate_graph=Mock(
+                side_effect=ProviderConnectionError("verified_review_unavailable")
+            )
+        )
+        result = await self.configuration.validate(
+            self.context,
+            SimpleNamespace(catalog=self.catalog),
+            spec=DraftGraph(
+                nodes=[DraftNode(key="agent", component_type=self.identity)]
+            ),
+        )
+        self.assertFalse(result["ready"])
+        self.assertTrue(
+            any(
+                item["code"] == "isolated_graph_unsupported"
+                for item in result["diagnostics"]
+            )
+        )
+        self.runtime.graph_executor.validate_graph.assert_called_once()
+        self.runtime.models.assert_not_awaited()
+
     async def test_verified_review_is_not_reported_ready_without_isolation(self):
         import json
 

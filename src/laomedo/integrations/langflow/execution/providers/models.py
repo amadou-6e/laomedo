@@ -20,7 +20,7 @@ class ProviderWorkerJob(NativeGraphJob):
     """One graph bootstrap; the host retains its actual admission capability."""
 
     version: Literal[2] = 2
-    providers: tuple[ProviderNodeRoute, ...] = Field(min_length=1)
+    providers: tuple[ProviderNodeRoute, ...]
     public_issues: tuple[str, ...] = ()
 
 

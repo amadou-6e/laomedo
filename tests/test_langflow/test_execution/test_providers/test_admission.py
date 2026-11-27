@@ -41,7 +41,12 @@ class ProviderAdmissionTests(unittest.TestCase):
         self.source = (
             "raise AssertionError('admission must not execute component source')"
         )
-        kinds = ("LaomedoCodexAgent", "LaomedoClaudeAgent", "LaomedoGitHubIssue")
+        kinds = (
+            "LaomedoCodexAgent",
+            "LaomedoClaudeAgent",
+            "LaomedoGitHubIssue",
+            "TextInput",
+        )
         catalog = GitHubGraphCatalog.capture(
             {
                 "fixture": {
@@ -119,6 +124,19 @@ class ProviderAdmissionTests(unittest.TestCase):
             ],
             str(self.records[0].connection_id),
         )
+
+    def test_text_only_graph_has_no_saved_account_or_native_start_authority(self):
+        graph = {
+            "nodes": [self.node("text", "TextInput", self.records[0])],
+            "edges": [],
+        }
+        graph["nodes"][0]["data"]["node"]["template"] = {
+            "code": {"value": self.source},
+            "input_value": {"value": "Text only"},
+        }
+        prepared = self.prepare(graph)
+        self.assertEqual(prepared.plan.nodes, ())
+        self.assertEqual(prepared.job.providers, ())
 
     def test_foreign_owner_stale_epoch_and_unsupported_authority_refuse(self):
         with self.assertRaises(ProviderConnectionError):

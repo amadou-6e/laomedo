@@ -32,6 +32,11 @@ class DockerProviderGraphWorker(DockerGraphWorker):
     def __init__(self, settings, job, dispatcher):
         super().__init__(settings, None, None)
         self.job_id = job.job_id
+        self.first_vertex = (
+            dispatcher.plan.nodes[0].vertex_id
+            if dispatcher.plan.nodes
+            else job.graph["nodes"][0]["id"]
+        )
         self.dispatcher = dispatcher
         self.plan = dispatcher.plan
         self._pending = set()
@@ -46,7 +51,7 @@ class DockerProviderGraphWorker(DockerGraphWorker):
             owner_id=self.plan.profile_id,
             flow_id=self.plan.flow_id,
             graph_digest=self.plan.graph_digest.removeprefix("sha256:"),
-            first_vertex=self.plan.nodes[0].vertex_id,
+            first_vertex=self.first_vertex,
         )
 
     def _remaining(self, job_id):

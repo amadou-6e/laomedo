@@ -36,7 +36,9 @@ class ProviderGraphAdmission:
         "LaomedoClaudeAgent": "claude",
         "LaomedoOpenCodeAgent": "opencode",
     }
-    PLUMBING = frozenset({"TextInput", "TextOutput", "Prompt", "Prompt Template"})
+    PLUMBING = frozenset(
+        {"TextInput", "TextOutput", "Prompt", "Prompt Template", "CombineText"}
+    )
 
     def __init__(self, connections, catalog):
         self.connections = connections

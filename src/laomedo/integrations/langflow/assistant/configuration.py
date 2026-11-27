@@ -699,6 +699,28 @@ class WorkflowConfiguration:
                             message="Select a value or connect a compatible output.",
                         )
                     )
+        executor = getattr(self.runtime, "graph_executor", None)
+        if executor is not None:
+            from laomedo.agents.connections.errors import ProviderConnectionError
+            from laomedo.github.node_runs.errors import GitHubNodeAuthorizationError
+            from laomedo.integrations.langflow.execution.worker.errors import (
+                GraphWorkerError,
+            )
+
+            try:
+                executor.validate_graph(context.owner_id, workflow_id, data)
+            except (
+                ProviderConnectionError,
+                GitHubNodeAuthorizationError,
+                GraphWorkerError,
+                ValueError,
+            ):
+                diagnostics.append(
+                    FlowDiagnostic(
+                        code="isolated_graph_unsupported",
+                        message="This configuration is unavailable in the isolated runner.",
+                    )
+                )
         await self.runtime.authorize(context)
         return WorkflowValidationResult(
             workflow_id=workflow_id,

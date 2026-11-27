@@ -33,6 +33,13 @@ IDs, local authoring bindings and account-choice metadata stay on the host.
 Unsupported resource/operation edges refuse instead of falling back to another
 execution path.
 
+Text-only graphs use the same isolated worker and browser lease without granting
+any Agent authority. The fixed native Combine Text component joins instructions
+and external Issue data before the Agent task; posted code cannot add a component.
+Readiness dry-plans this deployment's supported graph without creating a Job,
+issuing a graph capability or starting an Agent. Unsupported resources therefore
+remain visible before a user approves a run.
+
 `catalog.py` owns `ProviderComponentCatalog`. It builds metadata only from fixed
 operator-installed classes and component files at startup. It never accepts a
 browser component dictionary, component path or Python string for evaluation.

@@ -1,7 +1,7 @@
 """Isolated native execution backend for the API-only account broker's assistant."""
 
 import asyncio
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from laomedo.agents.connections.errors import ProviderConnectionError
 from laomedo.github.contract import repository_from_url
@@ -66,6 +66,13 @@ class ProviderGraphExecutor:
             transports,
             MediationStore(self.controllers.root / "graph-public-issues.sqlite"),
             lambda reference: None,
+        )
+
+    def validate_graph(self, owner, flow_id, graph):
+        """Dry-plan current isolated support without creating jobs or native authority."""
+        browser = self.browser(owner)
+        return self.admission.prepare(
+            owner, browser.lease_hash, flow_id or uuid4(), uuid4(), graph
         )
 
     async def execute(self, snapshot, request, actor, run_id):

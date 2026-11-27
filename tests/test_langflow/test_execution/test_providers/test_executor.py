@@ -109,6 +109,13 @@ class ProviderExecutorTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.executor.workers, {})
         self.assertEqual(self.executor.uncertain, {})
 
+    def test_readiness_plans_without_issuing_authority_or_creating_a_job(self):
+        self.executor.validate_graph(self.owner, self.flow, {})
+        self.executor.admission.prepare.assert_called_once()
+        self.controllers.graph_runs.admit.assert_not_called()
+        self.jobs.create_job.assert_not_called()
+        self.worker_factory.assert_not_called()
+
     async def test_existing_job_is_not_replayed_or_admitted_to_provider_authority(self):
         self.jobs.create_job.side_effect = RuntimeError("duplicate job UUID")
         with self.assertRaises(RuntimeError):
