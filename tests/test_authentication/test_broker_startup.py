@@ -18,9 +18,16 @@ class PrivateBrokerStartupTests(unittest.TestCase):
     """Native login still works when the graph application is absent."""
 
     def test_native_identity_and_private_lease_without_graph_application(self):
+        self.run_child()
+
+    def test_curated_provider_identity_metadata_and_flow_persistence(self):
+        self.run_child("providers")
+
+    def run_child(self, mode=None):
         workspace = Path(__file__).resolve().parents[1]
         with tempfile.TemporaryDirectory(prefix="laomedo-broker-test-") as directory:
-            root = Path(directory).resolve()
+            root = Path(directory).resolve() / "runtime"
+            root.mkdir()
             (root / "local-profiles.json").write_text(
                 json.dumps(
                     {
@@ -65,10 +72,16 @@ class PrivateBrokerStartupTests(unittest.TestCase):
                     "LANGFLOW_EXTERNAL_AUTH_ENABLED": "false",
                     "LANGFLOW_API_KEY_SOURCE": "db",
                     "LANGFLOW_DO_NOT_TRACK": "true",
+                    "LAOMEDO_ASSISTANT_STATE_ROOT": str(root / "assistant"),
                 }
             )
             result = subprocess.run(
-                [sys.executable, "-m", "support.broker_startup"],
+                [
+                    sys.executable,
+                    "-m",
+                    "support.broker_startup",
+                    *([mode] if mode else []),
+                ],
                 cwd=root,
                 env=environment,
                 capture_output=True,
@@ -76,4 +89,13 @@ class PrivateBrokerStartupTests(unittest.TestCase):
             )
             # Captured native output can contain auth diagnostics; never include
             # it in assertion output or upload the child runtime as evidence.
-            self.assertEqual(result.returncode, 0, "native broker startup check failed")
+            diagnostics = [
+                line
+                for line in result.stderr.decode("utf-8", errors="replace").splitlines()
+                if line.startswith("BROKER_CHECK_FAILURE=")
+            ]
+            self.assertEqual(
+                result.returncode,
+                0,
+                "native broker startup check failed " + " ".join(diagnostics),
+            )

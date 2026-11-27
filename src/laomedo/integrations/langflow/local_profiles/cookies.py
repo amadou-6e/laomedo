@@ -35,6 +35,20 @@ class ProfileCookieBoundary:
         self.app = app
         self.prefix = f"laomedo_profile_{port}_"
 
+    @classmethod
+    def outermost(cls, app):
+        """Keep one port translator outside every later-installed auth consumer.
+
+        A second translator would drop the first one's canonical cookies. Move
+        the existing registration before Starlette constructs its ASGI stack.
+        """
+        registrations = [item for item in app.user_middleware if item.cls is cls]
+        if len(registrations) != 1 or app.middleware_stack is not None:
+            raise ValueError("profile_cookie_boundary_unavailable")
+        registration = registrations[0]
+        app.user_middleware.remove(registration)
+        app.user_middleware.insert(0, registration)
+
     async def __call__(self, scope, receive, send):
         if scope["type"] not in {"http", "websocket"}:
             return await self.app(scope, receive, send)
