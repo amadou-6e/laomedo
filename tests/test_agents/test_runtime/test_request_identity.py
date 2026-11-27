@@ -160,12 +160,27 @@ class EarlyRunnerTests(unittest.TestCase):
         self.assertEqual(list((self.state / "runs").iterdir()), [])
         gate = threading.Event()
         self.addCleanup(gate.set)
-        first = self.runner.start_async(self.body, response_gate=gate)
-        self.assertEqual(self.runner.start_async(self.body)["run_id"], first["run_id"])
-        self.assertEqual(len(list((self.state / "runs").iterdir())), 1)
-        self.assertEqual(BlockingServer.turn_starts, 0)
-        self.runner.cancel(first["run_id"])
-        gate.set()
+        settled = threading.Event()
+        original = self.runner._async_worker
+
+        def worker(*args):
+            try:
+                original(*args)
+            finally:
+                settled.set()
+
+        with patch.object(self.runner, "_async_worker", side_effect=worker):
+            first = self.runner.start_async(self.body, response_gate=gate)
+            try:
+                self.assertEqual(
+                    self.runner.start_async(self.body)["run_id"], first["run_id"]
+                )
+                self.assertEqual(len(list((self.state / "runs").iterdir())), 1)
+                self.assertEqual(BlockingServer.turn_starts, 0)
+            finally:
+                self.runner.cancel(first["run_id"])
+                gate.set()
+                self.assertTrue(settled.wait(3))
 
     def test_verified_review_provenance_is_retained_and_binds_request_identity(self):
         self.runner.provider = "claude"
