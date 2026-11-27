@@ -9,6 +9,11 @@ import tempfile
 import unittest
 from unittest.mock import patch
 from lfx.graph.graph.base import Graph
+from lfx.services.manager import get_service_manager
+from lfx.services.schema import ServiceType
+from lfx.services.settings.service import SettingsService
+from lfx.services.settings.auth import AuthSettings
+from lfx.services.settings.base import Settings
 
 ROOT = Path(__file__).resolve().parents[2]
 spec = importlib.util.spec_from_file_location(
@@ -30,6 +35,21 @@ class GraphTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
+        manager = get_service_manager()
+        isolated_settings = patch.dict(
+            manager.services,
+            {
+                ServiceType.SETTINGS_SERVICE: SettingsService(
+                    Settings(config_dir=temporary.name),
+                    AuthSettings(
+                        CONFIG_DIR=temporary.name,
+                        SECRET_KEY="synthetic-handoff-test-key-0000000000",
+                    ),
+                )
+            },
+        )
+        isolated_settings.start()
+        self.addCleanup(isolated_settings.stop)
         token = Path(temporary.name) / "api-token"
         token.write_text("synthetic-token", encoding="utf-8")
         environment = patch.dict(os.environ, {"LAOMEDO_RUNNER_TOKEN_FILE": str(token)})

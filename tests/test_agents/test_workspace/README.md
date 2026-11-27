@@ -14,3 +14,10 @@ tampered revisions. It does not start Docker, a provider or an Agent turn.
 case-local commands through the isolated Git boundary and raises on failure.
 Historical EXP-08 sources and provenance remain on `exp`; these maintained
 assertions establish internal regression coverage, not native Skill discovery.
+
+`test_guards.py` owns symmetric sandbox guard preparation in Git and directory
+mode, unchanged original sources, protected-content refusal, actual junction/link
+rejection, and unchanged defaults for other providers. `WorkspaceGuardTests`
+creates only disposable local source repositories; `_prepare` returns the
+prepared copies and snapshot, and `_init_git` creates a case-local baseline.
+These controls do not submit model tasks or establish live review acceptance.

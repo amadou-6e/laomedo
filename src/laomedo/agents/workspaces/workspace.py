@@ -2,6 +2,7 @@
 
 from pathlib import Path
 import shutil
+import stat
 from laomedo.git.command import GitCommandRunner
 from laomedo.git.errors import GitCommandTimeout
 from laomedo.git.errors import GitOperationError
@@ -14,6 +15,7 @@ from .errors import GitWorkspaceError
 from .models import WorkspacePaths, WorkspaceSnapshot
 from .settings import _SHA
 from .utils import _copy_tree
+from .utils import _hash_tree
 
 
 class AgentWorkspace:
@@ -26,10 +28,14 @@ class AgentWorkspace:
         self.paths = paths
         self.runner = runner if runner is not None else GitCommandRunner()
 
-    def prepare(self, canonical: Path, *, git: bool) -> WorkspaceSnapshot:
+    def prepare(
+        self, canonical: Path, *, git: bool, guard_directories: tuple[str, ...] = ()
+    ) -> WorkspaceSnapshot:
         """Prepare the working directory and its canonical snapshot in existing order."""
         try:
-            return self._prepare(canonical, git=git)
+            return self._prepare(
+                canonical, git=git, guard_directories=guard_directories
+            )
         except OSError:
             raise RunnerError("workspace_access_failed") from None
 
@@ -40,7 +46,9 @@ class AgentWorkspace:
         except GitCommandTimeout as error:
             raise GitWorkspaceError(error.code) from error
 
-    def _prepare(self, canonical: Path, *, git: bool) -> WorkspaceSnapshot:
+    def _prepare(
+        self, canonical: Path, *, git: bool, guard_directories: tuple[str, ...]
+    ) -> WorkspaceSnapshot:
         """Copy the complete admitted tree or fail without accepting a snapshot."""
         if git:
             baseline = self.prepare_git()
@@ -52,7 +60,38 @@ class AgentWorkspace:
             source_hash = _copy_tree(self.paths.source, self.paths.directory)
             if _copy_tree(self.paths.source, canonical) != source_hash:
                 raise RunnerError("source_changed_during_snapshot")
+        if guard_directories:
+            self._prepare_guards(self.paths.directory, guard_directories)
+            self._prepare_guards(canonical, guard_directories)
+            source_hash = _hash_tree(canonical)
+            if _hash_tree(self.paths.directory, exclude_root_git=git) != source_hash:
+                raise RunnerError("workspace_copy_mismatch")
         return WorkspaceSnapshot(source_hash=source_hash, baseline=baseline)
+
+    def _prepare_guards(self, root: Path, names: tuple[str, ...]) -> None:
+        """Provision fixed provider sandbox mount targets, never linked or file paths."""
+        for name in names:
+            if (
+                not isinstance(name, str)
+                or not name.startswith(".")
+                or name in {".", "..", ".git", ".agents"}
+                or any(
+                    not (char.isascii() and (char.isalnum() or char in ".-_"))
+                    for char in name
+                )
+            ):
+                raise RunnerError("unsafe_workspace_entry")
+            target = root / name
+            try:
+                target.mkdir()
+            except FileExistsError:
+                pass
+            info = target.lstat()
+            if not stat.S_ISDIR(info.st_mode) or (
+                getattr(info, "st_file_attributes", 0)
+                & getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0)
+            ):
+                raise RunnerError("unsafe_workspace_entry")
 
     def _prepare_git(self) -> str:
         """Keep Agent-specific admission separate from generic repository mechanics."""

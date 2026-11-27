@@ -40,6 +40,7 @@ from laomedo.agents.agents.codex.settings import PREFLIGHT_RECEIPT_FILENAME
 from laomedo.agents.agents.codex.settings import PREFLIGHT_STREAM_SECONDS
 from laomedo.agents.agents.codex.settings import PREFLIGHT_WAIT_SECONDS
 from laomedo.agents.agents.codex.settings import VOLUME
+from laomedo.agents.agents.codex.settings import WORKSPACE_GUARD_DIRECTORIES
 from laomedo.agents.agents.codex.utils import _answer
 from laomedo.agents.agents.codex.utils import _auth_record_error
 from laomedo.agents.agents.codex.utils import _command_summary
@@ -77,6 +78,7 @@ class CodexAgent(BaseAgent):
     catalog_type = CodexModelCatalog
 
     provider = "codex"
+    workspace_guard_directories = WORKSPACE_GUARD_DIRECTORIES
 
     def __init__(
         self,

@@ -24,6 +24,8 @@ GIT_IMAGE_ID = IMAGE_ID
 
 
 CLI_VERSION = "codex-cli 0.159.2"
+# Native Linux sandbox protected mount targets; provision before snapshotting.
+WORKSPACE_GUARD_DIRECTORIES = (".aws", ".codex")
 NATIVE_TURN_SECONDS = 180
 # Broker HTTPS timeout is 20 seconds; idle controllers allow a bounded margin.
 IDLE_AUTH_REFRESH_SECONDS = 30

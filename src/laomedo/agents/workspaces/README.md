@@ -30,7 +30,7 @@ to call either function. The shared Git runner remains their native process owne
 
 | Interface | Effects and preserved guarantees |
 | --- | --- |
-| `AgentWorkspace.prepare(canonical, *, git)` | Prepare the run directory and canonical snapshot; return WorkspaceSnapshot. Git mode preserves admitted history; directory mode copies admitted files. |
+| `AgentWorkspace.prepare(canonical, *, git, guard_directories=())` | Prepare the run directory and canonical snapshot; return WorkspaceSnapshot. Git mode preserves admitted history; directory mode copies admitted files. Provision provider-owned empty sandbox guard directories in both copies before their final hashes. Never change the original source, replace existing entries or import credentials. |
 | Workspace filesystem failures | Report `workspace_access_failed` without exposing private paths; no incomplete source snapshot is accepted. |
 | `verified_changes(canonical, post_run, *, source_hash, post_run_hash, imported_artifacts)` | Recheck snapshot hashes before and after a deterministic patch; refuse imports, directory or mode changes, protected paths, binary files and oversized changes. Bound each full tree at 10,000 entries and 64 MiB, changed files at 32 and 1 MiB each, and the patch at 12,000 bytes. Snapshot hashes cover names and content, not file modes; mode detection depends on the host filesystem. The caller must guarantee no process can mutate snapshots while this projection runs. |
 | `AgentWorkspace.prepare_git()` | Admit a clean trusted repository root, clone independent objects, detach its observed baseline and remove remotes. |
@@ -42,6 +42,17 @@ trusted host input, never prior Agent output. Existing symlink, gitlink, sparse,
 tracked-skill, dirty-source and cleanup refusals stay in force. Historical
 WorkspaceSkillError covers baseline/cleanup as well as skill verification;
 callers translate it to RunnerError without changing the refusal code.
+
+Codex pins its native sandbox's `.aws` and `.codex` guard directories in its
+provider settings. `AgentWorkspace._prepare_guards` admits real directories only;
+existing contents are preserved, while files, links and reparse points are
+refused. The canonical source hash includes these prepared directories (the
+original source hash is checked during copying). Other providers request none.
+Resume retains the original immutable canonical snapshot and rechecks the
+workspace/post-run hashes; it never retrofits or rewrites old snapshots.
+The change projector still rejects directory changes and protected file changes,
+including anything below these guards. Hashing still rejects links, reparse
+points and hard-linked files; there is no ignored sandbox-directory exception.
 
 The [skill delivery README](skills/README.md) identifies its canonical records
 and exact function vocabulary. Callers import these defining owners directly;

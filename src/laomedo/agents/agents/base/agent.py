@@ -75,6 +75,8 @@ class BaseAgent(ABC):
     # Providers enabling this must run verified reviews without tools, plugins,
     # external MCP servers or GitHub capabilities.
     _supports_verified_review = False
+    # Fixed provider sandbox policy, never supplied by a graph or request.
+    workspace_guard_directories: tuple[str, ...] = ()
 
     def __init__(
         self,
@@ -931,7 +933,11 @@ class BaseAgent(ABC):
             try:
                 prepared = AgentWorkspace(
                     WorkspacePaths(source=source, directory=workspace)
-                ).prepare(canonical, git=self.git_workspace)
+                ).prepare(
+                    canonical,
+                    git=self.git_workspace,
+                    guard_directories=self.workspace_guard_directories,
+                )
             except GitWorkspaceError as error:
                 raise RunnerError(str(error)) from error
             baseline, source_hash = prepared.baseline, prepared.source_hash
