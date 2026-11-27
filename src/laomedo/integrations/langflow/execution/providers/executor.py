@@ -29,7 +29,9 @@ class ProviderGraphExecutor:
         self.settings = settings
         self.catalog = catalog
         self.controllers = controllers
-        self.admission = ProviderGraphAdmission(controllers.service, catalog.admission)
+        self.admission = ProviderGraphAdmission(
+            controllers.service, catalog.admission, skill_store=controllers.skill_store
+        )
         self.workers = {}
         self.uncertain = {}
 
@@ -168,12 +170,14 @@ class ProviderGraphExecutor:
             worker.on_event = on_event
             self.workers[job_id] = worker
             result = await worker.run(job)
-            self.browser(owner)
             if result.event != "completed":
                 if dispatcher.failures:
                     raise RunnerError(list(dispatcher.failures.values())[-1]["code"])
                 raise GraphWorkerError()
             succeeded = True
+            # Native completion is independent of permission to release its outputs.
+            self.browser(owner)
+            await asyncio.to_thread(self.admission.check_resources, graph)
             return RunResponse(
                 outputs=[RunOutputs.model_validate(value) for value in result.outputs],
                 session_id=str(job_id),

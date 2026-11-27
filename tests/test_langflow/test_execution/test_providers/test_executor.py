@@ -37,7 +37,11 @@ class ProviderExecutorTests(unittest.IsolatedAsyncioTestCase):
         self.addCleanup(self.stack.close)
         self.owner, self.flow, self.job_id = uuid4(), uuid4(), uuid4()
         self.controllers = SimpleNamespace(
-            service=Mock(), graph_runs=Mock(), finish_graph=Mock(), prepare_graph=Mock()
+            service=Mock(),
+            graph_runs=Mock(),
+            finish_graph=Mock(),
+            prepare_graph=Mock(),
+            skill_store=None,
         )
         self.executor = ProviderGraphExecutor(
             None, SimpleNamespace(admission=Mock()), self.controllers
@@ -91,6 +95,7 @@ class ProviderExecutorTests(unittest.IsolatedAsyncioTestCase):
             issues=(),
         )
         self.executor.admission.prepare = Mock(return_value=self.prepared)
+        self.executor.admission.check_resources = Mock()
         self.executor._public_gateway = Mock(return_value=object())
         self.snapshot = SimpleNamespace(id=self.flow, user_id=self.owner, data={})
         self.actor = SimpleNamespace(id=self.owner)
@@ -138,6 +143,23 @@ class ProviderExecutorTests(unittest.IsolatedAsyncioTestCase):
             [failure],
         )
         self.assertEqual(self.executor.uncertain, {})
+
+    async def test_late_resource_loss_blocks_output_without_rewriting_completion(self):
+        self.executor.admission.check_resources.side_effect = ProviderConnectionError(
+            "skill_revision_unavailable"
+        )
+        with self.assertRaisesRegex(
+            ProviderConnectionError, "skill_revision_unavailable"
+        ):
+            await self.executor.execute(
+                self.snapshot, self.request, self.actor, str(self.job_id)
+            )
+        self.assertEqual(
+            self.jobs.update_job_status.call_args.args[1].value, "completed"
+        )
+        self.assertTrue(
+            self.jobs.update_job_metadata.call_args.args[1]["native_cleanup_confirmed"]
+        )
 
     def test_readiness_plans_without_issuing_authority_or_creating_a_job(self):
         self.executor.validate_graph(self.owner, self.flow, {})

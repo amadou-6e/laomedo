@@ -2,7 +2,9 @@
 
 import re
 import time
+from pathlib import Path
 from uuid import UUID
+from pydantic import ValidationError
 
 from laomedo.agents.connections.errors import ProviderConnectionError
 from laomedo.agents.connections.models import (
@@ -13,6 +15,10 @@ from laomedo.agents.connections.models import (
 from laomedo.github.contract import repository_from_url, labels_value
 from laomedo.github.node_runs.authority import GitHubRunAuthority
 from laomedo.integrations.langflow.assistant.models import NodeResourceBindings
+from laomedo.integrations.langflow.assistant.models import ResourceBinding
+from laomedo.skills.registry.errors import SkillStoreError
+from laomedo.skills.registry.models import SkillReference
+from laomedo.skills.registry.store import SkillStore
 from laomedo.integrations.langflow.graph_admission.node_runs import (
     GitHubNodeRunAdmission,
 )
@@ -40,9 +46,10 @@ class ProviderGraphAdmission:
         {"TextInput", "TextOutput", "Prompt", "Prompt Template", "CombineText"}
     )
 
-    def __init__(self, connections, catalog):
+    def __init__(self, connections, catalog, *, skill_store: Path | None = None):
         self.connections = connections
         self.catalog = catalog
+        self.skill_store = skill_store
 
     @staticmethod
     def _value(template, field, default=None):
@@ -51,7 +58,7 @@ class ProviderGraphAdmission:
             raise ProviderConnectionError("verified_review_unavailable")
         return item.get("value", default)
 
-    def _node(self, owner, flow_id, node, provider, review_source, connected):
+    def _node(self, owner, flow_id, node, provider, review_source, connected, skills):
         data = node["data"]
         template = data["node"]["template"]
         value = self._value
@@ -92,6 +99,13 @@ class ProviderGraphAdmission:
             raise ProviderConnectionError("verified_review_unavailable")
         if value(template, "verified_changes") not in (None, "", []):
             raise ProviderConnectionError("verified_review_unavailable")
+        references = (
+            (skills[connected["skill_reference"]],)
+            if "skill_reference" in connected
+            else ()
+        )
+        if review_source is not None and references:
+            raise ProviderConnectionError("verified_review_unavailable")
         task = value(template, "task", "")
         if not isinstance(task, str):
             raise ProviderConnectionError("verified_review_unavailable")
@@ -101,6 +115,7 @@ class ProviderGraphAdmission:
             task=task,
             task_from_input="task" in connected,
             timeout_seconds=value(template, "run_timeout_seconds", 180),
+            skills=references,
         )
         if not policy.task_from_input and not task.strip():
             raise ProviderConnectionError("verified_review_unavailable")
@@ -119,6 +134,66 @@ class ProviderGraphAdmission:
             review_source=review_source,
             policy=policy,
         )
+
+    def _skill(self, node, connected):
+        """Admit only an immutable imported reference, never sources or operations."""
+        template = node["data"]["node"]["template"]
+        if connected or any(
+            self._value(template, field) not in (None, "", [])
+            for field in (
+                "source",
+                "github_connection",
+                "operation",
+                "edit_request",
+                "commit_id",
+                "resolved_skill_id",
+                "resolved_revision_id",
+                "resolved_selection",
+                "private_repository_id",
+            )
+        ):
+            raise ProviderConnectionError("verified_review_unavailable")
+        try:
+            reference = SkillReference(
+                skill_id=self._value(template, "skill_id"),
+                revision_id=self._value(template, "revision_id"),
+                tree_hash=self._value(template, "revision_id"),
+            )
+            binding = NodeResourceBindings.model_validate(
+                node["data"].get("laomedo_authoring_bindings") or {}
+            )
+            if (
+                binding.connection_id is not None
+                or binding.generation is not None
+                or (
+                    binding.resources
+                    and binding.resources
+                    != [
+                        ResourceBinding(
+                            kind="skill",
+                            id=reference.skill_id,
+                            version=reference.revision_id,
+                        )
+                    ]
+                )
+            ):
+                raise ProviderConnectionError("verified_review_unavailable")
+            if self.skill_store is None or not self.skill_store.is_dir():
+                raise ProviderConnectionError("skill_revision_unavailable")
+            record = SkillStore(self.skill_store).revision(
+                reference.skill_id, reference.revision_id
+            )
+            if record["tree_hash"] != reference.tree_hash:
+                raise ProviderConnectionError("skill_revision_unavailable")
+        except (SkillStoreError, OSError, ValidationError, KeyError, TypeError):
+            raise ProviderConnectionError("skill_revision_unavailable") from None
+        return reference
+
+    def check_resources(self, graph):
+        """Refuse output release from a deleted or corrupt pinned local revision."""
+        for node in graph["nodes"]:
+            if self.catalog.classification(node["data"]["type"]) == "LaomedoSkill":
+                self._skill(node, {})
 
     def _issue(self, node, connected):
         template = node["data"]["node"]["template"]
@@ -168,18 +243,42 @@ class ProviderGraphAdmission:
             output = edge["data"]["sourceHandle"]["name"]
             if source not in nodes or target not in nodes or field in connected[target]:
                 raise ProviderConnectionError("verified_review_unavailable")
+            if kinds[target] == "LaomedoSkill" or (
+                kinds[source] == "LaomedoSkill"
+                and (
+                    kinds[target] not in self.AGENTS
+                    or field != "skill_reference"
+                    or output != "skill"
+                )
+            ):
+                raise ProviderConnectionError("verified_review_unavailable")
             if kinds[target] in self.AGENTS:
-                if field not in {"task", "verified_changes"} or (
-                    field == "verified_changes"
-                    and (
-                        kinds[target] != "LaomedoClaudeAgent"
-                        or kinds[source] not in self.AGENTS
-                        or output != "run"
+                if (
+                    field not in {"task", "verified_changes", "skill_reference"}
+                    or (
+                        field == "skill_reference"
+                        and (kinds[source] != "LaomedoSkill" or output != "skill")
+                    )
+                    or (
+                        field == "verified_changes"
+                        and (
+                            kinds[target] != "LaomedoClaudeAgent"
+                            or kinds[source] not in self.AGENTS
+                            or output != "run"
+                        )
                     )
                 ):
                     raise ProviderConnectionError("verified_review_unavailable")
             connected[target][field] = source
         selected, issues = [], []
+        with self.connections._lock:
+            self.connections.check_lease(lease_hash)
+        # Registry verification does not hold the credential lifecycle lock.
+        skills = {
+            key: self._skill(nodes[key], connected[key])
+            for key in nodes
+            if kinds[key] == "LaomedoSkill"
+        }
         # This initial executor requires every admitted Agent to complete.
         # Cycles/conditional scheduling cannot satisfy that closed contract.
         remaining = set(nodes)
@@ -205,10 +304,17 @@ class ProviderGraphAdmission:
                             self.AGENTS[kind],
                             connected[key].get("verified_changes"),
                             connected[key],
+                            skills,
                         )
                     )
                 elif kind == "LaomedoGitHubIssue":
                     issues.append(self._issue(node, connected[key]))
+                elif kind == "LaomedoSkill":
+                    for field in node["data"]["node"]["template"].values():
+                        if isinstance(field, dict):
+                            if "options" in field:
+                                field["options"] = []
+                            field.pop("options_metadata", None)
                 elif kind not in self.PLUMBING:
                     raise ProviderConnectionError("verified_review_unavailable")
                 node["data"].pop("laomedo_authoring_bindings", None)

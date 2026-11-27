@@ -33,6 +33,23 @@ IDs, local authoring bindings and account-choice metadata stay on the host.
 Unsupported resource/operation edges refuse instead of falling back to another
 execution path.
 
+The pinned local Skill path uses the existing `LaomedoSkill` reference output and
+canonical `SkillReference` model. `ProviderGraphAdmission._skill` verifies the
+configured imported registry's immutable revision; `_node` derives Agent Skill
+bindings only from a direct `Skill.skill` -> `Agent.skill_reference` edge. Source
+URLs, private connections, incoming edges and operations are unavailable here.
+The reference component performs no I/O on this admitted path. Registry contents
+stay on the host; the graph worker receives only public identity/hash references.
+`GraphNodePolicy.native_request` checks exact singular/list reference equality
+before native preparation; Claude verified-review targets still forbid Skills.
+The host materializer rechecks bytes before a model starts.
+`ProviderGraphAdmission.check_resources` rechecks registry availability at output
+release without rewriting a completed native outcome. The imported registry is
+the existing host-wide local registry exposed by assistant Skill discovery;
+this path does not expand private GitHub Skill-source access across profiles.
+Registered MCP-server execution has its own selection/custody boundary and is
+not implicitly enabled by the local Skill path.
+
 Text-only graphs use the same isolated worker and browser lease without granting
 any Agent authority. The fixed native Combine Text component joins instructions
 and external Issue data before the Agent task; posted code cannot add a component.

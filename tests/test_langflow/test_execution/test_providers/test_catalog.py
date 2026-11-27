@@ -1,8 +1,11 @@
 """Use real installed classes to verify startup-only metadata for the isolated mode."""
 
 from pathlib import Path
+import asyncio
+from importlib.util import module_from_spec, spec_from_file_location
 import threading
 import time
+import sys
 from types import SimpleNamespace
 from uuid import UUID, uuid4
 import unittest
@@ -24,6 +27,78 @@ from laomedo.integrations.langflow.execution.providers.catalog import (
 
 class ProviderCatalogTests(unittest.TestCase):
     """Fixed installed metadata supplies both authoring and native source pins."""
+
+    def test_skill_import_metadata_and_reference_output_do_not_access_services(self):
+        from laomedo.skills.interface.sources.settings import Settings as SourceSettings
+        from laomedo.skills.interface.operations.settings import (
+            Settings as OperationSettings,
+        )
+
+        root = Path(__file__).resolve().parents[4]
+        original = Path.read_text
+        # Windows initializes its event-loop wakeup socket before the I/O guard.
+        loop = asyncio.new_event_loop()
+        self.addCleanup(loop.close)
+
+        def read(path, *args, **kwargs):
+            if path.name in {
+                "api-token",
+                "auth.json",
+                ".credentials.json",
+                ".env",
+                "secret_key",
+            }:
+                raise AssertionError("metadata cannot read credentials")
+            return original(path, *args, **kwargs)
+
+        with (
+            patch(
+                "socket.socket.connect",
+                side_effect=AssertionError("metadata cannot connect"),
+            ),
+            patch(
+                "urllib.request.urlopen",
+                side_effect=AssertionError("metadata cannot request"),
+            ),
+            patch(
+                "threading.Thread.start",
+                side_effect=AssertionError("metadata cannot start work"),
+            ),
+            patch.object(
+                SourceSettings,
+                "__init__",
+                side_effect=AssertionError("metadata cannot load source credentials"),
+            ),
+            patch.object(
+                OperationSettings,
+                "__init__",
+                side_effect=AssertionError(
+                    "metadata cannot load operation credentials"
+                ),
+            ),
+            patch.object(Path, "read_text", new=read),
+        ):
+            installed = ProviderComponentCatalog(root / "components")
+            self.assertIn("LaomedoSkill", installed._registry["laomedo"])
+            spec = spec_from_file_location(
+                "skill_metadata_control", root / "components/laomedo/skill.py"
+            )
+            module = module_from_spec(spec)
+            with patch.dict(sys.modules, {spec.name: module}):
+                spec.loader.exec_module(module)
+                skill = module.LaomedoSkill()
+            skill.skill_id = "fixture"
+            skill.revision_id = "sha256:" + "a" * 64
+            skill._pre_run_setup()
+            reference = loop.run_until_complete(skill.routed_skill_output()).data
+            self.assertEqual(
+                reference,
+                {
+                    "skill_id": "fixture",
+                    "revision_id": skill.revision_id,
+                    "tree_hash": skill.revision_id,
+                },
+            )
 
     def test_actual_authoring_compiler_and_planner_accept_the_connected_review_workflow(
         self,
@@ -193,6 +268,7 @@ class ProviderCatalogTests(unittest.TestCase):
                 "LaomedoClaudeAgent",
                 "LaomedoOpenCodeAgent",
                 "LaomedoGitHubIssue",
+                "LaomedoSkill",
                 "TextInput",
                 "TextOutput",
                 "Prompt Template",

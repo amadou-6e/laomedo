@@ -18,6 +18,7 @@ class ProviderComponentCatalog:
         ("claude_agent.py", "LaomedoClaudeAgent"),
         ("opencode_agent.py", "LaomedoOpenCodeAgent"),
         ("github_issue.py", "LaomedoGitHubIssue"),
+        ("skill.py", "LaomedoSkill"),
     )
 
     def __init__(self, components_root: Path):

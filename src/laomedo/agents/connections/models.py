@@ -9,6 +9,7 @@ from laomedo.agents.workspaces.models import WorkspaceChanges
 from laomedo.agents.agents.base.models import VerifiedReviewProvenance
 from laomedo.agents.connections.errors import ProviderConnectionError
 from laomedo.agents.connections.settings import GRAPH_NODE_TASK_BYTES
+from laomedo.skills.registry.models import SkillReference
 
 
 class GraphNodePolicy(BaseModel):
@@ -20,6 +21,7 @@ class GraphNodePolicy(BaseModel):
     task: str = Field(repr=False)
     task_from_input: bool = False
     timeout_seconds: int = Field(default=180, ge=1, le=86400)
+    skills: tuple[SkillReference, ...] = Field(default=(), max_length=16)
 
     def native_request(self, body, request_id):
         """Preserve permitted task data while refusing added native authority."""
@@ -29,6 +31,7 @@ class GraphNodePolicy(BaseModel):
             "model",
             "effort",
             "skill_refs",
+            "skill_ref",
             "run_timeout_seconds",
         }
         if (
@@ -36,7 +39,9 @@ class GraphNodePolicy(BaseModel):
             or set(body) - allowed
             or body.get("model") != self.model
             or body.get("effort") != self.effort
-            or body.get("skill_refs") != []
+            or ("skill_ref" in body and "skill_refs" in body)
+            or ([body["skill_ref"]] if "skill_ref" in body else body.get("skill_refs"))
+            != [reference.to_reference_payload() for reference in self.skills]
             or not isinstance(body.get("task"), str)
             or not body["task"].strip()
             or len(body["task"].encode("utf-8")) > GRAPH_NODE_TASK_BYTES
