@@ -303,3 +303,26 @@ test("polling never overlaps an unfinished quota request", async () => {
   view.unmount();
   expect(signal.aborted).toBe(true);
 });
+
+
+test.each(["transport", "rate_limited"])("continues ten-second polling after %s failure", async (failure) => {
+  jest.useFakeTimers();
+  const read = readSubscriptionLimits as jest.Mock;
+  if (failure === "transport") {
+    read.mockRejectedValueOnce(new Error("network unavailable"));
+  } else {
+    read.mockResolvedValueOnce({ ...empty, state: "unavailable", reason: "rate_limited" });
+  }
+  read.mockResolvedValueOnce(ready);
+  const view = render(<SubscriptionLimits flowId="graph-one" accounts={[account]} />);
+  await act(async () => {});
+  expect(read).toHaveBeenCalledTimes(1);
+  await act(async () => { jest.advanceTimersByTime(9999); });
+  expect(read).toHaveBeenCalledTimes(1);
+  await act(async () => { jest.advanceTimersByTime(1); });
+  expect(read).toHaveBeenCalledTimes(2);
+  expect(screen.getByText("75% remaining")).toBeInTheDocument();
+  view.unmount();
+  await act(async () => { jest.advanceTimersByTime(20000); });
+  expect(read).toHaveBeenCalledTimes(2);
+});
