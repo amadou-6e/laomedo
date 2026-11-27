@@ -289,6 +289,35 @@ class RegisteredMcpOwnershipTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaisesRegex(McpError, "mcp_registration_unavailable"):
             await self.resources.check()
 
+    async def test_native_stdio_policy_refuses_before_discovery_with_domain_error(self):
+        from fastapi import HTTPException
+
+        async with self.session() as session:
+            row = await session.get(MCPServer, self.identifier)
+            row.config = {"mode": "Stdio", "command": "unused"}
+            await session.commit()
+        settings = SimpleNamespace(allow_custom_components=False)
+        with (
+            patch(
+                "laomedo.integrations.langflow.execution.providers.mcp.McpRegistry.current",
+                return_value=SimpleNamespace(release=Mock()),
+            ),
+            patch(
+                "langflow.services.deps.get_settings_service",
+                return_value=SimpleNamespace(settings=settings),
+            ),
+            patch("lfx.base.mcp.util.update_tools", new=AsyncMock()) as discover,
+        ):
+            with self.assertRaisesRegex(
+                McpError, "mcp_registration_unavailable"
+            ) as caught:
+                await self.resources.prepare()
+        self.assertNotIsInstance(caught.exception, HTTPException)
+        self.assertEqual(caught.exception.code, "mcp_registration_unavailable")
+        discover.assert_not_awaited()
+        self.assertEqual(self.resources.clients, [])
+        self.assertEqual(self.resources.registrations, [])
+
     async def test_dispatch_refuses_its_host_loop_without_scheduling_or_blocking(self):
         with patch(
             "asyncio.run_coroutine_threadsafe",
@@ -695,6 +724,12 @@ class RegisteredMcpOwnershipTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(self.resources.clients, [])
         self.assertTrue(maintenance.cancelled())
+        self.assertTrue(
+            any(
+                getattr(client, "_session_manager", None) is not None
+                for client in clients
+            )
+        )
         for client in clients:
             manager = getattr(client, "_session_manager", None)
             if manager is not None:

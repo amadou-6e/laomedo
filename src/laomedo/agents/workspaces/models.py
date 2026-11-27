@@ -39,10 +39,12 @@ class WorkspaceChanges(BaseModel):
     """Private snapshot projection; protected paths are refused, content is not scanned."""
 
     model_config = ConfigDict(strict=True, frozen=True, extra="forbid")
-    run_id: str
-    source_hash: str
-    post_run_hash: str
-    patch_hash: str
+    run_id: str = Field(
+        description="Completed native run whose snapshots were checked."
+    )
+    source_hash: str = Field(description="Verified immutable source tree hash.")
+    post_run_hash: str = Field(description="Verified completed workspace tree hash.")
+    patch_hash: str = Field(description="Hash of the exact bounded derived patch.")
     patch: str = Field(
         repr=False, exclude=True, description="Exact bounded host-derived change text."
     )

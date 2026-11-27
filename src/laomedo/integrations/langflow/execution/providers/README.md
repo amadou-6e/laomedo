@@ -53,6 +53,10 @@ identity, registered name and exact Agent targets. `RegisteredMcpTools` in
 `mcp.py` checks profile/lease/server/version without releasing configuration
 during readiness. Only an approved run decrypts the selected registration and
 opens its native transport. Native STDIO/SSRF policies remain mandatory.
+The resource owner's constructor retains the admitted plan without opening a
+transport; the tool adapter's constructor pins only its audited native descriptor.
+Native HTTP policy refusals become `McpError` at this resource boundary, without
+exposing HTTP details or weakening the policy.
 `prepare` creates invocation-local native clients and exact per-Agent manifests;
 `check` fences discovery, each tool call and output release; `close` revokes its
 registrations before closing only its owned clients/session managers. Tool

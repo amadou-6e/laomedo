@@ -14,6 +14,7 @@ class RegisteredMcpTool:
     """Fence one audited native tool against the exact live owner and resource pin."""
 
     def __init__(self, owner, selection, tool):
+        """Pin the audited native adapter and its job-owned resource selection."""
         self.owner = owner
         self.selection = selection
         self.tool = LangflowMcpTool(tool)
@@ -31,6 +32,7 @@ class RegisteredMcpTools:
     """Own only this approved graph's clients, managers and per-Agent grants."""
 
     def __init__(self, connections, prepared):
+        """Retain the admitted plan on its host loop without opening transports."""
         self.connections = connections
         self.plan = prepared.plan
         self.selections = prepared.mcps
@@ -117,42 +119,6 @@ class RegisteredMcpTools:
             for selection in selections:
                 await cls.registered_row(session, profile_id, selection)
 
-    async def _row(self, selection, *, configuration=False):
-        """Load an exact enabled owner/version, decrypting only for approved discovery."""
-        from langflow.services.deps import session_scope
-
-        self.connections.check_lease(self.plan.lease_hash)
-        for node in self.plan.nodes:
-            account = self.connections.admitted(
-                self.plan.profile_id, node.connection_id, node.generation
-            )
-            if account.provider != node.provider:
-                raise McpError("mcp_registration_unavailable")
-        if self.closed or time.monotonic() >= self.plan.deadline:
-            raise McpError("mcp_registration_unavailable")
-        async with session_scope() as session:
-            row, user = await self.registered_row(
-                session, self.plan.profile_id, selection
-            )
-            if not configuration:
-                return None
-            from langflow.api.v2.mcp import ensure_mcp_stdio_access
-            from langflow.services.auth.mcp_encryption import decrypt_mcp_config
-            from langflow.services.deps import (
-                get_settings_service,
-                get_variable_service,
-            )
-            from lfx.base.mcp.util import config_uses_global_variables
-
-            config = decrypt_mcp_config(row.config or {})
-            ensure_mcp_stdio_access(config, user, get_settings_service().settings)
-            variables = None
-            if config_uses_global_variables(config):
-                variables = await get_variable_service().get_all_decrypted_variables(
-                    user_id=self.plan.profile_id, session=session
-                )
-            return config, variables
-
     async def check(self, selection=None):
         """Recheck metadata and lease without opening connections or decrypting secrets."""
         for item in (selection,) if selection is not None else self.selections:
@@ -231,27 +197,6 @@ class RegisteredMcpTools:
         await self.check()
         return self.plan.model_copy(update={"nodes": tuple(nodes)})
 
-    async def _maintain_registrations(self):
-        """Fence and renew only queued grants while native claims own their heartbeat."""
-        try:
-            while not self.closed:
-                await asyncio.sleep(self.registry.settings.lease_seconds / 3)
-                await self.check()
-                for identifier in tuple(self.registrations):
-                    self.registry.renew_unclaimed(identifier)
-        except asyncio.CancelledError:
-            raise
-        except Exception:
-            # Withhold calls/results immediately; retain any failed revocation
-            # receipts for the ordinary job owner's cleanup/reconciliation.
-            self.closed = True
-            for identifier in tuple(self.registrations):
-                try:
-                    self.registry.release(identifier)
-                    self.registrations.remove(identifier)
-                except Exception:
-                    continue
-
     async def close(self):
         """Revoke grants first; retain failed owned-client cleanup for reconciliation."""
         self.closed = True
@@ -278,6 +223,67 @@ class RegisteredMcpTools:
                 failed = True
         if failed:
             raise McpError("mcp_connection_unavailable")
+
+    async def _row(self, selection, *, configuration=False):
+        """Load an exact enabled owner/version, decrypting only for approved discovery."""
+        from langflow.services.deps import session_scope
+
+        self.connections.check_lease(self.plan.lease_hash)
+        for node in self.plan.nodes:
+            account = self.connections.admitted(
+                self.plan.profile_id, node.connection_id, node.generation
+            )
+            if account.provider != node.provider:
+                raise McpError("mcp_registration_unavailable")
+        if self.closed or time.monotonic() >= self.plan.deadline:
+            raise McpError("mcp_registration_unavailable")
+        async with session_scope() as session:
+            row, user = await self.registered_row(
+                session, self.plan.profile_id, selection
+            )
+            if not configuration:
+                return None
+            from fastapi import HTTPException
+            from langflow.api.v2.mcp import ensure_mcp_stdio_access
+            from langflow.services.auth.mcp_encryption import decrypt_mcp_config
+            from langflow.services.deps import (
+                get_settings_service,
+                get_variable_service,
+            )
+            from lfx.base.mcp.util import config_uses_global_variables
+
+            config = decrypt_mcp_config(row.config or {})
+            try:
+                ensure_mcp_stdio_access(config, user, get_settings_service().settings)
+            except HTTPException:
+                raise McpError("mcp_registration_unavailable") from None
+            variables = None
+            if config_uses_global_variables(config):
+                variables = await get_variable_service().get_all_decrypted_variables(
+                    user_id=self.plan.profile_id, session=session
+                )
+            return config, variables
+
+    async def _maintain_registrations(self):
+        """Fence and renew only queued grants while native claims own their heartbeat."""
+        try:
+            while not self.closed:
+                await asyncio.sleep(self.registry.settings.lease_seconds / 3)
+                await self.check()
+                for identifier in tuple(self.registrations):
+                    self.registry.renew_unclaimed(identifier)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            # Withhold calls/results immediately; retain any failed revocation
+            # receipts for the ordinary job owner's cleanup/reconciliation.
+            self.closed = True
+            for identifier in tuple(self.registrations):
+                try:
+                    self.registry.release(identifier)
+                    self.registrations.remove(identifier)
+                except Exception:
+                    continue
 
     async def _close_client(self, client):
         """Drain only the private per-job native manager, never a shared pool."""
