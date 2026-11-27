@@ -100,6 +100,21 @@ def apply_assistant(checkout: Path, source: Path):
             + '\n      if (isRegisteredMcpNode(data) && output.name !== "component_as_tool") return;',
         )
     )
+    mount = frontend / "CustomNodes/hooks/use-fetch-data-on-mount.ts"
+    mount_content = mount.read_text(encoding="utf-8")
+    mount_anchor = "  useEffect(() => {\n    async function fetchData() {"
+    if mount_content.count(mount_anchor) != 1:
+        raise SystemExit("assistant_registered_mcp_mount_anchor_missing")
+    mount_content = (
+        'import useFlowStore from "@/stores/flowStore";\n'
+        'import { isRegisteredMcpNode } from "@/components/laomedoAssistant/graphs/registeredMcp";\n'
+        + mount_content.replace(
+            mount_anchor,
+            "  useEffect(() => {\n"
+            "    if (isRegisteredMcpNode(useFlowStore.getState().nodes.find(entry => entry.id === nodeId)?.data)) return;\n"
+            "    async function fetchData() {",
+        )
+    )
     shutil.copytree(
         source / "assistant", destination, ignore=shutil.ignore_patterns("README.md")
     )
@@ -110,3 +125,4 @@ def apply_assistant(checkout: Path, source: Path):
     rail.write_text(rail_content, encoding="utf-8")
     parameter.write_text(parameter_content, encoding="utf-8")
     generic.write_text(generic_content, encoding="utf-8")
+    mount.write_text(mount_content, encoding="utf-8")

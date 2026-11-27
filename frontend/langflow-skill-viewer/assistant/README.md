@@ -355,3 +355,6 @@ server-management widget, querying endpoints or clearing the saved selection.
 Changing the selection remains an audited assistant configuration/edit operation.
 The source overlay installs these adapters; ordinary unpinned MCP nodes keep
 their native editor. Backend owner/version checks remain authoritative.
+The native input wrapper's mount-refresh hook also skips assistant-pinned MCP
+nodes before invoking any template mutation. This covers the wrapper around the
+read-only field, including tool metadata, rather than relying on the leaf alone.
