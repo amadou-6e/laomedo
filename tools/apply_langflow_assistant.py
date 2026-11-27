@@ -72,6 +72,34 @@ def apply_assistant(checkout: Path, source: Path):
             "        ))}\n        <AssistantSidebarToggle hiddenFromTabOrder={hiddenFromTabOrder} />\n      </SidebarMenu>",
         )
     )
+    parameter = frontend / "components/core/parameterRenderComponent/index.tsx"
+    parameter_content = parameter.read_text(encoding="utf-8")
+    parameter_anchor = "    const baseInputProps: InputProps = {"
+    if parameter_content.count(parameter_anchor) != 1:
+        raise SystemExit("assistant_registered_mcp_parameter_anchor_missing")
+    parameter_content = (
+        'import RegisteredMcpReference from "@/components/laomedoAssistant/graphs/RegisteredMcpReference";\n'
+        'import { isRegisteredMcpNode } from "@/components/laomedoAssistant/graphs/registeredMcp";\n'
+        + parameter_content.replace(
+            parameter_anchor,
+            '    if (name === "mcp_server" && isRegisteredMcpNode(useFlowStore.getState().nodes.find(entry => entry.id === nodeId)?.data)) {\n'
+            "      return <RegisteredMcpReference value={templateValue} labelledBy={ariaLabelledBy} />;\n"
+            "    }\n" + parameter_anchor,
+        )
+    )
+    generic = frontend / "CustomNodes/GenericNode/index.tsx"
+    generic_content = generic.read_text(encoding="utf-8")
+    generic_anchor = "    (data.node?.outputs ?? []).forEach((output) => {"
+    if generic_content.count(generic_anchor) != 1:
+        raise SystemExit("assistant_registered_mcp_output_anchor_missing")
+    generic_content = (
+        'import { isRegisteredMcpNode } from "@/components/laomedoAssistant/graphs/registeredMcp";\n'
+        + generic_content.replace(
+            generic_anchor,
+            generic_anchor
+            + '\n      if (isRegisteredMcpNode(data) && output.name !== "component_as_tool") return;',
+        )
+    )
     shutil.copytree(
         source / "assistant", destination, ignore=shutil.ignore_patterns("README.md")
     )
@@ -80,3 +108,5 @@ def apply_assistant(checkout: Path, source: Path):
     logout.write_text(signout, encoding="utf-8")
     editor.write_text(editor_content, encoding="utf-8")
     rail.write_text(rail_content, encoding="utf-8")
+    parameter.write_text(parameter_content, encoding="utf-8")
+    generic.write_text(generic_content, encoding="utf-8")

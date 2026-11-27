@@ -25,6 +25,8 @@ class AssistantFrontendModulesTests(unittest.TestCase):
                 "controllers/API/queries/auth/use-post-logout.ts": "  async function logoutUser(): Promise<unknown> {\n    if (autoLogin && !(await profileMode().catch(() => true))) {\n      return {};\n    }\n  }",
                 "pages/FlowPage/index.tsx": "                    </main>\n                  </FlowSearchProvider>",
                 "pages/FlowPage/components/flowSidebarComponent/components/sidebarSegmentedNav.tsx": "        ))}\n      </SidebarMenu>",
+                "components/core/parameterRenderComponent/index.tsx": "    const baseInputProps: InputProps = {",
+                "CustomNodes/GenericNode/index.tsx": "    (data.node?.outputs ?? []).forEach((output) => {",
             }
             for relative, value in inputs.items():
                 path = frontend / relative
@@ -43,6 +45,15 @@ class AssistantFrontendModulesTests(unittest.TestCase):
             self.assertIn(
                 "autoLogin && !(await profileMode().catch(() => true))", logout
             )
+            parameter = (
+                frontend / "components/core/parameterRenderComponent/index.tsx"
+            ).read_text(encoding="utf-8")
+            self.assertIn("return <RegisteredMcpReference", parameter)
+            self.assertIn("isRegisteredMcpNode", parameter)
+            generic = (frontend / "CustomNodes/GenericNode/index.tsx").read_text(
+                encoding="utf-8"
+            )
+            self.assertIn('output.name !== "component_as_tool"', generic)
             destination = frontend / "components/laomedoAssistant"
             for path in (source / "assistant").rglob("*"):
                 if not path.is_file() or path.name == "README.md":

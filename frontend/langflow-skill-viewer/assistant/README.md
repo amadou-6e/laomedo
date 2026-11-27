@@ -346,3 +346,12 @@ collapse. Model labels omit the OpenCode Go prefix while retaining exact IDs at
 the selection, accessibility and provider boundaries.
 The Claude monochrome mark reuses the pinned upstream vector without its colored
 background tile; provider names remain available to screen readers.
+
+`graphs/RegisteredMcpReference.tsx` renders an assistant-pinned MCP server as a
+read-only reference using the existing input styling. `graphs/registeredMcp.ts`
+recognizes that presentation boundary from node metadata; it grants no authority.
+The editor keeps the reference and its Toolset port without mounting the native
+server-management widget, querying endpoints or clearing the saved selection.
+Changing the selection remains an audited assistant configuration/edit operation.
+The source overlay installs these adapters; ordinary unpinned MCP nodes keep
+their native editor. Backend owner/version checks remain authoritative.
