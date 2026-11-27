@@ -24,8 +24,9 @@ broker, a fixed component catalog and per-job Docker workers. Supply
 work on independent copies; do not select a tree containing credentials or
 private runtime state. The worker receives no host mounts, network, account
 stores or review grants. Ordinary custom-code previews remain a separate mode.
-The curated mode currently runs through the assistant's approved actions; its
-canvas execution integration and final live acceptance are still in progress.
+The curated mode supports canvas execution and assistant-approved runs.
+[PR #312](https://github.com/amadou-6e/laomedo/pull/312) records the tested
+revisions, real integration examples and their limits.
 
 The backend admits fresh owned state or its recognized current schema before
 migrations. Partial, corrupt or unexpected identity state is refused without
