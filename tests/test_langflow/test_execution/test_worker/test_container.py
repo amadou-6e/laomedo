@@ -11,7 +11,7 @@ import time
 import threading
 from types import SimpleNamespace
 import unittest
-from unittest.mock import patch
+from unittest.mock import patch, AsyncMock, Mock
 from uuid import uuid4
 from support.docker import DockerTestContainer
 
@@ -31,6 +31,7 @@ from laomedo.github.node_runs.worker_access import GitHubWorkerAccess
 from laomedo.integrations.langflow.execution.worker.models import (
     GraphWorkerCall,
     GraphWorkerJob,
+    GraphWorkerScope,
 )
 from test_github.test_node_runs.test_authority import NodeConnectionFixture
 
@@ -189,6 +190,42 @@ class WorkerCancellationTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(GraphWorkerError):
             await asyncio.wait_for(pending, 1.0)
         self.assertTrue(stopped.is_set())
+
+    async def test_authority_cleanup_failure_still_removes_the_owned_container(self):
+        job = SimpleNamespace(
+            job_id=uuid4(), flow_id=uuid4(), graph_digest="fixture", graph={}
+        )
+        worker = DockerGraphWorker(None, None, None)
+        worker._job_scope = Mock(
+            return_value=GraphWorkerScope(
+                owner_id=uuid4(),
+                flow_id=job.flow_id,
+                graph_digest=job.graph_digest,
+                first_vertex="fixture",
+            )
+        )
+        worker._validate_graph = Mock()
+        worker._authorize_job = AsyncMock()
+        worker._local_context = AsyncMock()
+        worker._environment = Mock(return_value={})
+        lease = SimpleNamespace(finish=Mock())
+
+        async def register():
+            return lease
+
+        worker._start_lease = Mock(
+            side_effect=lambda *args: asyncio.create_task(register())
+        )
+        worker._control = AsyncMock(return_value=SimpleNamespace(returncode=1))
+        worker._finish_job = AsyncMock(
+            side_effect=RuntimeError("fixture cleanup failure")
+        )
+        worker._remove = AsyncMock()
+        with self.assertRaisesRegex(RuntimeError, "fixture cleanup failure"):
+            await worker.run(job)
+        worker._remove.assert_awaited_once()
+        lease.finish.assert_called_once()
+        self.assertNotIn(job.job_id, worker._jobs)
 
 
 @unittest.skipUnless(

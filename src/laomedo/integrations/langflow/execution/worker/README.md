@@ -58,6 +58,14 @@ private pipe. Worker prints never share that pipe.
 
 ## Container supervisor
 
+`GraphWorkerScope` is the host supervisor's common owner/flow/digest/vertex
+projection. `DockerGraphWorker` keeps sandbox creation and cleanup shared while
+its `_job_scope`, `_validate_graph`, `_authorize_job`, `_remaining`, `_revoke_job`
+and `_finish_job` hooks adapt an owning authority. The existing implementation
+uses GitHub admission. A provider worker must override those hooks and its
+private exchange; it must not impersonate a GitHub run or introduce another
+container lifecycle implementation.
+
 `container.py` owns `DockerGraphWorker.run`: it verifies a local Docker context,
 registers an independently supervised lease, inspects the actual sandbox before
 sending a capability, dispatches bounded private-pipe reads and revokes authority

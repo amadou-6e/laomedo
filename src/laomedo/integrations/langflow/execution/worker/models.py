@@ -9,6 +9,16 @@ from laomedo.github.node_runs.models import GitHubWorkerReadRequest
 from laomedo.integrations.langflow.graph_admission.models import GitHubCatalogSnapshot
 
 
+class GraphWorkerScope(BaseModel):
+    """Host-only projection of one admitted job, independent of account provider."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid", strict=True)
+    owner_id: UUID
+    flow_id: UUID
+    graph_digest: str
+    first_vertex: str
+
+
 class GraphWorkerJob(BaseModel):
     """Host-approved bootstrap for exactly one isolated native graph process."""
 

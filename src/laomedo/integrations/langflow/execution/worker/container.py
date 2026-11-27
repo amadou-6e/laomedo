@@ -18,6 +18,7 @@ from laomedo.integrations.langflow.execution.worker.models import (
     GraphWorkerCall,
     GraphWorkerReply,
     GraphWorkerResult,
+    GraphWorkerScope,
 )
 from laomedo.integrations.langflow.execution.worker.settings import (
     GRAPH_WORKER_MESSAGE_BYTES,
@@ -29,6 +30,7 @@ class DockerGraphWorker(BaseDockerRuntime):
     """One fresh sandbox per admitted job; credentials stay in the calling broker."""
 
     runtime_error = GraphWorkerError
+    worker_module = GRAPH_WORKER_MODULE
 
     def __init__(self, settings, authority, access):
         """Use explicit deployment settings and broker-owned authority/read dispatch."""
@@ -47,13 +49,47 @@ class DockerGraphWorker(BaseDockerRuntime):
         ):
             raise GraphWorkerError()
 
+    def _job_scope(self, job_id):
+        """Project GitHub authority into the supervisor's provider-neutral scope."""
+        run = self.authority.run_for_job(job_id)
+        if run is None:
+            return None
+        return GraphWorkerScope(
+            owner_id=run.scope.owner_id,
+            flow_id=run.flow_id,
+            graph_digest=run.graph_digest,
+            first_vertex=run.nodes[0].selection.vertex_id,
+        )
+
+    def _remaining(self, job_id):
+        """Observe this authority's actual execution deadline without extending it."""
+        return self.authority.worker_remaining(job_id)
+
+    def _validate_graph(self, job):
+        """Verify the exact immutable graph against its owning admission."""
+        self.authority.validate_job_graph(job.job_id, job.graph)
+
+    async def _authorize_job(self, job, first_vertex):
+        """Fence private worker startup and terminal output through its authority."""
+        await self.authority.revalidate_worker(
+            job.capability, job_id=job.job_id, vertex_id=first_vertex
+        )
+
+    def _revoke_job(self, job_id):
+        """Fence subsequent calls before cancellation wakes container cleanup."""
+        self.authority.revoke_worker(job_id)
+
+    async def _finish_job(self, job_id):
+        """Release GitHub job authority before its container cleanup starts."""
+        self.authority.finish_job(job_id)
+
     def cancel(self, job_id, owner_id):
         """Revoke a trusted caller's own job before waking cancellation cleanup."""
-        run = self.authority.run_for_job(job_id)
+        run = self._job_scope(job_id)
         event = self._jobs.get(job_id)
-        if run is None or run.scope.owner_id != owner_id or event is None:
+        if run is None or run.owner_id != owner_id or event is None:
             return False
-        self.authority.revoke_worker(job_id)
+        self._revoke_job(job_id)
         event.set()
         return True
 
@@ -64,7 +100,7 @@ class DockerGraphWorker(BaseDockerRuntime):
         )
         try:
             while True:
-                remaining = self.authority.worker_remaining(call.request.job_id)
+                remaining = self._remaining(call.request.job_id)
                 if cancelled.is_set() or remaining is None:
                     raise GraphWorkerError()
                 if remaining <= 0:
@@ -89,7 +125,7 @@ class DockerGraphWorker(BaseDockerRuntime):
         await process.stdin.drain()
         request_id = 0
         while True:
-            remaining = self.authority.worker_remaining(job.job_id)
+            remaining = self._remaining(job.job_id)
             if cancelled.is_set() or remaining is None:
                 raise GraphWorkerError()
             if remaining <= 0:
@@ -131,15 +167,15 @@ class DockerGraphWorker(BaseDockerRuntime):
         """
         if job.job_id in self._jobs:
             raise GraphWorkerError()
-        run = self.authority.run_for_job(job.job_id)
+        run = self._job_scope(job.job_id)
         if (
             run is None
             or run.flow_id != job.flow_id
             or run.graph_digest != job.graph_digest
         ):
             raise GraphWorkerError()
-        self.authority.validate_job_graph(job.job_id, job.graph)
-        first_vertex = run.nodes[0].selection.vertex_id
+        self._validate_graph(job)
+        first_vertex = run.first_vertex
         cancelled = threading.Event()
         self._jobs[job.job_id] = cancelled
         identity = ContainerIdentity(
@@ -150,9 +186,7 @@ class DockerGraphWorker(BaseDockerRuntime):
         environment = self._environment()
         lease = process = None
         try:
-            await self.authority.revalidate_worker(
-                job.capability, job_id=job.job_id, vertex_id=first_vertex
-            )
+            await self._authorize_job(job, first_vertex)
             await self._local_context(environment)
             registration = self._start_lease(identity, cancelled)
             try:
@@ -177,7 +211,7 @@ class DockerGraphWorker(BaseDockerRuntime):
                     "python",
                     self.settings.image_id,
                     "-m",
-                    GRAPH_WORKER_MODULE,
+                    self.worker_module,
                 ],
                 environment,
             )
@@ -197,7 +231,7 @@ class DockerGraphWorker(BaseDockerRuntime):
                 stderr=asyncio.subprocess.DEVNULL,
                 limit=GRAPH_WORKER_MESSAGE_BYTES,
             )
-            remaining = self.authority.worker_remaining(job.job_id)
+            remaining = self._remaining(job.job_id)
             if remaining is None or remaining <= 0:
                 raise GraphWorkerError()
             job = job.model_copy(
@@ -211,18 +245,18 @@ class DockerGraphWorker(BaseDockerRuntime):
             )
             if result.event == "completed" and process.returncode != 0:
                 raise GraphWorkerError()
-            await self.authority.revalidate_worker(
-                job.capability, job_id=job.job_id, vertex_id=first_vertex
-            )
+            await self._authorize_job(job, first_vertex)
             return result
         finally:
-            self.authority.finish_job(job.job_id)
-            self._jobs.pop(job.job_id, None)
             try:
-                await self._remove(identity, environment)
+                await self._finish_job(job.job_id)
             finally:
-                if process is not None and process.returncode is None:
-                    process.kill()
-                    await process.wait()
-                if lease is not None:
-                    await asyncio.to_thread(lease.finish)
+                self._jobs.pop(job.job_id, None)
+                try:
+                    await self._remove(identity, environment)
+                finally:
+                    if process is not None and process.returncode is None:
+                        process.kill()
+                        await process.wait()
+                    if lease is not None:
+                        await asyncio.to_thread(lease.finish)
