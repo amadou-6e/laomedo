@@ -60,15 +60,16 @@ class ProviderGraphRunTests(unittest.TestCase):
         first = self.authority.admit(self.plan)
         second = self.authority.admit(self.plan)
         with self.assertRaises(ProviderConnectionError):
-            self.authority.review_source(first, self.plan.graph_digest, "claude")
+            self.authority.review(first, self.plan.graph_digest, "claude")
         run_id = str(uuid4())
+        self.authority.begin_node(first, self.plan.graph_digest, "codex")
         self.authority.bind_run(first, self.plan.graph_digest, "codex", run_id)
         self.assertEqual(
-            self.authority.review_source(first, self.plan.graph_digest, "claude"),
+            self.authority.review(first, self.plan.graph_digest, "claude").source_run,
             run_id,
         )
         with self.assertRaises(ProviderConnectionError):
-            self.authority.review_source(second, self.plan.graph_digest, "claude")
+            self.authority.review(second, self.plan.graph_digest, "claude")
         with self.assertRaises(ProviderConnectionError):
             self.authority.bind_run(
                 first, self.plan.graph_digest, "codex", str(uuid4())
@@ -102,7 +103,7 @@ class ProviderGraphRunTests(unittest.TestCase):
         with self.assertRaises(ProviderConnectionError):
             self.authority.resolve(capability, self.plan.graph_digest, "codex")
         with self.assertRaises(ProviderConnectionError):
-            self.authority.review_source(capability, self.plan.graph_digest, "claude")
+            self.authority.review(capability, self.plan.graph_digest, "claude")
         self.service._save(self.owner, list(self.records))
         self.service.cancel_lease(self.plan.lease_hash)
         with self.assertRaises(ProviderConnectionError):
@@ -110,16 +111,29 @@ class ProviderGraphRunTests(unittest.TestCase):
 
     def test_finished_worker_cannot_replay_or_rebind(self):
         capability = self.authority.admit(self.plan)
+        self.authority.begin_node(capability, self.plan.graph_digest, "codex")
         self.authority.bind_run(
             capability, self.plan.graph_digest, "codex", str(uuid4())
         )
         self.authority.finish(capability)
         with self.assertRaises(ProviderConnectionError):
-            self.authority.review_source(capability, self.plan.graph_digest, "claude")
+            self.authority.review(capability, self.plan.graph_digest, "claude")
         with self.assertRaises(ProviderConnectionError):
             self.authority.bind_run(
                 capability, self.plan.graph_digest, "codex", str(uuid4())
             )
+
+    def test_start_reservation_prevents_replay_before_acknowledgement(self):
+        capability = self.authority.admit(self.plan)
+        with self.assertRaises(ProviderConnectionError):
+            self.authority.bind_run(
+                capability, self.plan.graph_digest, "codex", str(uuid4())
+            )
+        with self.assertRaises(ProviderConnectionError):
+            self.authority.begin_node(capability, self.plan.graph_digest, "claude")
+        self.authority.begin_node(capability, self.plan.graph_digest, "codex")
+        with self.assertRaises(ProviderConnectionError):
+            self.authority.begin_node(capability, self.plan.graph_digest, "codex")
 
     def test_expired_or_ambiguous_plans_never_admit(self):
         for update in (
@@ -134,6 +148,7 @@ class ProviderGraphRunTests(unittest.TestCase):
 
     def test_concurrent_acknowledgements_cannot_replace_a_source(self):
         capability = self.authority.admit(self.plan)
+        self.authority.begin_node(capability, self.plan.graph_digest, "codex")
         candidates = (str(uuid4()), str(uuid4()))
         with ThreadPoolExecutor(max_workers=2) as executor:
             futures = [
@@ -148,6 +163,8 @@ class ProviderGraphRunTests(unittest.TestCase):
             ]
         self.assertEqual(sum(future.exception() is None for future in futures), 1)
         self.assertIn(
-            self.authority.review_source(capability, self.plan.graph_digest, "claude"),
+            self.authority.review(
+                capability, self.plan.graph_digest, "claude"
+            ).source_run,
             candidates,
         )

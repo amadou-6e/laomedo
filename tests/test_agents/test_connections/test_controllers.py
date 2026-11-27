@@ -18,6 +18,8 @@ from laomedo.agents.connections.controllers import ProviderControllers
 from laomedo.agents.connections.errors import ProviderConnectionError
 from laomedo.agents.connections.models import ConnectionRecord
 from laomedo.agents.connections.models import ControllerSlot
+from laomedo.agents.connections.models import GraphRunNode
+from laomedo.agents.connections.models import GraphRunPlan
 from laomedo.agents.connections.service import ProviderConnections
 from laomedo.agents.errors import RunnerError
 from laomedo.agents.workspaces.models import WorkspaceChanges
@@ -115,6 +117,32 @@ class ProviderControllerTests(unittest.TestCase):
         )
         with urlopen(request, timeout=3) as response:
             return json.load(response)
+
+    def graph_review_capability(self, source_run):
+        """Admit this fixture's exact graph and bind its host acknowledgement."""
+        digest = "sha256:" + "c" * 64
+        capability = self.manager.graph_runs.admit(
+            GraphRunPlan(
+                profile_id=self.profile,
+                lease_hash="lease",
+                flow_id=uuid4(),
+                graph_digest=digest,
+                nodes=tuple(
+                    GraphRunNode(
+                        vertex_id=record.provider,
+                        provider=record.provider,
+                        connection_id=record.connection_id,
+                        generation=record.generation,
+                        review_source="codex" if record.provider == "claude" else None,
+                    )
+                    for record in self.records
+                ),
+                deadline=time.monotonic() + 60,
+            )
+        )
+        self.manager.graph_runs.begin_node(capability, digest, "codex")
+        self.manager.graph_runs.bind_run(capability, digest, "codex", source_run)
+        return capability, digest
 
     def test_assistant_has_distinct_source_and_graph_cannot_resolve_its_run(self):
         graph = self.manager.endpoint(self.profile, self.one)
@@ -314,8 +342,9 @@ class ProviderControllerTests(unittest.TestCase):
         }
         from laomedo.agents.mcp.client import McpAccess
 
+        capability, digest = self.graph_review_capability(source_run["run_id"])
         grant, expected_hash = self.manager.stage_review_request(
-            self.profile, "lease", source_run["run_id"], target, body
+            capability, digest, "claude", body
         )
 
         def dispatch():
@@ -355,6 +384,13 @@ class ProviderControllerTests(unittest.TestCase):
         with self.assertRaises(HTTPError):
             dispatch()
         self.assertEqual(target.runner.start_async.call_count, 1)
+        capability, digest = self.graph_review_capability(source_run["run_id"])
+        body = {**body, "request_id": str(uuid4())}
+        grant, _ = self.manager.stage_review_request(capability, digest, "claude", body)
+        self.manager.graph_runs.finish(capability)
+        with self.assertRaises(HTTPError):
+            dispatch()
+        self.assertEqual(target.runner.start_async.call_count, 1)
         wrong_route = Request(
             target_endpoint[0] + "/v1/runs",
             data=b"{}",
@@ -378,9 +414,7 @@ class ProviderControllerTests(unittest.TestCase):
         with self.assertRaisesRegex(
             ProviderConnectionError, "verified_review_unavailable"
         ):
-            self.manager.stage_review_request(
-                self.profile, "lease", run["run_id"], target, {}
-            )
+            self.manager.stage_review_request("invalid", "invalid", "claude", {})
         self.records[1] = self.records[1].model_copy(update={"provider": "claude"})
         self.service._save(self.profile, self.records)
         changes = WorkspaceChanges(
@@ -408,9 +442,8 @@ class ProviderControllerTests(unittest.TestCase):
         with self.assertRaisesRegex(
             ProviderConnectionError, "workspace_snapshot_mismatch"
         ):
-            self.manager.stage_review_request(
-                self.profile, "lease", run["run_id"], target, body
-            )
+            capability, digest = self.graph_review_capability(run["run_id"])
+            self.manager.stage_review_request(capability, digest, "claude", body)
         self.assertEqual(self.manager._review_grants, {})
 
     def test_restart_recovers_assistant_scope_without_a_graph_controller(self):

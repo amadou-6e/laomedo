@@ -35,6 +35,7 @@ class VerifiedReviewGrant(BaseModel):
     instruction_hash: str
     request_body_hash: str | None = None
     expires_at: float
+    graph_review: "GraphRunReview | None" = Field(default=None, repr=False)
 
 
 class GraphRunNode(BaseModel):
@@ -58,6 +59,19 @@ class GraphRunPlan(BaseModel):
     graph_digest: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
     nodes: tuple[GraphRunNode, ...] = Field(min_length=1)
     deadline: float
+
+
+class GraphRunReview(BaseModel):
+    """Host-derived source and target belonging to one live graph admission."""
+
+    model_config = ConfigDict(strict=True, frozen=True, extra="forbid")
+    profile_id: UUID
+    lease_hash: str = Field(repr=False, exclude=True)
+    worker_key: str = Field(repr=False, exclude=True)
+    graph_digest: str
+    source: GraphRunNode
+    target: GraphRunNode
+    source_run: str
 
 
 class ConnectionRecord(BaseModel):

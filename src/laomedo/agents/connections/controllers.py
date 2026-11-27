@@ -16,6 +16,7 @@ from laomedo.agents.connections.credentials import SavedConnectionCredential
 from laomedo.agents.connections.credentials import SavedClaudeConnection
 from laomedo.docker import DockerRuntime
 from laomedo.agents.connections.errors import ProviderConnectionError
+from laomedo.agents.connections.graph_runs import ProviderGraphRuns
 from laomedo.agents.connections.models import ControllerSlot
 from laomedo.agents.connections.models import OwnedWorkspaceChanges
 from laomedo.agents.connections.models import VerifiedReviewGrant
@@ -156,6 +157,7 @@ class ProviderControllers:
         self.factory = factory
         self.slots = {}
         self._review_grants = {}
+        self.graph_runs = ProviderGraphRuns(service)
         self.root.mkdir(parents=True, exist_ok=True, mode=0o700)
         self.closed = False
         self._stopping = threading.Event()
@@ -367,6 +369,7 @@ class ProviderControllers:
         instruction,
         *,
         request_body=None,
+        graph_review=None,
     ):
         """Stage one opaque, non-content grant after checking both owned sources."""
         try:
@@ -382,6 +385,16 @@ class ProviderControllers:
             raise ProviderConnectionError("verified_review_unavailable")
         with self.service._lock:
             self.service.check_lease(lease_hash)
+            if graph_review is not None:
+                self.graph_runs.check_review(graph_review)
+                if (
+                    graph_review.profile_id != profile_id
+                    or graph_review.lease_hash != lease_hash
+                    or graph_review.source_run != source_run
+                    or graph_review.target.connection_id != target_connection
+                    or graph_review.target.generation != target_generation
+                ):
+                    raise ProviderConnectionError("verified_review_unavailable")
         source = self.workspace_changes(profile_id, source_run)
         with self.service._lock:
             self.service.check_lease(lease_hash)
@@ -428,6 +441,7 @@ class ProviderControllers:
                     else None
                 ),
                 expires_at=now + VERIFIED_REVIEW_GRANT_SECONDS,
+                graph_review=graph_review,
             )
             return token
 
@@ -443,7 +457,7 @@ class ProviderControllers:
             + patch
         )
 
-    def stage_review_request(self, profile_id, lease_hash, source_run, target, body):
+    def stage_review_request(self, capability, graph_digest, vertex_id, body):
         """Stage exact host-derived review bytes and return only a grant and digest.
 
         This is host-internal groundwork, not an isolation boundary: callers in
@@ -457,16 +471,26 @@ class ProviderControllers:
             or not isinstance(body.get("task"), str)
         ):
             raise ProviderConnectionError("verified_review_unavailable")
+        review = self.graph_runs.review(capability, graph_digest, vertex_id)
+        self.graph_runs.begin_node(capability, graph_digest, vertex_id)
+        profile_id = review.profile_id
+        source_run = review.source_run
         source = self.workspace_changes(profile_id, source_run)
+        if (
+            source.connection_id != review.source.connection_id
+            or source.generation != review.source.generation
+        ):
+            raise ProviderConnectionError("verified_review_unavailable")
         token = self.stage_verified_review(
             profile_id,
-            lease_hash,
+            review.lease_hash,
             source_run,
-            target.connection_id,
-            target.generation,
+            review.target.connection_id,
+            review.target.generation,
             body["request_id"],
             body["task"],
             request_body=body,
+            graph_review=review,
         )
         changes = source.changes
         with self.service._lock:
@@ -513,6 +537,8 @@ class ProviderControllers:
             )
             if grant is None or grant.expires_at <= time.monotonic():
                 raise ProviderConnectionError("verified_review_unavailable")
+            if grant.graph_review is not None:
+                self.graph_runs.check_review(grant.graph_review)
             self.service.check_lease(grant.lease_hash)
             self.service.admitted(
                 grant.profile_id, grant.source_connection, grant.source_generation
@@ -759,6 +785,7 @@ class ProviderControllers:
         with self.service._lock:
             self.closed = True
             self._review_grants.clear()
+            self.graph_runs.close()
             self._stopping.set()
         for worker in list(self._cleanups.values()):
             worker.join()

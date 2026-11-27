@@ -8,6 +8,7 @@ from uuid import UUID
 
 from laomedo.agents.connections.errors import ProviderConnectionError
 from laomedo.agents.connections.models import GraphRunPlan
+from laomedo.agents.connections.models import GraphRunReview
 from laomedo.agents.connections.settings import MAX_ACTIVE_PROVIDER_GRAPHS
 
 
@@ -23,6 +24,7 @@ class ProviderGraphRuns:
         self.service = service
         self._plans = {}
         self._runs = {}
+        self._started = {}
 
     @staticmethod
     def _key(capability):
@@ -41,6 +43,7 @@ class ProviderGraphRuns:
         if plan is None or plan.deadline <= time.monotonic():
             self._plans.pop(key, None)
             self._runs.pop(key, None)
+            self._started.pop(key, None)
             raise ProviderConnectionError("verified_review_unavailable")
         if not isinstance(digest, str) or not secrets.compare_digest(
             plan.graph_digest.encode("utf-8"), digest.encode("utf-8")
@@ -71,6 +74,7 @@ class ProviderGraphRuns:
                 if previous.deadline <= now:
                     self._plans.pop(key)
                     self._runs.pop(key, None)
+                    self._started.pop(key, None)
             if (
                 not math.isfinite(plan.deadline)
                 or plan.deadline <= now
@@ -93,6 +97,7 @@ class ProviderGraphRuns:
             key = self._key(capability)
             self._plans[key] = plan
             self._runs[key] = {}
+            self._started[key] = set()
             return capability
 
     def resolve(self, capability, graph_digest, vertex_id):
@@ -113,23 +118,63 @@ class ProviderGraphRuns:
             plan = self._current(key, graph_digest)
             self._node(plan, vertex_id)
             runs = self._runs[key]
-            if vertex_id in runs or run_id in runs.values():
+            if (
+                vertex_id not in self._started[key]
+                or vertex_id in runs
+                or run_id in runs.values()
+            ):
                 raise ProviderConnectionError("verified_review_unavailable")
             runs[vertex_id] = run_id
 
-    def review_source(self, capability, graph_digest, vertex_id):
-        """Derive a source from this invocation's approved edge and host receipt."""
+    def begin_node(self, capability, graph_digest, vertex_id):
+        """Reserve one native start per approved vertex before crossing dispatch."""
         with self.service._lock:
             key = self._key(capability)
             plan = self._current(key, graph_digest)
             node = self._node(plan, vertex_id)
-            if node.provider != "claude" or node.review_source is None:
+            if vertex_id in self._started[key]:
                 raise ProviderConnectionError("verified_review_unavailable")
-            self._node(plan, node.review_source)
-            run_id = self._runs[key].get(node.review_source)
-            if run_id is None:
+            if node.review_source is not None:
+                self._review(key, graph_digest, vertex_id)
+            self._started[key].add(vertex_id)
+            return node
+
+    def _review(self, key, graph_digest, vertex_id):
+        """Project an exact review while the caller holds the lifecycle lock."""
+        plan = self._current(key, graph_digest)
+        node = self._node(plan, vertex_id)
+        if node.provider != "claude" or node.review_source is None:
+            raise ProviderConnectionError("verified_review_unavailable")
+        source = self._node(plan, node.review_source)
+        run_id = self._runs[key].get(node.review_source)
+        if run_id is None:
+            raise ProviderConnectionError("verified_review_unavailable")
+        return GraphRunReview(
+            profile_id=plan.profile_id,
+            lease_hash=plan.lease_hash,
+            worker_key=key,
+            graph_digest=plan.graph_digest,
+            source=source,
+            target=node,
+            source_run=run_id,
+        )
+
+    def review(self, capability, graph_digest, vertex_id):
+        """Derive review authority from this invocation, never worker selectors."""
+        with self.service._lock:
+            return self._review(self._key(capability), graph_digest, vertex_id)
+
+    def check_review(self, review: GraphRunReview):
+        """Recheck a staged review before any native dispatch can reserve work."""
+        with self.service._lock:
+            if (
+                self._review(
+                    review.worker_key, review.graph_digest, review.target.vertex_id
+                )
+                != review
+                or review.target.vertex_id not in self._started[review.worker_key]
+            ):
                 raise ProviderConnectionError("verified_review_unavailable")
-            return run_id
 
     def finish(self, capability):
         """Revoke this worker without deleting any retained native history."""
@@ -137,3 +182,11 @@ class ProviderGraphRuns:
             key = self._key(capability)
             self._plans.pop(key, None)
             self._runs.pop(key, None)
+            self._started.pop(key, None)
+
+    def close(self):
+        """Revoke all worker authority during host shutdown, without dispatch."""
+        with self.service._lock:
+            self._plans.clear()
+            self._runs.clear()
+            self._started.clear()
