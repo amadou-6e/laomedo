@@ -125,6 +125,30 @@ class RuntimeTests(unittest.IsolatedAsyncioTestCase):
                 ProviderGraphBindings.session.set(None)
                 set_current_auth_context(None)
                 sentinel.set("mcp-only")
+                from laomedo.agents.connections.errors import ProviderConnectionError
+                from laomedo.integrations.langflow.execution.providers.executor import (
+                    ProviderGraphExecutor,
+                )
+
+                executor = ProviderGraphExecutor(
+                    None,
+                    SimpleNamespace(admission=None),
+                    SimpleNamespace(service=service),
+                )
+                executor.admission.prepare = Mock(return_value="planned")
+                self.runtime.graph_executor = executor
+                with self.assertRaises(ProviderConnectionError):
+                    executor.validate_graph(self.owner, uuid4(), {})
+                self.assertEqual(
+                    await self.runtime.plan_graph(context, uuid4(), {}), "planned"
+                )
+                self.assertIsNone(ProviderGraphBindings.session.get())
+                self.assertIsNone(get_current_auth_context())
+                self.assertEqual(sentinel.get(), "mcp-only")
+                service.revoked_leases.add("fixture")
+                with self.assertRaises(AssistantError):
+                    await self.runtime.plan_graph(context, uuid4(), {})
+                service.revoked_leases.clear()
                 identifier = uuid4()
                 observation = GraphAuthorityObservation(self.owner, sentinel)
                 actions = SimpleNamespace(

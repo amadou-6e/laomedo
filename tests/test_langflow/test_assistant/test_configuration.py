@@ -407,6 +407,9 @@ class ConfigurationTests(unittest.IsolatedAsyncioTestCase):
                 side_effect=ProviderConnectionError("verified_review_unavailable")
             )
         )
+        self.runtime.plan_graph = AsyncMock(
+            side_effect=self.runtime.graph_executor.validate_graph
+        )
         result = await self.configuration.validate(
             self.context,
             SimpleNamespace(catalog=self.catalog),

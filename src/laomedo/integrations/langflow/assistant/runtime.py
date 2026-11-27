@@ -628,6 +628,16 @@ class AssistantRuntime:
             executor=self.graph_executor,
         )
 
+    async def plan_graph(self, context, workflow_id, data):
+        """Dry-plan under this active turn's captured browser authority, without dispatch."""
+        await self.authorize(context)
+        dispatch = self._graph_execution_context(context)
+        result = dispatch.run(
+            self.graph_executor.validate_graph, context.owner_id, workflow_id, data
+        )
+        await self.authorize(context)
+        return result
+
     async def propose_graph_action(self, context, request):
         """Honor existing human conversation consent, never model-selected authority."""
         from laomedo.integrations.langflow.assistant.models import GraphActionDecision

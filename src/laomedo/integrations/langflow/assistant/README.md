@@ -303,6 +303,11 @@ credentials or mark files settled manually. Restart the updated app after that
 runner confirms cleanup. This bounded transition check can retire once all older
 operational state is explicitly reconciled.
 
+`AssistantRuntime.plan_graph` reuses the exact turn's verified browser capture
+for isolated readiness calls made through the native MCP transport. It checks
+the active authoring authority first and never borrows the MCP request's context
+or copies unrelated context variables. Planning creates no execution authority.
+
 `ModelCatalogCacheEntry` retains a canonical catalog under the exact owner,
 provider, connection, generation and runner instance. Cached composer reads never
 open native discovery during an active chat. Every read still checks saved-account

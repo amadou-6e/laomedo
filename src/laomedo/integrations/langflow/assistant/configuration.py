@@ -708,7 +708,7 @@ class WorkflowConfiguration:
             )
 
             try:
-                executor.validate_graph(context.owner_id, workflow_id, data)
+                await self.runtime.plan_graph(context, workflow_id, data)
             except (
                 ProviderConnectionError,
                 GitHubNodeAuthorizationError,
