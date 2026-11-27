@@ -5,6 +5,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from laomedo.integrations.langflow.execution.worker.models import NativeGraphJob
+from laomedo.agents.connections.models import GraphRunPlan
 
 
 class ProviderNodeRoute(BaseModel):
@@ -55,3 +56,12 @@ class PublicIssueSelection(BaseModel):
     number: int = Field(gt=0)
     labels: tuple[str, ...] = ()
     state: Literal["open", "closed", "all"] = "all"
+
+
+class PreparedProviderGraph(BaseModel):
+    """Host-only approved selections beside a separately credential-free bootstrap."""
+
+    model_config = ConfigDict(frozen=True, strict=True, extra="forbid")
+    plan: GraphRunPlan = Field(exclude=True, repr=False)
+    job: ProviderWorkerJob
+    issues: tuple[PublicIssueSelection, ...] = ()

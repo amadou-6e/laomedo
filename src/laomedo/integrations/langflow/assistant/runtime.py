@@ -60,6 +60,8 @@ class AssistantRuntime:
         self.graph_jobs = {}
         self.graph_authorities = {}
         self.graph_settlements = set()
+        self.graph_executor = None
+        self.catalog_loader = None
         from laomedo.integrations.langflow.assistant.configuration import (
             WorkflowConfiguration,
         )
@@ -71,13 +73,16 @@ class AssistantRuntime:
         self.ready = False
 
     @classmethod
-    def install(cls, app):
+    def install(cls, app, *, catalog_loader=None, graph_executor=None, settings=None):
         """Install before the SPA fallback and compose with the existing registry lifespan."""
         from laomedo.integrations.langflow.assistant.mcp import AuthoringMcp
         from laomedo.integrations.langflow.assistant.routes import router
         from laomedo.integrations.langflow.assistant.boundary import AssistantBoundary
 
-        owner = cls(AssistantSettings())
+        owner = cls(settings if settings is not None else AssistantSettings())
+        if catalog_loader is not None:
+            owner.catalog_loader = catalog_loader
+        owner.graph_executor = graph_executor
         app.state.laomedo_assistant = owner
         app.include_router(router)
         if owner.settings.app_url:
@@ -571,7 +576,7 @@ class AssistantRuntime:
     async def workflow_tools(self, context):
         """Compose the existing workflow owner with authorized installed metadata only."""
         await self.authorize(context)
-        catalog = await ComponentCatalog.from_installed(context.owner_id)
+        catalog = await self.component_catalog(context.owner_id)
         return WorkflowDrafts(
             self.store, catalog, self.authorize, configuration=self.configuration
         )
@@ -607,15 +612,20 @@ class AssistantRuntime:
             self.uncertain_saves.pop(context.message_id, None)
             return result
 
+    async def component_catalog(self, owner):
+        """Use an explicit broker catalog, or the current ordinary installed catalog."""
+        return await (self.catalog_loader or ComponentCatalog.from_installed)(owner)
+
     async def graph_actions(self, owner):
         """Compose policy-filtered graph actions without a provider runner or model turn."""
         from laomedo.integrations.langflow.assistant.actions import WorkflowActions
 
         return WorkflowActions(
             self.store,
-            await ComponentCatalog.from_installed(owner),
+            await self.component_catalog(owner),
             self.authorize,
             configuration=self.configuration,
+            executor=self.graph_executor,
         )
 
     async def propose_graph_action(self, context, request):
@@ -1054,6 +1064,8 @@ class AssistantRuntime:
         """Release inactive transports after account removal or native idle cleanup."""
         while not self.closing:
             await asyncio.sleep(1)
+            if self.graph_executor is not None:
+                await self.graph_executor.reconcile()
             for identifier, idle in list(self.idle_tools.items()):
                 release = False
                 try:

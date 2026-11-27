@@ -19,7 +19,7 @@ AUDITED_AGENT_COMPONENTS = {
 AUDITED_COMPONENT_DIGESTS = {
     "LaomedoGitHubIssue": "bd1aec33ed056854bca330fc8e4d44cd32978c93cbdd1be7f0dc1429349ddd8e",
     "LaomedoCodexAgent": "49d058262e07823ac7fa90e49abbdae33ff264f9c1b18f3cae132d96e89028c6",
-    "LaomedoClaudeAgent": "6ff2c783fe73f8f56bd5b6f264dc02904f6ba917a7c15293c217e8655ec25032",
+    "LaomedoClaudeAgent": "53d72c4dd98a585621fa96decadee30c7a69f1aee21724e4acf986dfd6f27358",
     "LaomedoOpenCodeAgent": "4af7c7ee47a34802131c0dff639a8869a699424cd7a484971eadba9348ddc954",
     "LaomedoSkill": "5a86d11b5edee506b9c8ba6c2b38b12a40a2ee9e342eae49fbc596103e334bc7",
     "MCPTools": "9c2f70d7a83c219c73f444360c1547cc725276692c8d1832ff6367578db84274",

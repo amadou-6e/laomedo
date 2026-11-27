@@ -24,6 +24,36 @@ acknowledged under the requested vertex. Worker aliases never become native
 request authority. Anonymous Issue dispatch uses only a host-approved public
 selection and the credential-free REST transport.
 
+`admission.py` owns `ProviderGraphAdmission`. It derives the plan from the actual
+effective graph and trusted host catalog, then separates profile-owned account
+bindings from the credential-free execution snapshot. Only supported native
+text/prompt plumbing, fresh saved-provider nodes and anonymous public Issue reads
+are admitted here. Review sources come from exact Run Reference edges. Account
+IDs, local authoring bindings and account-choice metadata stay on the host.
+Unsupported resource/operation edges refuse instead of falling back to another
+execution path.
+
+`catalog.py` owns `ProviderComponentCatalog`. It builds metadata only from fixed
+operator-installed classes and component files at startup. It never accepts a
+browser component dictionary, component path or Python string for evaluation.
+The same immutable host snapshot supplies assistant authoring and worker code
+identities; worker-produced metadata cannot establish trust.
+
+`executor.py` owns `ProviderGraphExecutor`: the API-only broker injects this
+backend into existing assistant actions. It verifies the current browser lease,
+uses the approved Flow snapshot and exact run UUID, admits one private worker,
+and returns the existing native RunResponse shape. It retains supervisors whose
+native cleanup remains uncertain. Neither worker output nor a retained request
+can grant a new run or substitute a saved account. All provider vertices must
+complete; conditional provider execution is not supported in this initial path.
+The existing native Job UUID is the durable execution replay barrier. Its metadata
+retains only host-observed terminal node outcomes and explicit native cleanup
+confirmation, so existing assistant diagnostics can read partial completion
+without treating a worker message as evidence. Actual node outputs keep the
+existing bounded assistant evidence owner. Revoked cleanup receipts are currently
+memory-only; host restart relies on the native controllers' durable recovery and
+does not replay a graph or restore its admission.
+
 `container.py` specializes the shared sandbox supervisor hooks and private
 exchange. It validates the actual graph, checks lease/deadline while requests
 are active, revokes before cleanup, and cancels only this job's native request

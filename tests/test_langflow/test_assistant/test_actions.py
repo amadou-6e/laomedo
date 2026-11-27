@@ -615,6 +615,52 @@ class GraphActionTests(unittest.IsolatedAsyncioTestCase):
             "succeeded",
         )
 
+    async def test_injected_isolated_backend_never_falls_back_to_native_execution(self):
+        from types import SimpleNamespace
+        from langflow.api.v1.schemas import RunResponse
+
+        request = GraphActionRequest(
+            operation_key="isolated-run",
+            kind="run",
+            workflow_id=self.flow_id,
+            expected_revision=self.revision,
+        )
+        proposal = await self.actions.propose(self.context, request)
+        result, snapshot, actor = await self.decide(proposal)
+        backend = SimpleNamespace(
+            execute=AsyncMock(return_value=RunResponse(outputs=[]))
+        )
+        self.actions.executor = backend
+        with patch(
+            "langflow.api.v1.endpoints.simple_run_flow", new=AsyncMock()
+        ) as unsafe:
+            await self.actions.execute(result, snapshot, actor, AsyncMock())
+        unsafe.assert_not_awaited()
+        self.assertEqual(backend.execute.call_args.args[0].data, snapshot.data)
+        self.assertEqual(backend.execute.call_args.args[2].id, self.owner)
+        self.assertEqual(backend.execute.call_args.args[3], result["run_id"])
+
+    async def test_isolated_backend_failure_is_not_retried_in_host(self):
+        from types import SimpleNamespace
+
+        request = GraphActionRequest(
+            operation_key="isolated-failure",
+            kind="run",
+            workflow_id=self.flow_id,
+            expected_revision=self.revision,
+        )
+        proposal = await self.actions.propose(self.context, request)
+        result, snapshot, actor = await self.decide(proposal)
+        self.actions.executor = SimpleNamespace(
+            execute=AsyncMock(side_effect=RuntimeError("sandbox refused"))
+        )
+        with patch(
+            "langflow.api.v1.endpoints.simple_run_flow", new=AsyncMock()
+        ) as unsafe:
+            await self.actions.execute(result, snapshot, actor, AsyncMock())
+        unsafe.assert_not_awaited()
+        self.assertEqual(self.actions.executor.execute.await_count, 1)
+
     async def test_restart_observes_job_without_redispatch(self):
         request = GraphActionRequest(
             operation_key="run",

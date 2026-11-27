@@ -32,6 +32,20 @@ Saved-account graph admission (`GitHubGraphCatalog`, `GitHubNodeRunAdmission`)
 is owned by [`../graph_admission/`](../graph_admission/README.md); it is not
 authentication. This package supplies only the run scope it consumes.
 
+`provider.py` owns the opt-in `ProviderBrokerRuntime` composition. It adds the
+installed frontend, a fixed operator-installed component catalog, data-only Flow
+listing/reading/writing and the existing assistant. `ProviderBrowserRoutes`
+rejects custom component sources and filesystem/publication bindings before
+Flow persistence. It mounts individual native data handlers, never a native
+router that can grow execution endpoints. Python component editing/validation,
+native run/build APIs, native MCP lifecycle and upload APIs remain absent from
+the credential process. The assistant receives only the isolated worker backend
+from `execution/providers`; failures cannot fall back to in-process execution.
+This curated mode is separate from ordinary custom-code Langflow deployments.
+Browser/canvas execution and the deployment launcher still need completion and
+actual container/live acceptance; the presence of this factory is not proof of
+an operational isolated preview.
+
 `PrivateGitHubRunAdmission` is minted only from an already JWT-admitted browser
 context. It retains the canonical `IssuedPrivateSession` lease/cookie projection,
 not that request's short-lived access JWT. Its `revalidate` delegates to

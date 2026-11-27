@@ -21,11 +21,12 @@ from laomedo.integrations.langflow.assistant.workflows import WorkflowDrafts
 class WorkflowActions:
     """Separate proposing a graph action from authorizing and executing its exact effects."""
 
-    def __init__(self, store, catalog, authorize, *, configuration=None):
+    def __init__(self, store, catalog, authorize, *, configuration=None, executor=None):
         """Compose existing database/catalog ownership; retain no provider credentials."""
         self.store, self.catalog, self.authorize = store, catalog, authorize
         self.workflows = WorkflowDrafts(store, catalog, authorize)
         self.configuration = configuration
+        self.executor = executor
 
     async def flow(self, session, owner, identifier):
         """Read and lock only an existing graph owned by this authenticated app user."""
@@ -434,15 +435,20 @@ class WorkflowActions:
                     context, self.catalog, snapshot.data, active=False
                 )
             dispatched = True
-            response = await simple_run_flow(
-                snapshot,
-                input_request,
-                api_key_user=actor,
-                run_id=result["run_id"],
-                context={},
-                http_request=None,
-                expose_error_details=False,
-            )
+            if self.executor is None:
+                response = await simple_run_flow(
+                    snapshot,
+                    input_request,
+                    api_key_user=actor,
+                    run_id=result["run_id"],
+                    context={},
+                    http_request=None,
+                    expose_error_details=False,
+                )
+            else:
+                response = await self.executor.execute(
+                    snapshot, request, actor, result["run_id"]
+                )
             returned = True
             from laomedo.integrations.langflow.assistant.evidence import (
                 WorkflowRunEvidence,

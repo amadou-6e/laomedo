@@ -35,9 +35,19 @@ class ProviderGraphDispatcher:
         self.gateway = gateway
         self.aliases = {}
         self.staged = {}
+        self.node_outcomes = {}
+
+    def observe_node(self, vertex_id, record):
+        """Retain terminal build evidence from native records, never worker claims."""
+        if record.get("status") in {"completed", "failed"}:
+            self.node_outcomes[vertex_id] = {
+                "node_id": vertex_id,
+                "state": "succeeded" if record["status"] == "completed" else "failed",
+            }
 
     def _status(self, vertex_id, record):
         """Release graph evidence only, without native tasks, paths or host request IDs."""
+        self.observe_node(vertex_id, record)
         result = {
             key: value for key, value in record.items() if key in PROVIDER_STATUS_FIELDS
         }

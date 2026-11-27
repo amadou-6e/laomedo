@@ -133,6 +133,7 @@ class DockerProviderGraphWorker(DockerGraphWorker):
             )
             slot = controllers.graph_native(self.plan.profile_id, node)
             record = slot.runner.status(run_id)
+            self.dispatcher.observe_node(node.vertex_id, record)
             if record.get("status") != "completed":
                 raise GraphWorkerError()
 

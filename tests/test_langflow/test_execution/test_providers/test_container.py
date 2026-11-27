@@ -52,6 +52,7 @@ class ProviderSupervisorTests(unittest.IsolatedAsyncioTestCase):
             private_payload=lambda: {},
         )
         dispatcher = SimpleNamespace(
+            observe_node=Mock(),
             plan=plan,
             controllers=controllers,
             capability="host-only",

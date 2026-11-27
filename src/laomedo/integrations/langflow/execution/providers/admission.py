@@ -1,0 +1,238 @@
+"""Derive saved-provider execution bounds from a trusted effective graph snapshot."""
+
+import re
+import time
+from uuid import UUID
+
+from laomedo.agents.connections.errors import ProviderConnectionError
+from laomedo.agents.connections.models import (
+    GraphNodePolicy,
+    GraphRunNode,
+    GraphRunPlan,
+)
+from laomedo.github.contract import repository_from_url, labels_value
+from laomedo.github.node_runs.authority import GitHubRunAuthority
+from laomedo.integrations.langflow.assistant.models import NodeResourceBindings
+from laomedo.integrations.langflow.graph_admission.node_runs import (
+    GitHubNodeRunAdmission,
+)
+from laomedo.integrations.langflow.execution.providers.models import (
+    PreparedProviderGraph,
+    ProviderNodeRoute,
+    ProviderWorkerJob,
+    PublicIssueSelection,
+)
+
+
+class ProviderGraphAdmission:
+    """Use host-authenticated ownership and immutable installed source identities.
+
+    This object is composed in the API-only broker. A worker never supplies its
+    profile, lease, account, catalog, deadline or native request identity.
+    """
+
+    AGENTS = {
+        "LaomedoCodexAgent": "codex",
+        "LaomedoClaudeAgent": "claude",
+        "LaomedoOpenCodeAgent": "opencode",
+    }
+    PLUMBING = frozenset({"TextInput", "TextOutput", "Prompt", "Prompt Template"})
+
+    def __init__(self, connections, catalog):
+        self.connections = connections
+        self.catalog = catalog
+
+    @staticmethod
+    def _value(template, field, default=None):
+        item = template.get(field, {})
+        if not isinstance(item, dict) or item.get("load_from_db"):
+            raise ProviderConnectionError("verified_review_unavailable")
+        return item.get("value", default)
+
+    def _node(self, owner, flow_id, node, provider, review_source, connected):
+        data = node["data"]
+        template = data["node"]["template"]
+        value = self._value
+        if value(template, "operation", "fresh") not in {"fresh", "start"}:
+            raise ProviderConnectionError("verified_review_unavailable")
+        if any(
+            value(template, field) not in (None, "", [])
+            for field in (
+                "run_reference",
+                "run_reference_json",
+                "skill_reference",
+                "mcp_tools",
+                "mcp_servers",
+                "handoff_reference",
+                "output_requirements",
+                "output_requirements_json",
+            )
+        ):
+            raise ProviderConnectionError("verified_review_unavailable")
+        selected = value(template, "provider_connection")
+        if not selected:
+            selected = getattr(
+                self.connections.graph_preferences(owner, flow_id), provider
+            )
+        record = self.connections.admitted(owner, UUID(str(selected)))
+        if record.provider != provider:
+            raise ProviderConnectionError("verified_review_unavailable")
+        binding = NodeResourceBindings.model_validate(
+            data.get("laomedo_authoring_bindings") or {}
+        )
+        if binding.resources or (
+            binding.connection_id is not None
+            and (
+                binding.connection_id != record.connection_id
+                or binding.generation != record.generation
+            )
+        ):
+            raise ProviderConnectionError("verified_review_unavailable")
+        if value(template, "verified_changes") not in (None, "", []):
+            raise ProviderConnectionError("verified_review_unavailable")
+        task = value(template, "task", "")
+        if not isinstance(task, str):
+            raise ProviderConnectionError("verified_review_unavailable")
+        policy = GraphNodePolicy(
+            model=value(template, "model"),
+            effort=value(template, "effort"),
+            task=task,
+            task_from_input="task" in connected,
+            timeout_seconds=value(template, "run_timeout_seconds", 180),
+        )
+        if not policy.task_from_input and not task.strip():
+            raise ProviderConnectionError("verified_review_unavailable")
+        # The worker uses a virtual address and pipe; account identifiers and
+        # their choice lists are not needed to execute this approved snapshot.
+        data.pop("laomedo_authoring_bindings", None)
+        if "provider_connection" in template:
+            template["provider_connection"]["value"] = ""
+            template["provider_connection"]["options"] = []
+            template["provider_connection"].pop("options_metadata", None)
+        return GraphRunNode(
+            vertex_id=node["id"],
+            provider=provider,
+            connection_id=record.connection_id,
+            generation=record.generation,
+            review_source=review_source,
+            policy=policy,
+        )
+
+    def _issue(self, node, connected):
+        template = node["data"]["node"]["template"]
+        if (
+            connected
+            or self._value(template, "public_service_only") is not True
+            or any(
+                self._value(template, field) not in (None, "", [])
+                for field in ("operation", "issue_reference")
+            )
+        ):
+            raise ProviderConnectionError("verified_review_unavailable")
+        repository_url = self._value(template, "repository_url")
+        repository_from_url(repository_url)
+        choice = self._value(template, "issue_choice", "")
+        match = (
+            re.match(r"^#([1-9][0-9]*) ", choice) if isinstance(choice, str) else None
+        )
+        if match is None:
+            raise ProviderConnectionError("verified_review_unavailable")
+        return PublicIssueSelection(
+            vertex_id=node["id"],
+            repository_url=repository_url,
+            number=int(match[1]),
+            labels=tuple(labels_value(self._value(template, "labels", []))),
+            state=self._value(template, "state", "open"),
+        )
+
+    def prepare(
+        self, owner, lease_hash, flow_id, job_id, graph, *, timeout_seconds=600.0
+    ):
+        """Pin one graph; refuse unsupported paths before native account startup."""
+        graph = GitHubNodeRunAdmission.executable_graph(
+            self.catalog.effective_graph(graph)
+        )
+        nodes = {node["id"]: node for node in graph["nodes"]}
+        if len(nodes) != len(graph["nodes"]) or not nodes:
+            raise ProviderConnectionError("verified_review_unavailable")
+        kinds = {
+            key: self.catalog.classification(node["data"]["type"])
+            for key, node in nodes.items()
+        }
+        connected = {key: {} for key in nodes}
+        for edge in graph["edges"]:
+            source, target = edge["source"], edge["target"]
+            field = edge["data"]["targetHandle"]["fieldName"]
+            output = edge["data"]["sourceHandle"]["name"]
+            if source not in nodes or target not in nodes or field in connected[target]:
+                raise ProviderConnectionError("verified_review_unavailable")
+            if kinds[target] in self.AGENTS:
+                if field not in {"task", "verified_changes"} or (
+                    field == "verified_changes"
+                    and (
+                        kinds[target] != "LaomedoClaudeAgent"
+                        or kinds[source] not in self.AGENTS
+                        or output != "run"
+                    )
+                ):
+                    raise ProviderConnectionError("verified_review_unavailable")
+            connected[target][field] = source
+        selected, issues = [], []
+        # This initial executor requires every admitted Agent to complete.
+        # Cycles/conditional scheduling cannot satisfy that closed contract.
+        remaining = set(nodes)
+        while remaining:
+            ready = {
+                key
+                for key in remaining
+                if not (set(connected[key].values()) & remaining)
+            }
+            if not ready:
+                raise ProviderConnectionError("verified_review_unavailable")
+            remaining -= ready
+        with self.connections._lock:
+            self.connections.check_lease(lease_hash)
+            for key, node in nodes.items():
+                kind = kinds[key]
+                if kind in self.AGENTS:
+                    selected.append(
+                        self._node(
+                            owner,
+                            flow_id,
+                            node,
+                            self.AGENTS[kind],
+                            connected[key].get("verified_changes"),
+                            connected[key],
+                        )
+                    )
+                elif kind == "LaomedoGitHubIssue":
+                    issues.append(self._issue(node, connected[key]))
+                elif kind not in self.PLUMBING:
+                    raise ProviderConnectionError("verified_review_unavailable")
+                node["data"].pop("laomedo_authoring_bindings", None)
+            digest = GitHubRunAuthority.digest_graph(graph)
+            plan = GraphRunPlan(
+                profile_id=owner,
+                lease_hash=lease_hash,
+                flow_id=flow_id,
+                graph_digest="sha256:" + digest,
+                nodes=tuple(selected),
+                deadline=time.monotonic() + timeout_seconds,
+            )
+        return PreparedProviderGraph(
+            plan=plan,
+            issues=tuple(issues),
+            job=ProviderWorkerJob(
+                job_id=job_id,
+                flow_id=flow_id,
+                graph=graph,
+                graph_digest=digest,
+                catalog=self.catalog.snapshot,
+                timeout_seconds=timeout_seconds,
+                providers=tuple(
+                    ProviderNodeRoute(vertex_id=node.vertex_id, port=10000 + index)
+                    for index, node in enumerate(selected)
+                ),
+                public_issues=tuple(issue.vertex_id for issue in issues),
+            ),
+        )

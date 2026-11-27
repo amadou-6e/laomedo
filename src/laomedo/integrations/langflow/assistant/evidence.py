@@ -42,6 +42,14 @@ class WorkflowRunEvidence:
                 or str(job.flow_id) != action["workflow_id"]
             ):
                 return []
+            metadata = getattr(job, "job_metadata", None) or {}
+            if metadata.get("execution_owner") == "laomedo-isolated-provider":
+                return [
+                    WorkflowNodeStatus.model_validate(value)
+                    for value in metadata.get("isolated_provider_nodes", [])[
+                        :RUN_OUTPUT_ITEMS
+                    ]
+                ]
             async with self.actions.store.sessions() as session:
                 rows = (
                     await session.exec(

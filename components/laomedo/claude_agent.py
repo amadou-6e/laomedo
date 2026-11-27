@@ -9,7 +9,7 @@ from laomedo.agents.interface.langflow.errors import RunnerRequestError
 from laomedo.integrations.langflow.provider_connections.bindings import (
     ProviderGraphBindings,
 )
-from langflow.io import DataInput, IntInput
+from lfx.io import DataInput, IntInput
 
 
 class LaomedoClaudeAgent(Component):

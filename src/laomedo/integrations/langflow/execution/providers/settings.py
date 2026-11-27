@@ -1,5 +1,21 @@
 """Fixed provider-worker protocol and data release fields; never graph configuration."""
 
+from pathlib import Path
+
+from pydantic import BaseModel, ConfigDict
+
+from laomedo.integrations.langflow.execution.worker.settings import GraphWorkerSettings
+
+
+class ProviderAppSettings(BaseModel):
+    """Explicit operator-installed UI/source and immutable isolated worker deployment."""
+
+    model_config = ConfigDict(frozen=True, strict=True, extra="forbid")
+    components: Path
+    frontend: Path
+    worker: GraphWorkerSettings
+
+
 PROVIDER_WORKER_MODULE = "laomedo.integrations.langflow.execution.providers"
 PROVIDER_STATUS_FIELDS = frozenset(
     {

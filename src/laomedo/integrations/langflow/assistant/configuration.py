@@ -379,6 +379,7 @@ class WorkflowConfiguration:
                 and handle.get("fieldName") == "verified_changes"
                 and isinstance(target_data, dict)
                 and target_data.get("type") == "LaomedoClaudeAgent"
+                and getattr(self.runtime, "graph_executor", None) is None
             ):
                 raise AssistantError("verified_review_isolation_unavailable", 409)
         for node in (data or {}).get("nodes", []):
@@ -638,6 +639,7 @@ class WorkflowConfiguration:
             if (
                 field == "verified_changes"
                 and node.get("data", {}).get("type") == "LaomedoClaudeAgent"
+                and getattr(self.runtime, "graph_executor", None) is None
             ):
                 diagnostics.append(
                     FlowDiagnostic(
