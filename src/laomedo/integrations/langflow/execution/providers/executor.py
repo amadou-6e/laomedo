@@ -107,7 +107,7 @@ class ProviderGraphExecutor:
         )
         jobs = get_job_service()
         self.workers[job_id] = None
-        worker = dispatcher = capability = None
+        worker = dispatcher = capability = activity = None
         created = succeeded = False
         try:
             # Native job UUID uniqueness is the durable replay barrier. This
@@ -154,6 +154,8 @@ class ProviderGraphExecutor:
                 session_id=str(job_id),
             )
         finally:
+            if activity is not None:
+                activity.close()
             self.workers.pop(job_id, None)
             if worker is None and capability is not None:
                 await asyncio.shield(

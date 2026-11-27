@@ -5,7 +5,7 @@ import tempfile
 import time
 from types import SimpleNamespace
 import unittest
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 from uuid import uuid4
 
 from laomedo.agents.activity.models import ActivityPage
@@ -21,6 +21,23 @@ from laomedo.integrations.langflow.execution.providers.activity import (
 
 class ProviderGraphActivityTests(unittest.TestCase):
     """A worker does not choose the retained owner, native reader or attempt ID."""
+
+    def test_retention_failure_does_not_escape_into_dispatched_execution(self):
+        store, capture = Mock(), Mock()
+        capture.bind.side_effect = OSError("fixture unavailable")
+        store.finish.side_effect = OSError("fixture unavailable")
+        with patch(
+            "laomedo.integrations.langflow.execution.providers.activity.ActivityStore",
+            return_value=store,
+        ):
+            bridge = ProviderGraphActivity("fixture", None, None, uuid4())
+        bridge.captures["codex"] = capture
+        bridge.observe("codex", {"run_id": str(uuid4()), "status": "completed"})
+        bridge.observe("codex", {"run_id": str(uuid4()), "status": "completed"})
+        capture.bind.assert_called_once()
+        capture.refused.set.assert_called_once()
+        capture.done.set.assert_called_once()
+        store.finish.assert_called_once()
 
     def test_exact_native_attempt_is_retained_under_the_graph_owner(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -95,3 +112,14 @@ class ProviderGraphActivityTests(unittest.TestCase):
                 ValueError, "activity_runner_identity_mismatch"
             ):
                 capture.feed(run, 0)
+            pending = node.model_copy(update={"vertex_id": "cancelled-before-poll"})
+            bridge.reserve(pending)
+            bridge.close()
+            sealed = bridge.store.read(
+                str(plan.profile_id),
+                str(plan.flow_id),
+                pending.vertex_id,
+                bridge.captures[pending.vertex_id].capture.invocation_id,
+            )
+            self.assertEqual(sealed["run"]["status"], "failed")
+            self.assertEqual(sealed["run"]["reason"], "dispatch_not_bound")

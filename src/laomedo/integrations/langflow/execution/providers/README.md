@@ -102,6 +102,9 @@ Activity store/capture. It reserves exact profile/flow/job/vertex identity befor
 dispatch and binds only host-acknowledged native run/attempt IDs. It reads the
 existing exact native controller, never a worker URL or worker-provided identity.
 The same normalized attempt projection powers the existing read-only Activity UI.
+After dispatch, observation failures are retained best-effort and never replace
+the native execution outcome. Cleanup seals any reservation not yet bound to a
+native attempt, including when cancellation arrives before the first status poll.
 
 `container.py` specializes the shared sandbox supervisor hooks and private
 exchange. It validates the actual graph, checks lease/deadline while requests
