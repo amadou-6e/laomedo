@@ -106,6 +106,9 @@ class ProviderBrokerTests(unittest.IsolatedAsyncioTestCase):
         source = self.root / "clean-export"
         source.mkdir()
         (source / "module.py").write_text("# tracked source")
+        with self.assertRaises(ValueError):
+            ProviderBrokerRuntime.admit_source(source)
+        (self.root / ".git").mkdir()
         ProviderBrokerRuntime.admit_source(source)
         for name in (".env", ".env.local", ".git"):
             with self.subTest(name=name):

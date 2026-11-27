@@ -113,6 +113,10 @@ receipts. The shared supervisor remains the single owner of container hardening,
 lease registration, inspection and exact cleanup. Normal native run history
 survives job revocation; unknown cancellation is never claimed as settlement.
 
+The selected source must be a clean subdirectory inside a Git tree, matching
+the native runner's source contract. Keep repository metadata outside that
+subdirectory; startup rejects a detached export before any model submission.
+
 The broker passes one host-owned `McpSettings` object to its registry and native
 controllers. Each provider passes that object to `BaseAgent`, whose MCP admission
 reads only that fixed private rendezvous directory; request bodies cannot select it.

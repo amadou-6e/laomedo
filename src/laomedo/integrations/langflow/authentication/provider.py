@@ -5,6 +5,7 @@ from copy import deepcopy
 import stat
 
 from fastapi import Depends, HTTPException, Request
+from laomedo.agents.agents.base.utils import _git_tree
 from langflow.services.auth.utils import get_current_active_user
 
 from laomedo.integrations.langflow.authentication.broker import PrivateBrokerRuntime
@@ -191,7 +192,7 @@ class ProviderBrokerRuntime(PrivateBrokerRuntime):
         ignored credentials or follow links outside the selected clean export.
         """
         try:
-            if not source.is_dir():
+            if not source.is_dir() or not _git_tree(source):
                 raise ValueError
             for path in (source, *source.parents):
                 if path.is_symlink() or (
@@ -214,7 +215,7 @@ class ProviderBrokerRuntime(PrivateBrokerRuntime):
                         pending.append(path)
         except (OSError, ValueError):
             raise ValueError(
-                "Provider source must be a clean, unlinked export."
+                "Provider source must be a clean, unlinked Git subdirectory."
             ) from None
 
     def create_app(self):
