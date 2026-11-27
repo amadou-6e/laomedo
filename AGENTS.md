@@ -64,7 +64,7 @@
   focused recheck for blocking findings. Record reviewed revisions and the verdict.
   Merge only with resolved review blockers and passing required checks.
 - In every PR handoff or status report, explicitly state the reviewer status,
-  including after the user says "continue". Use "fully unreviewed â€” reviewer
+  including after the user says "continue". Use "fully unreviewed — reviewer
   pending" when no review covers the substantive change; use "recheck pending"
   only when an initial review covered that change and its corrections await
   review. For reviewed work, identify the reviewed base/head and verdict, and
@@ -84,7 +84,7 @@
 
 ## Python module cohesion
 
-- Follow [Rule N1 â€” Recognizable and distinct names](https://github.com/amadou-6e/my-skills/blob/5b4af08/05-software_engineering/skill-code/skill-naming/SKILL.md#rule-n1--recognizable-and-distinct-names)
+- Follow [Rule N1 — Recognizable and distinct names](https://github.com/amadou-6e/my-skills/blob/5b4af08/05-software_engineering/skill-code/skill-naming/SKILL.md#rule-n1--recognizable-and-distinct-names)
   when naming or renaming code entities.
 
 - Beneath the `tests/` discovery root, prefix every folder containing tests,
