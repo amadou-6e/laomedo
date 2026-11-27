@@ -60,7 +60,7 @@ class ProviderBrokerTests(unittest.IsolatedAsyncioTestCase):
         )
         self.stack[0].return_value.settings = private
         self.stack[2].return_value = self.catalog
-        self.app = ProviderBrokerRuntime(
+        self.runtime = ProviderBrokerRuntime(
             profile,
             private,
             ProviderAppSettings(
@@ -70,7 +70,8 @@ class ProviderBrokerTests(unittest.IsolatedAsyncioTestCase):
                     image_id="sha256:" + "a" * 64, lease_state=root
                 ),
             ),
-        ).create_app()
+        )
+        self.app = self.runtime.create_app()
         self.app.dependency_overrides[get_current_active_user] = self.authenticated
 
     async def authenticated(self):
@@ -120,6 +121,22 @@ class ProviderBrokerTests(unittest.IsolatedAsyncioTestCase):
                 finally:
                     forbidden.unlink()
 
+    async def test_static_modules_ignore_host_text_file_associations(self):
+        from mimetypes import types_map
+
+        (self.root / "assets/app.js").write_text("export const ready = true;")
+        with patch.dict(types_map, {".js": "text/plain"}):
+            app = self.runtime.create_app()
+            async with AsyncClient(
+                transport=ASGITransport(app=app), base_url="http://127.0.0.1:17885"
+            ) as client:
+                response = await client.get("/assets/app.js")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.headers["content-type"], "text/javascript; charset=utf-8"
+        )
+        self.assertEqual(response.text, "export const ready = true;")
+
     async def test_python_and_native_execution_apis_are_absent_in_credential_process(
         self,
     ):
@@ -151,7 +168,11 @@ class ProviderBrokerTests(unittest.IsolatedAsyncioTestCase):
             response = await client.post(
                 "/api/v2/workflows", json={"code": "never executed"}
             )
-            self.assertIn(response.status_code, (401, 403, 422))
+            self.assertEqual(response.status_code, 403)
+            self.assertEqual(
+                response.json(), {"detail": {"code": "provider_request_refused"}}
+            )
+            self.stack[3].return_value.execute.assert_not_called()
         self.assertIs(
             self.app.state.laomedo_assistant.graph_executor, self.stack[3].return_value
         )

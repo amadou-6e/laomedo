@@ -34,7 +34,11 @@ authentication. This package supplies only the run scope it consumes.
 
 `provider.py` owns the opt-in `ProviderBrokerRuntime` composition. It adds the
 installed frontend, a fixed operator-installed component catalog, data-only Flow
-listing/reading/writing and the existing assistant. `ProviderBrowserRoutes`
+listing/reading/writing and the existing assistant. It uses the native static-file
+handler; `ProviderBrokerRuntime.create_app` pins the
+standard JavaScript media type before mounting it. Windows file associations
+must not turn installed JavaScript modules into `text/plain` downloads.
+`ProviderBrowserRoutes`
 rejects custom component sources and filesystem/publication bindings before
 Flow persistence. It mounts individual native data handlers, never a native
 router that can grow execution endpoints. Native persistence also has filesystem

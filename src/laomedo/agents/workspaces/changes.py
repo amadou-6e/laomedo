@@ -17,10 +17,7 @@ from laomedo.agents.workspaces.settings import MAX_CHANGE_PATCH_BYTES
 from laomedo.agents.workspaces.settings import MAX_GIT_WORKSPACE_SNAPSHOT_BYTES
 from laomedo.agents.workspaces.settings import MAX_GIT_WORKSPACE_SNAPSHOT_ENTRIES
 from laomedo.agents.workspaces.utils import _hash_tree
-
-
-def _raise_walk_error(error):
-    raise error
+from laomedo.agents.workspaces.utils import _raise_walk_error
 
 
 def _files(root):

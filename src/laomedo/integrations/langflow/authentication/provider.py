@@ -288,6 +288,8 @@ class ProviderBrokerRuntime(PrivateBrokerRuntime):
         install_activity_routes(app, get_current_active_user)
         routes.install_fallback(app)
         from langflow.main import setup_static_files
+        from mimetypes import add_type
 
+        add_type("text/javascript", ".js")
         setup_static_files(app, self.settings.frontend)
         return app

@@ -110,8 +110,10 @@ class ProviderDispatcherTests(unittest.TestCase):
             state_path="private",
             grant="secret",
         )
-        self.assertNotIn("task", self.dispatcher._status("codex", native))
-        self.assertNotIn("api_token", self.dispatcher._status("codex", native))
+        self.assertEqual(
+            set(self.dispatcher._status("codex", native)),
+            {"run_id", "status", "client_request_id", "precheck"},
+        )
         self.assertEqual(
             self.call("/v1/requests/" + self.body["request_id"], method="GET").status,
             200,
