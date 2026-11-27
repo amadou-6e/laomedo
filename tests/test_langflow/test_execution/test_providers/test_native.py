@@ -33,6 +33,7 @@ from laomedo.integrations.langflow.execution.providers.dispatcher import (
 from laomedo.integrations.langflow.execution.worker.settings import GraphWorkerSettings
 from laomedo.skills.registry.store import SkillStore
 from support.docker import DockerTestContainer
+from support.paths import repository_root
 from test_agents.test_connections.test_controllers import FakeNativeAgent
 
 
@@ -121,7 +122,7 @@ class ProviderNativeContainerTests(unittest.IsolatedAsyncioTestCase):
         await self.check_native_graph(registered_mcp=True)
 
     async def check_native_graph(self, *, registered_mcp):
-        root = Path(__file__).resolve().parents[4]
+        root = repository_root()
         catalog = ProviderComponentCatalog(root / "components")
         with ExitStack() as resources:
             directory = resources.enter_context(

@@ -48,15 +48,14 @@ from laomedo.integrations.langflow.execution.providers.mcp import (
 )
 from laomedo.integrations.langflow.execution.providers.models import GraphMcpSelection
 from laomedo.integrations.langflow.graph_admission.catalog import GitHubGraphCatalog
+from support.paths import repository_root
 
 
 class McpProjectionTests(unittest.TestCase):
     """The real authoring compiler selects MCP resources; workers receive no clients."""
 
     def test_native_compiler_projection_retains_host_binding_only(self):
-        installed = ProviderComponentCatalog(
-            Path(__file__).resolve().parents[4] / "components"
-        )
+        installed = ProviderComponentCatalog(repository_root() / "components")
         catalog = ComponentCatalog(installed._registry)
         owner, account, server = uuid4(), uuid4(), uuid4()
         definitions = []
@@ -461,6 +460,26 @@ class RegisteredMcpOwnershipTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(McpError):
             await self.resources.check()
 
+    async def test_inactive_owner_and_changed_account_authority_refuse(self):
+        async with self.session() as session:
+            user = await session.get(User, self.profile)
+            user.is_active = False
+            await session.commit()
+        with self.assertRaisesRegex(McpError, "mcp_registration_unavailable"):
+            await self.resources.check()
+        async with self.session() as session:
+            user = await session.get(User, self.profile)
+            user.is_active = True
+            await session.commit()
+        self.connections.admitted.return_value = SimpleNamespace(provider="claude")
+        with self.assertRaisesRegex(McpError, "mcp_registration_unavailable"):
+            await self.resources.check()
+        self.connections.admitted.side_effect = ProviderConnectionError(
+            "provider_connection_unavailable"
+        )
+        with self.assertRaises(ProviderConnectionError):
+            await self.resources.check()
+
     async def test_tool_revocation_withholds_result_and_never_replays(self):
         adapter = SimpleNamespace(
             descriptor=Mock(), invoke=AsyncMock(return_value={"content": []})
@@ -609,10 +628,7 @@ class RegisteredMcpOwnershipTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_registered_owner_service_calls_and_closes_real_stdio_server(self):
         """Real native subprocess/SDK lifecycle; no model or saved credential access."""
-        server = (
-            Path(__file__).resolve().parents[3]
-            / "test_agents/test_mcp/resources/server.py"
-        )
+        server = repository_root() / "tests/test_agents/test_mcp/resources/server.py"
         async with self.session() as session:
             row = await session.get(MCPServer, self.identifier)
             row.config = {
@@ -670,17 +686,17 @@ class RegisteredMcpOwnershipTests(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(
                     response["content"][0]["text"], "registered-owner-live-transport"
                 )
-                managers = [
-                    getattr(client, "_session_manager", None)
-                    for client in self.resources.clients
-                ]
+                clients = tuple(self.resources.clients)
+                maintenance = self.resources.maintenance
             finally:
                 await self.resources.close()
         registry.release.assert_called_once_with(
             plan.nodes[0].policy.mcp_registration.registration_id
         )
         self.assertEqual(self.resources.clients, [])
-        for manager in managers:
+        self.assertTrue(maintenance.cancelled())
+        for client in clients:
+            manager = getattr(client, "_session_manager", None)
             if manager is not None:
                 self.assertEqual(manager.sessions_by_server, {})
                 self.assertFalse(manager._background_tasks)

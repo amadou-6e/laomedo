@@ -43,13 +43,18 @@ class McpQueuedRegistrationTests(unittest.IsolatedAsyncioTestCase):
             ),
         ):
             registry.renew_unclaimed(identifier)
-            self.assertEqual(lease.expires, 210)
+            self.assertEqual(lease.expires, 90 + registry.settings.lease_seconds)
             lease.run_id = uuid4()
             registry.renew_unclaimed(identifier)
-            self.assertEqual(lease.expires, 210)
+            self.assertEqual(lease.expires, 90 + registry.settings.lease_seconds)
             registry.release(identifier)
             registry.renew_unclaimed(identifier)
             self.assertNotIn(identifier, registry.leases)
+            replacement = McpRegistry(McpSettings())
+            replacement.loop = asyncio.get_running_loop()
+            with patch.object(McpRegistry, "_active", replacement):
+                with self.assertRaisesRegex(RunnerError, "mcp_app_lifetime_required"):
+                    registry.renew_unclaimed(identifier)
             lease.run_id = None
             lease.expires = 89
             registry.leases[identifier] = lease
