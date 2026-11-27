@@ -139,6 +139,11 @@ class ProviderBrokerStartupCheck(BrokerStartupCheck):
                 ),
             ),
         ).create_app()
+        from laomedo.integrations.langflow.local_profiles.cookies import (
+            ProfileCookieBoundary,
+        )
+
+        assert app.user_middleware[0].cls is ProfileCookieBoundary
         async with app.router.lifespan_context(app):
             async with AsyncClient(
                 transport=ASGITransport(app=app),

@@ -21,6 +21,7 @@ from laomedo.integrations.langflow.execution.providers.settings import (
 )
 from laomedo.integrations.langflow.execution.worker.settings import GraphWorkerSettings
 from laomedo.integrations.langflow.graph_admission.catalog import GitHubGraphCatalog
+from laomedo.integrations.langflow.local_profiles.cookies import ProfileCookieBoundary
 
 
 class ProviderBrokerTests(unittest.IsolatedAsyncioTestCase):
@@ -36,9 +37,7 @@ class ProviderBrokerTests(unittest.IsolatedAsyncioTestCase):
         profile = Mock()
         profile.provider_source = None
         profile.admission.root = root / "profile-state"
-        profile.configure.side_effect = lambda app: setattr(
-            app.state, "provider_connections", SimpleNamespace(controllers=Mock())
-        )
+        profile.configure.side_effect = self.configure_profile
         self.catalog = Mock()
         self.catalog.for_owner = AsyncMock()
         self.stack = []
@@ -68,6 +67,10 @@ class ProviderBrokerTests(unittest.IsolatedAsyncioTestCase):
             ),
         ).create_app()
 
+    def configure_profile(self, app):
+        app.state.provider_connections = SimpleNamespace(controllers=Mock())
+        app.add_middleware(ProfileCookieBoundary, port=17885)
+
     def test_source_workspace_cannot_include_private_runtime_or_account_state(self):
         profile = Mock()
         profile.admission.root = self.root / "profile-state"
@@ -94,6 +97,14 @@ class ProviderBrokerTests(unittest.IsolatedAsyncioTestCase):
         async with AsyncClient(
             transport=ASGITransport(app=self.app), base_url="http://127.0.0.1:17885"
         ) as client:
+            response = await client.get("/api/v1/custom_component/update")
+            self.assertEqual(response.status_code, 404)
+            self.assertEqual(response.json(), {"detail": "Not Found"})
+            response = await client.get("/api/v1/flows/basic_examples/")
+            self.assertEqual(response.json(), [])
+            response = await client.get("/api/v1/auto_login")
+            self.assertEqual(response.status_code, 403)
+            self.assertEqual(response.json(), {"detail": {"auto_login": False}})
             for path in (
                 "/api/v1/build/flow/flow",
                 "/api/v1/validate/code",

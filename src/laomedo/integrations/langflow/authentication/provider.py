@@ -30,6 +30,24 @@ class ProviderBrowserRoutes:
         """Return only fixed installed, owner-policy-filtered component metadata."""
         return (await self.catalog.for_owner(UUID(str(user.id)))).snapshot
 
+    async def examples(self):
+        """No uncurated native starter graphs are installed in this deployment."""
+        return []
+
+    async def disabled_auto_login(self):
+        """Tell the existing UI to use explicit profile login without minting tokens."""
+        raise HTTPException(403, detail={"auto_login": False})
+
+    async def health(self, request: Request):
+        """Report the broker lifespan's readiness without constructing graph services."""
+        if not request.app.state.laomedo_assistant.ready:
+            raise HTTPException(503, detail="unavailable")
+        return {"status": "ok"}
+
+    async def unknown_api(self):
+        """Keep absent APIs absent instead of returning the SPA's HTML fallback."""
+        raise HTTPException(404, detail="Not Found")
+
     async def admit_flow_write(
         self, request: Request, user=Depends(get_current_active_user)
     ):
@@ -110,6 +128,13 @@ class ProviderBrowserRoutes:
         app.add_api_route("/api/v1/all", self.components, methods=["GET"])
         app.add_api_route("/api/v1/config", get_config, methods=["GET"])
         app.add_api_route("/api/v1/version", get_version, methods=["GET"])
+        app.add_api_route("/health", self.health, methods=["GET"])
+        app.add_api_route(
+            "/api/v1/auto_login", self.disabled_auto_login, methods=["GET"]
+        )
+        app.add_api_route(
+            "/api/v1/flows/basic_examples/", self.examples, methods=["GET"]
+        )
         for path in ("/api/v1/flows", "/api/v1/flows/"):
             app.add_api_route(path, read_flows, methods=["GET"])
             app.add_api_route(
@@ -133,6 +158,14 @@ class ProviderBrowserRoutes:
                 and getattr(route, "path", None) == "/folders/"
             ):
                 app.add_api_route("/api/v1/folders/", route.endpoint, methods=["GET"])
+
+    def install_fallback(self, app):
+        """Install only after every trusted API and before the SPA catch-all."""
+        app.add_api_route(
+            "/api/{unknown:path}",
+            self.unknown_api,
+            methods=["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"],
+        )
 
 
 class ProviderBrokerRuntime(PrivateBrokerRuntime):
@@ -173,7 +206,14 @@ class ProviderBrokerRuntime(PrivateBrokerRuntime):
             graph_executor=executor,
             settings=AssistantSettings(app_url=self.private_runtime.settings.origin),
         )
-        ProviderBrowserRoutes(catalog).install(app)
+        from laomedo.integrations.langflow.local_profiles.cookies import (
+            ProfileCookieBoundary,
+        )
+
+        ProfileCookieBoundary.outermost(app)
+        routes = ProviderBrowserRoutes(catalog)
+        routes.install(app)
+        routes.install_fallback(app)
         from langflow.main import setup_static_files
 
         setup_static_files(app, self.settings.frontend)
