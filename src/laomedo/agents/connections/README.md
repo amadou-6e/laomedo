@@ -12,6 +12,7 @@ connections/
   base.py          BaseProviderConnection: provider lifecycle adapter contract
   service.py       ProviderConnections: index, fencing, orchestration, preferences
   controllers.py   ProviderControllers: exact connection/generation runtime slots
+  graph_runs.py    ProviderGraphRuns: host-owned graph/job and source-run admission
   credentials.py   SavedConnectionCredential, SavedClaudeConnection: admission facades
   models.py        Shared persisted metadata and safe request/response contracts
   errors.py        ProviderConnectionError: stable ValueError boundary
@@ -244,3 +245,25 @@ thread identity checks still refuse incompatible resume; no history is replayed.
 Claude's approval revision covers executable native contracts, their provenance,
 the observed skill set and the pinned image. Unsupported display-only commands
 may appear on resume without invalidating an unchanged executable contract.
+
+## Isolated graph authority
+
+`ProviderGraphRuns` owns ephemeral graph-run admission in the host. Its
+`GraphRunPlan` binds the authenticated profile and browser lease to an exact graph
+digest, flow, admitted vertices and execution deadline. `GraphRunNode` binds each
+vertex to one provider/connection generation and the approved upstream review
+source. These are host-internal records, not browser or worker request schemas.
+
+`admit` verifies the current lease and account generations and issues a separate
+worker capability; only its hash remains in host memory. `resolve` checks that
+capability, the exact graph digest, deadline and current account generation.
+`bind_run` records a runner acknowledgement under its actual admitted vertex and
+cannot replace it. `review_source` resolves only the acknowledged run belonging
+to the review vertex's approved upstream node in this same graph invocation.
+The worker cannot select a source run or another profile. `finish` revokes the
+capability; expiration and revoked sessions refuse subsequent operations.
+
+This is authority groundwork for the isolated worker, not an OS boundary. It is
+not exposed to the current in-process Langflow runtime. The verified-review
+handoff remains disabled until all execution and component-inspection paths use
+an isolated runtime without host credentials, private run state or Docker access.

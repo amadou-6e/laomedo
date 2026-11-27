@@ -37,6 +37,29 @@ class VerifiedReviewGrant(BaseModel):
     expires_at: float
 
 
+class GraphRunNode(BaseModel):
+    """One host-approved vertex and its exact saved-account generation."""
+
+    model_config = ConfigDict(strict=True, frozen=True, extra="forbid")
+    vertex_id: str = Field(min_length=1)
+    provider: Literal["codex", "claude", "opencode"]
+    connection_id: UUID
+    generation: int = Field(ge=1)
+    review_source: str | None = Field(default=None, min_length=1)
+
+
+class GraphRunPlan(BaseModel):
+    """Host-only approved graph identity, selections and absolute deadline."""
+
+    model_config = ConfigDict(strict=True, frozen=True, extra="forbid")
+    profile_id: UUID
+    lease_hash: str = Field(min_length=1, repr=False, exclude=True)
+    flow_id: UUID
+    graph_digest: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
+    nodes: tuple[GraphRunNode, ...] = Field(min_length=1)
+    deadline: float
+
+
 class ConnectionRecord(BaseModel):
     """Host-only metadata committed after authenticated identity verification."""
 
